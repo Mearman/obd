@@ -146,8 +146,14 @@ def isotp_reassemble(frames: list[tuple[int, bytes]]) -> dict[int, list[bytes]]:
 class Elm:
     """One ELM327-style adapter, driven over a transport."""
 
-    def __init__(self, transport: Transport, transcript: Transcript | None = None) -> None:
+    def __init__(
+        self,
+        transport: Transport,
+        transcript: Transcript | None = None,
+        max_request: int = MAX_SINGLE_FRAME,
+    ) -> None:
         self._transport = transport
+        self._max_request = max_request
         self._transcript = transcript or Transcript()
         self._id_bits = 11
         self._stn = False
@@ -333,7 +339,13 @@ class Elm:
         Raises NoResponse when no unit answers, and ElmError for an adapter error, an unreadable reply, or a request too long for the adapter or for ISO 15765-2. Raises AdapterUnsupported when an STN adapter rejects STPX.
         """
         payload = permit.payload
-        long_request = len(payload) > MAX_SINGLE_FRAME
+        # A link that segments in software (a raw CAN link) takes any length up to its limit as a plain request line; otherwise a request over one frame needs the STN STPX command.
+        native_long = MAX_SINGLE_FRAME < len(payload) <= self._max_request
+        if len(payload) > self._max_request and self._max_request > MAX_SINGLE_FRAME:
+            raise ElmError(
+                f"request of {len(payload)} bytes does not fit {self._max_request} bytes"
+            )
+        long_request = len(payload) > MAX_SINGLE_FRAME and not native_long
         text = self._long_request_command(payload) if long_request else payload.hex().upper()
         lines = await self.command(text, timeout=timeout)
         id_chars = 3 if self._id_bits == 11 else 8

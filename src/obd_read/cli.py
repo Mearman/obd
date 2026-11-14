@@ -13,7 +13,7 @@ from pathlib import Path
 from . import obd
 from .diag import NegativeResponse
 from .discovery import discover_command
-from .elm import AdapterInfo, Elm, ElmError, Transcript
+from .elm import MAX_SINGLE_FRAME, AdapterInfo, Elm, ElmError, Transcript
 from .guard import GuardError
 from .kline import KLineElm, select_bus
 from .obd_clear import clear_codes_command
@@ -40,6 +40,7 @@ from .profile import (
 from .profile_check import profile_check_command
 from .simulator import simulate_command
 from .transport import Transport, TransportError, open_transport
+from .transport.rawcan import RawCanTransport
 
 Printer = Callable[[str], None]
 TransportFactory = Callable[[str], Transport]
@@ -56,7 +57,10 @@ async def connected(
     transport = factory(url)
     await transport.open()
     try:
-        elm = (KLineElm if kline else Elm)(transport, Transcript(log))
+        limit = (
+            transport.max_request if isinstance(transport, RawCanTransport) else MAX_SINGLE_FRAME
+        )
+        elm = (KLineElm if kline else Elm)(transport, Transcript(log), limit)
         yield elm, await elm.initialise()
     finally:
         await transport.close()

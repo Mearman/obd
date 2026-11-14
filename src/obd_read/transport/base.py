@@ -43,13 +43,13 @@ class AdapterAddress:
     params: dict[str, str] = field(default_factory=dict)
 
 
-SCHEMES = ("ble", "serial", "tcp")
+SCHEMES = ("ble", "serial", "tcp", "socketcan", "slcan")
 
 
 def parse_adapter_url(url: str) -> AdapterAddress:
     """Split an adapter URL into scheme, target and query parameters.
 
-    The target is the Bluetooth LE name or address, the serial device path, or `host:port`. Raises ValueError for an unknown scheme or an empty target.
+    The target is the Bluetooth LE name or address, the serial device path, `host:port`, the SocketCAN interface name, or the serial device an SLCAN adapter is on. Raises ValueError for an unknown scheme or an empty target.
     """
     scheme, separator, rest = url.partition("://")
     if not separator or scheme not in SCHEMES:
@@ -71,6 +71,18 @@ def open_transport(url: str) -> Transport:
         if not separator or not port.isdigit():
             raise ValueError(f"tcp adapter URL needs host:port, got {address.target!r}")
         return TcpTransport(host, int(port))
+    if address.scheme == "socketcan":
+        from .rawcan import RawCanTransport
+        from .socketcan import SocketCanLink
+
+        return RawCanTransport(SocketCanLink(address.target), f"SocketCAN {address.target}")
+    if address.scheme == "slcan":
+        from .rawcan import RawCanTransport
+        from .serial import SerialTransport
+        from .slcan import SlcanLink
+
+        link = SlcanLink(SerialTransport(address.target, int(address.params.get("baud", "115200"))))
+        return RawCanTransport(link, f"SLCAN {address.target}")
     if address.scheme == "serial":
         from .serial import SerialTransport
 

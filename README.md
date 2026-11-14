@@ -6,7 +6,7 @@ Read a car's diagnostics through an ELM327-style adapter, with software you can 
 
 ## What it needs
 
-- An adapter that implements the full ELM327 command set, reached over Bluetooth LE, a serial port (USB or classic Bluetooth) or TCP (Wi-Fi adapters). Cheap clones that lack the addressing commands are detected and named on connection. Standard `AT` commands are used throughout; on connection the tool also reports whether the adapter has the STN `ST` extensions, which it uses only where a plain ELM327 cannot do the job (see [Bit rates](#bit-rates) and [Requests longer than one frame](#requests-longer-than-one-frame)).
+- An adapter that implements the full ELM327 command set, reached over Bluetooth LE, a serial port (USB or classic Bluetooth) or TCP (Wi-Fi adapters), or a raw CAN adapter reached over SocketCAN or SLCAN. Cheap clones that lack the addressing commands are detected and named on connection. Standard `AT` commands are used throughout; on connection the tool also reports whether the adapter has the STN `ST` extensions, which it uses only where a plain ELM327 cannot do the job (see [Bit rates](#bit-rates) and [Requests longer than one frame](#requests-longer-than-one-frame)).
 - [uv](https://docs.astral.sh/uv/).
 - For anything beyond the legislated OBD-II reads, a vehicle profile. The profiles shipped are in [`src/obd_read/profiles`](src/obd_read/profiles).
 
@@ -24,6 +24,10 @@ uv run obd-read adapters
 | Bluetooth LE | `ble://<part of the device name, or its address>` |
 | Serial | `serial:///dev/tty.usbserial-1` (add `?baud=38400` to change the speed) |
 | TCP | `tcp://192.168.80.1:35000` |
+| SocketCAN (Linux) | `socketcan://can0` |
+| SLCAN serial | `slcan:///dev/ttyACM0` (add `?baud=921600` to change the speed) |
+
+The first four reach an ELM327-style adapter. The last two reach a raw CAN adapter, described in [Raw CAN adapters](#raw-can-adapters).
 
 First run at a car, ignition on:
 
@@ -150,6 +154,19 @@ An adapter that rejects the command stops the run with the command named. Source
 
 A request of up to 7 bytes goes as one CAN frame on any adapter. A longer one, such as a read of several data identifiers at once, goes only through an adapter with the STN extensions: `STPX h:<id>, d:<data>` transmits it, segmented per ISO 15765-2, and turns transmit segmentation on only for that message. Addressing a unit on such an adapter also registers the unit's identifier pair with `STCFCPA`, because the adapter waits for the unit's flow-control frame and recognises it only for registered pairs. A plain ELM327 refuses a long request with a message naming the reason, since its datasheet documents no multi-frame sending; nothing is sent. The longest request is 4095 bytes, the ISO 15765-2 limit. Every long request has passed the guard like any other. Sources: the OBDLink Family Reference and Programming Manual revision F (`STPX`, `STCSEGT`, `STCFCPA`). Tested against the scripted adapter only; unconfirmed on hardware: the longest command line an adapter accepts (the manual's `l:` mode, not used here, exists for messages beyond the UART buffer), eight-digit identifiers in `h:` for 29-bit CAN, and that every STN model registers pairs for non-legislated identifiers.
 
+## Raw CAN adapters
+
+A raw CAN adapter has no ELM327 interpreter: it sends and receives CAN frames. `socketcan://` and `slcan://` links present one as an ELM327 adapter to the rest of the tool, so every command works unchanged, and the ISO 15765-2 work the ELM327 does in firmware (segmenting a request, sending flow control for a long reply, reassembly) is done by [`src/obd_read/isotp.py`](src/obd_read/isotp.py). A raw link has no single-frame request limit: a request can be up to 4095 bytes, sent as a first frame and consecutive frames after the unit's flow control.
+
+| Link | Where | What sets the bit rate |
+|---|---|---|
+| `socketcan://<interface>` | Linux only: `can0`, `vcan0`, any CAN device the kernel exposes, including a candleLight adapter running gs_usb firmware | The interface: `ip link set can0 type can bitrate 500000`, outside this tool. |
+| `slcan://<serial device>` | Any platform with a serial port: an adapter running SLCAN firmware, including candleLight with that firmware | The profile or `--bitrate`, sent to the adapter when the bus is selected. |
+
+SocketCAN exists only on Linux. On any other platform `socketcan://` fails with a message saying so, and the rest of the tool imports and runs as usual. SLCAN framing follows the Linux kernel's SLCAN driver ([slcan-core.c](https://github.com/torvalds/linux/blob/master/drivers/net/can/slcan/slcan-core.c)); it has been checked against that source and a scripted adapter, not against a physical adapter. A candleLight adapter with gs_usb firmware has no driver here other than the Linux kernel's, so on a Mac it needs SLCAN firmware.
+
+The raw layer is classic CAN only (no CAN FD, no remote frames) and implements only the ELM327 commands the tool sends; anything else is answered `?` as a clone adapter does. Not confirmed: that every control unit accepts frames padded with `0xCC`, the fill byte Wikipedia recommends, and the identifier a unit sends flow control for on functional (broadcast) requests, which follows the ISO 15765-4 pairing. Frames that reach the link are the request's own frames and the flow control a reply needs; the read-only guard sits above the link and is unchanged.
+
 ## Vehicle profiles
 
 A profile is a TOML file with the bus settings, the diagnostic protocol and one table per control unit:
@@ -211,7 +228,7 @@ The [vehicle communication notes](docs/vehicles/README.md) record how to talk to
 
 | Layer | Code | Job |
 |---|---|---|
-| Link | `transport/` | Bytes to and from the adapter: Bluetooth LE, serial, TCP. |
+| Link | `transport/` | Bytes to and from the adapter: Bluetooth LE, serial, TCP. For raw CAN, frames to and from the bus (`transport/socketcan.py`, `transport/slcan.py`) with `transport/rawcan.py` and `isotp.py` presenting them as an adapter. |
 | Adapter | `elm.py`, `kline.py` | The ELM327 session: set-up, addressing, one request and its reassembled replies. `kline.py` is the same session on a K-line bus. |
 | Guard | `guard.py` | Passes or refuses each request. |
 | Protocol | `kwp2000.py`, `uds.py`, `obd.py` | Builds requests and decodes replies. |
