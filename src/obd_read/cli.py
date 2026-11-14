@@ -16,6 +16,7 @@ from .discovery import discover_command
 from .elm import AdapterInfo, Elm, ElmError, Transcript
 from .guard import GuardError
 from .obd_clear import clear_codes_command
+from .offline import OFFLINE_COMMANDS, add_offline_commands, run_offline
 from .operations import (
     ClearRefused,
     UnitReport,
@@ -153,6 +154,7 @@ def build_parser() -> argparse.ArgumentParser:
     clear.add_argument("unit")
     clear.add_argument("--save", type=Path, required=True, help="new file for the snapshot")
     clear.add_argument("--yes", action="store_true", help="do not ask before clearing")
+    add_offline_commands(commands)
     return parser
 
 
@@ -316,6 +318,8 @@ async def run(
             return await simulate_command(args, out)
         if args.command == "profile":
             return profile_check_command(args, out)
+        if args.command in OFFLINE_COMMANDS:
+            return run_offline(args, out)
         profile = (
             None
             if args.command in ("obd", "discover", "clear-codes")
