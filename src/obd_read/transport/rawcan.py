@@ -8,6 +8,12 @@ from __future__ import annotations
 import asyncio
 import re
 
+from ..elm import (
+    USER_PROTOCOL_BASE_RATE,
+    USER_PROTOCOL_ISO15765_11_BIT,
+    USER_PROTOCOL_ISO15765_29_BIT,
+    USER_PROTOCOL_MAX_DIVISOR,
+)
 from ..isotp import (
     IsoTpError,
     Receiver,
@@ -23,7 +29,7 @@ IDENTITY = "OBD-READ RAW CAN"
 # Longest request, in bytes, that ISO-TP segmentation can carry.
 MAX_REQUEST = 0xFFF
 
-# ELM327 protocol numbers for ISO 15765-4 CAN: identifier bits and bit rate. Mirrors the numbers the session selects.
+# ELM327 protocol numbers for ISO 15765-4 CAN: identifier bits and bit rate. Mirrors the numbers the session selects. Other rates arrive through user-defined protocol B.
 PROTOCOLS: dict[str, tuple[int, int]] = {
     "6": (11, 500_000),
     "7": (29, 500_000),
@@ -82,6 +88,7 @@ class RawCanTransport:
         self._flow_data = b""
         self._flow_mode = 0
         self._timeout = 1.02
+        self._user_protocol: tuple[int, int] | None = None
 
     @property
     def link(self) -> CanLink:
@@ -117,6 +124,14 @@ class RawCanTransport:
             return f"{IDENTITY} {self._description}".strip()
         if line == "ATI":
             return IDENTITY
+        if line == "ATPC":
+            return "OK"
+        if re.fullmatch(r"ATPB[0-9A-F]{4}", line):
+            return self._define_user_protocol(int(line[4:6], 16), int(line[6:], 16))
+        if line == "ATSPB":
+            if self._user_protocol is None:
+                return "?"
+            return await self._start(*self._user_protocol)
         if re.fullmatch(r"ATSP[0-9A-F]", line):
             return await self._select_protocol(line[4:])
         if re.fullmatch(r"ATSH[0-9A-F]{3}", line) and self._id_bits == 11:
@@ -156,7 +171,18 @@ class RawCanTransport:
     async def _select_protocol(self, number: str) -> str:
         if number not in PROTOCOLS:
             return "?"
-        self._id_bits, bitrate = PROTOCOLS[number]
+        return await self._start(*PROTOCOLS[number])
+
+    def _define_user_protocol(self, options: int, divisor: int) -> str:
+        """Take the session's ATPB: the options byte names the identifier width and the divisor sets the rate."""
+        widths = {USER_PROTOCOL_ISO15765_11_BIT: 11, USER_PROTOCOL_ISO15765_29_BIT: 29}
+        if options not in widths or not 1 <= divisor <= USER_PROTOCOL_MAX_DIVISOR:
+            return "?"
+        self._user_protocol = (widths[options], USER_PROTOCOL_BASE_RATE // divisor)
+        return "OK"
+
+    async def _start(self, id_bits: int, bitrate: int) -> str:
+        self._id_bits = id_bits
         self._header_low = self._receive_address = None
         await self._link.configure(bitrate, listen_only=False)
         return "OK"

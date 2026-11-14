@@ -267,3 +267,21 @@ async def test_a_session_runs_over_slcan() -> None:
     replies = await elm.request(permit(DiagProtocol.KWP2000, bytes([0x10, 0x92])))
     assert replies == {0x7E8: [bytes([0x50, 0x92])]}
     assert "t7E08021092CCCCCCCCCC" in device.commands
+
+
+@pytest.mark.parametrize(("id_bits", "bitrate"), [(11, 125_000), (29, 100_000), (11, 10_000)])
+async def test_other_bit_rates_go_through_user_protocol_b(id_bits: int, bitrate: int) -> None:
+    link = FakeCanLink({})
+    elm = Elm(RawCanTransport(link))
+    await elm.initialise()
+    await elm.select_can(id_bits, bitrate)
+    assert link.configured == [(bitrate, False)]
+
+
+async def test_a_rate_the_session_cannot_express_is_refused_before_the_link_is_touched() -> None:
+    link = FakeCanLink({})
+    elm = Elm(RawCanTransport(link))
+    await elm.initialise()
+    with pytest.raises(ElmError, match="whole number"):
+        await elm.select_can(11, 83_333)
+    assert link.configured == []
