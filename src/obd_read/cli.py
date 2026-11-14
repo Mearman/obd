@@ -26,6 +26,7 @@ from .operations import (
 )
 from .profile import Profile, ProfileError, builtin_profiles, load_profile
 from .profile_check import profile_check_command
+from .simulator import simulate_command
 from .transport import Transport, TransportError, open_transport
 
 Printer = Callable[[str], None]
@@ -97,6 +98,15 @@ def build_parser() -> argparse.ArgumentParser:
         "check", help="validate profile files without connecting to anything"
     )
     check.add_argument("targets", nargs="+", metavar="PROFILE", help="a profile name or .toml path")
+
+    simulate = commands.add_parser(
+        "simulate",
+        help="serve a scripted adapter and car over TCP, for use without a car",
+        description="Serve a scripted ELM327 adapter and car over TCP, so the tool and a profile can be tried without a car. Nothing is connected to.",
+    )
+    simulate.add_argument("--profile", required=True, help="profile whose units the car has")
+    simulate.add_argument("--host", default="127.0.0.1", help="address to listen on")
+    simulate.add_argument("--port", type=int, default=35000, help="port to listen on (0 picks one)")
 
     car_command("probe", "ask every unit in the profile to identify itself")
     car_command("ident", "read one unit's identification").add_argument("unit")
@@ -278,6 +288,8 @@ async def run(
     try:
         if args.command == "adapters":
             return await list_adapters(args, out)
+        if args.command == "simulate":
+            return await simulate_command(args, out)
         if args.command == "profile":
             return profile_check_command(args, out)
         profile = None if args.command == "obd" else load_profile(args.profile)

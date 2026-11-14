@@ -45,6 +45,7 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `scan` | Identification and fault codes from every unit. `--output <path>` writes `<path>.json` and `<path>.md`; `--freeze` adds freeze frames. |
 | `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, a few live values. |
 | `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
+| `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code, and each connection starts a fresh car, so `clear` can be tried safely. It connects to nothing. |
 | `profile check <profile>...` | Validates profile files (or shipped names) without connecting to anything; exits 1 on any problem. |
 | `clear <unit> --save <file>` | Erases one unit's stored fault codes. See below. |
 
@@ -126,7 +127,7 @@ uv run mypy
 uv run pytest
 ```
 
-The tests run against a scripted adapter and car in [`tests/fake_elm.py`](tests/fake_elm.py), including over a local TCP socket.
+The tests run against the scripted adapter and car in [`src/obd_read/simulator.py`](src/obd_read/simulator.py), the same one the `simulate` command serves, including over a local TCP socket.
 
 ## What has and has not been tested
 
