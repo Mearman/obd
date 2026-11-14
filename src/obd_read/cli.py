@@ -43,6 +43,8 @@ from .profile_check import profile_check_command
 from .simulator import simulate_command
 from .transport import Transport, TransportError, open_transport
 from .transport.rawcan import RawCanTransport
+from .writes import WRITE_COMMANDS, WriteRefused, write_command
+from .writes import add_commands as add_write_commands
 
 Printer = Callable[[str], None]
 TransportFactory = Callable[[str], Transport]
@@ -208,6 +210,7 @@ def build_parser() -> argparse.ArgumentParser:
     clear.add_argument("--save", type=Path, required=True, help="new file for the snapshot")
     clear.add_argument("--yes", action="store_true", help="do not ask before clearing")
     add_offline_commands(commands)
+    add_write_commands(car_command)
     return parser
 
 
@@ -322,6 +325,8 @@ async def profile_command(
         return 0
 
     unit = profile.unit(args.unit)
+    if args.command in WRITE_COMMANDS:
+        return await write_command(elm, adapter, profile, unit, args, out, ask)
     if args.command in ("ident", "faults", "freeze"):
         report = await read_unit(
             elm,
@@ -408,6 +413,7 @@ async def run(
         ElmError,
         NegativeResponse,
         ClearRefused,
+        WriteRefused,
         ValueError,
     ) as error:
         out(f"error: {error}")

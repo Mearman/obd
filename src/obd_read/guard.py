@@ -209,10 +209,8 @@ def authorise_write(snapshot: Path, protocol: DiagProtocol, payload: bytes) -> W
     return WriteToken(_TOKEN_KEY, protocol, payload, snapshot)
 
 
-def authorise_actuation(
-    protocol: DiagProtocol, start: bytes, stop: bytes, seconds: float
-) -> ActuationTokens:
-    """Return the start and stop tokens for one actuator test.
+def check_actuation(protocol: DiagProtocol, start: bytes, stop: bytes, seconds: float) -> None:
+    """Refuse an actuator test that no token would be issued for, before anything is sent.
 
     Raises GuardError when either request is not the protocol's actuation service, the stop request names a different identifier from the start, the two are the same request, or `seconds` is not above zero and at most ACTUATION_MAX_SECONDS.
     """
@@ -231,6 +229,16 @@ def authorise_actuation(
         raise GuardError(
             f"an actuator test lasts more than 0 and at most {ACTUATION_MAX_SECONDS:g} seconds"
         )
+
+
+def authorise_actuation(
+    protocol: DiagProtocol, start: bytes, stop: bytes, seconds: float
+) -> ActuationTokens:
+    """Return the start and stop tokens for one actuator test that check_actuation passes.
+
+    Raises GuardError as check_actuation does.
+    """
+    check_actuation(protocol, start, stop, seconds)
     return ActuationTokens(
         ActuatorToken(_TOKEN_KEY, protocol, start), ActuatorToken(_TOKEN_KEY, protocol, stop)
     )

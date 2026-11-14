@@ -185,6 +185,9 @@ class KwpEcu:
         self.faults = list(faults)
         self.ident = b"\x86A6421500000 E280CDI"
         self.freeze_refused = False
+        self.records: dict[int, bytes] = {}
+        self.writes_refused = False
+        self.actuations: list[bytes] = []
 
     def __call__(self, request: bytes) -> list[tuple[int, bytes]]:
         return [(self.response_id, self.reply(request))]
@@ -207,6 +210,21 @@ class KwpEcu:
         if service == 0x14:
             self.faults = []
             return bytes([0x54, 0xFF, 0x00])
+        if service == 0x21 and len(request) == 2:
+            record = self.records.get(request[1])
+            if record is None:
+                return bytes([0x7F, service, 0x31])
+            return bytes([0x61, request[1]]) + record
+        if service == 0x3B and len(request) > 2 and request[1] in self.records:
+            if self.writes_refused:
+                return bytes([0x7F, service, 0x22])
+            self.records[request[1]] = request[2:]
+            return bytes([0x7B, request[1]])
+        if service == 0x30 and len(request) >= 2:
+            self.actuations.append(request)
+            return bytes([0x70]) + request[1:]
+        if service == 0x3E:
+            return bytes([0x7E])
         return bytes([0x7F, service, 0x11])
 
 
@@ -216,6 +234,9 @@ class UdsEcu:
     def __init__(self, response_id: int, faults: list[tuple[int, int]]) -> None:
         self.response_id = response_id
         self.faults = list(faults)
+        self.records: dict[int, bytes] = {0xF190: SIMULATED_VIN}
+        self.writes_refused = False
+        self.actuations: list[bytes] = []
 
     def __call__(self, request: bytes) -> list[tuple[int, bytes]]:
         return [(self.response_id, self.reply(request))]
@@ -225,10 +246,21 @@ class UdsEcu:
         if service == 0x10:
             return bytes([0x50, request[1], 0x00, 0x32, 0x01, 0xF4])
         if service == 0x22:
+            record = self.records.get(int.from_bytes(request[1:3], "big"))
+            if len(request) != 3 or record is None:
+                return bytes([0x7F, service, 0x31])
+            return bytes([0x62]) + request[1:3] + record
+        if service == 0x2E and len(request) > 3:
             identifier = int.from_bytes(request[1:3], "big")
-            if identifier == 0xF190:
-                return bytes([0x62]) + request[1:3] + SIMULATED_VIN
-            return bytes([0x7F, service, 0x31])
+            if identifier not in self.records:
+                return bytes([0x7F, service, 0x31])
+            if self.writes_refused:
+                return bytes([0x7F, service, 0x22])
+            self.records[identifier] = request[3:]
+            return bytes([0x6E]) + request[1:3]
+        if service == 0x2F and len(request) >= 4:
+            self.actuations.append(request)
+            return bytes([0x6F]) + request[1:]
         if service == 0x19 and request[1] == 0x02:
             records = b"".join(
                 code.to_bytes(3, "big") + bytes([status]) for code, status in self.faults
@@ -267,15 +299,23 @@ def obd_responder(request: bytes) -> list[tuple[int, bytes]]:
 SIMULATED_KWP_FAULT = (0x1234, 0x20)
 SIMULATED_UDS_FAULT = (0xC12345, 0x08)
 
+# The one writable record every simulated unit holds, so `write` and `restore` can be tried: a KWP2000 local identifier or a UDS data identifier and its value. Invented, like the faults.
+SIMULATED_KWP_RECORD = (0x99, bytes([0x00, 0x01]))
+SIMULATED_UDS_RECORD = (0x0199, bytes([0x00, 0x01]))
+
 
 def simulated_car(profile: Profile) -> FakeElmCore:
     """A fresh adapter wired to one scripted unit per profile unit, plus OBD-II on the functional ID."""
     responders: dict[int, Responder] = {FUNCTIONAL_REQUEST_ID: obd_responder}
     for unit in profile.units.values():
         if profile.protocol is DiagProtocol.UDS:
-            responders[unit.request_id] = UdsEcu(unit.response_id, [SIMULATED_UDS_FAULT])
+            uds = UdsEcu(unit.response_id, [SIMULATED_UDS_FAULT])
+            uds.records[SIMULATED_UDS_RECORD[0]] = SIMULATED_UDS_RECORD[1]
+            responders[unit.request_id] = uds
         else:
-            responders[unit.request_id] = KwpEcu(unit.response_id, [SIMULATED_KWP_FAULT])
+            kwp = KwpEcu(unit.response_id, [SIMULATED_KWP_FAULT])
+            kwp.records[SIMULATED_KWP_RECORD[0]] = SIMULATED_KWP_RECORD[1]
+            responders[unit.request_id] = kwp
     return FakeElmCore(responders)
 
 
