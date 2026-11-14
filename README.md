@@ -44,13 +44,14 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `freeze <unit>` | The freeze frame stored with each fault code. |
 | `scan` | Identification and fault codes from every unit. `--output <path>` writes `<path>.json` and `<path>.md`; `--freeze` adds freeze frames. |
 | `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, a few live values. |
+| `clear-codes --save <file>` | Erases the codes of every emissions unit, with no profile. See below. |
 | `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
 | `discover --protocol <kwp2000\|uds>` | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Only the guarded default-session request is sent, but every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
 | `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code, and each connection starts a fresh car, so `clear` can be tried safely. It connects to nothing. |
 | `profile check <profile>...` | Validates profile files (or shipped names) without connecting to anything; exits 1 on any problem. |
 | `clear <unit> --save <file>` | Erases one unit's stored fault codes. See below. |
 
-Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd` and `discover` take `--profile`.
+Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover` and `clear-codes` take `--profile`.
 
 Fault codes are printed as the unit reports them: hexadecimal code bytes and a status byte. The tool carries no fault-code descriptions.
 
@@ -66,6 +67,18 @@ Clearing erases the evidence a fault leaves behind, so `clear` does it in a fixe
 
 A unit that refuses its freeze frames is recorded as such and can still be cleared. A unit whose fault codes cannot be read is not cleared. One unit is cleared per run.
 
+### Clearing without a profile
+
+`clear-codes` is the same procedure for a car with no profile, through the legislated clear (OBD-II mode 04). Mode 04 cannot target one unit: it erases the stored codes, freeze frame and misfire data of every emissions-related unit and resets their readiness monitors, which then need a drive cycle to complete. The command says so before it asks.
+
+1. Reads the VIN, readiness, stored, pending and permanent codes, freeze frame and misfire counts. Unreadable stored or pending codes stop the run; the optional reads are recorded as not read.
+2. Writes them, with the full adapter transcript, to the `--save` file. The file must not already exist.
+3. Prints what will be erased and asks you to type `yes`. `--yes` skips the question.
+4. Sends mode 04, which the guard passes only with the clear token for that saved file.
+5. Reads the stored and pending codes and readiness again and prints them.
+
+It takes `--id-bits` and `--bitrate` like `obd`.
+
 ## What it will not send
 
 Every request passes through one guard ([`src/obd_read/guard.py`](src/obd_read/guard.py)) before it reaches the adapter.
@@ -76,7 +89,7 @@ Every request passes through one guard ([`src/obd_read/guard.py`](src/obd_read/g
 | UDS | `10` (default and extended sessions), `19`, `22`, `3E` |
 | OBD-II | modes `01`, `02`, `03`, `06`, `07`, `09`, `0A` |
 
-The clear service (`14`, or OBD-II mode `04`) is sent only by the `clear` command, after the snapshot is on disk. Everything else is refused before sending: actuator and routine control, writes, security access, resets, programming sessions and data transfer.
+The clear service (`14`, or OBD-II mode `04`) is sent only by the `clear` and `clear-codes` commands, after the snapshot is on disk. Everything else is refused before sending: actuator and routine control, writes, security access, resets, programming sessions and data transfer.
 
 ## Vehicle profiles
 
@@ -117,7 +130,7 @@ The [vehicle communication notes](docs/vehicles/README.md) record how to talk to
 | Guard | `guard.py` | Passes or refuses each request. |
 | Protocol | `kwp2000.py`, `uds.py`, `obd.py` | Builds requests and decodes replies. |
 | Vehicle | `profile.py`, `profiles/` | What to address on a given chassis. |
-| Commands | `operations.py`, `cli.py` | Reading a unit, scanning, saving, clearing. |
+| Commands | `operations.py`, `obd_clear.py`, `cli.py` | Reading a unit, scanning, saving, clearing. |
 
 ## Development
 
