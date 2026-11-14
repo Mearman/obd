@@ -161,7 +161,7 @@ A raw CAN adapter has no ELM327 interpreter: it sends and receives CAN frames. `
 | Link | Where | What sets the bit rate |
 |---|---|---|
 | `socketcan://<interface>` | Linux only: `can0`, `vcan0`, any CAN device the kernel exposes, including a candleLight adapter running gs_usb firmware | The interface: `ip link set can0 type can bitrate 500000`, outside this tool. |
-| `slcan://<serial device>` | Any platform with a serial port: an adapter running SLCAN firmware, including candleLight with that firmware | The profile or `--bitrate`, sent to the adapter when the bus is selected. |
+| `slcan://<serial device>` | Any platform with a serial port: an adapter running SLCAN firmware, including candleLight with that firmware | The bus settings of the profile (`--bitrate` for `obd`), sent to the adapter when the bus is selected. |
 
 SocketCAN exists only on Linux. On any other platform `socketcan://` fails with a message saying so, and the rest of the tool imports and runs as usual. SLCAN framing follows the Linux kernel's SLCAN driver ([slcan-core.c](https://github.com/torvalds/linux/blob/master/drivers/net/can/slcan/slcan-core.c)); it has been checked against that source and a scripted adapter, not against a physical adapter. A candleLight adapter with gs_usb firmware has no driver here other than the Linux kernel's, so on a Mac it needs SLCAN firmware.
 
