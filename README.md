@@ -6,7 +6,7 @@ Read a car's diagnostics through an ELM327-style adapter, with software you can 
 
 ## What it needs
 
-- An adapter that implements the full ELM327 command set, reached over Bluetooth LE, a serial port (USB or classic Bluetooth) or TCP (Wi-Fi adapters), or a raw CAN adapter reached over SocketCAN or SLCAN. Cheap clones that lack the addressing commands are detected and named on connection. Standard `AT` commands are used throughout; on connection the tool also reports whether the adapter has the STN `ST` extensions, which it uses only where a plain ELM327 cannot do the job (see [Bit rates](#bit-rates) and [Requests longer than one frame](#requests-longer-than-one-frame)) and in the [bus monitor](#bus-monitor).
+- An adapter that implements the full ELM327 command set, reached over Bluetooth LE, a serial port (USB or classic Bluetooth) or TCP (Wi-Fi adapters), or a raw CAN adapter reached over SocketCAN or SLCAN. Cheap clones that lack the addressing commands are detected and named on connection. Standard `AT` commands are used throughout; on connection the tool also reports whether the adapter has the STN `ST` extensions, which it uses only where a plain ELM327 cannot do the job (see [Bit rates](#bit-rates) and [Requests longer than one frame](#requests-longer-than-one-frame)), in the [bus monitor](#bus-monitor), and in `battery` to read the voltage with `STVR`.
 - [uv](https://docs.astral.sh/uv/).
 - For anything beyond the legislated OBD-II reads, a vehicle profile. The profiles shipped are in [`src/obd_read/profiles`](src/obd_read/profiles).
 
@@ -50,6 +50,7 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, the freeze frame, misfire counts, which monitors have completed, every current-data value the car supports, the other mode 06 monitor results and the calibration identifier. `--kline <scheme>` reads over K-line instead of CAN. |
 | `clear-codes --save <file>` | Erases the codes of every emissions unit, with no profile. See below. |
 | `live [<unit>]` | Named live values, once or repeatedly. With no unit it reads the legislated values the car supports (`--list` shows their names); with a unit and `--profile` it reads the named values the profile defines for that unit. `--values a,b` picks some, `--count` and `--interval` repeat the read, `--csv <file>` logs each sample to a new file (an existing file is never overwritten). |
+| `battery` | Logs the adapter's own voltage reading at a fixed interval (`--interval`, `--duration`), printing each sample and a summary, and writing a new CSV with `--csv <file>`. Run it before turning the key to record the dip while cranking and the charging voltage afterwards. It reads `ATRV`, or `STVR` (with `--precision` decimals) on an adapter that has the STN extensions, and needs no profile and no car bus. |
 | `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
 | `discover --protocol <kwp2000\|uds>` | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Only the guarded default-session request is sent, but every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
 | `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code, and each connection starts a fresh car, so `clear` can be tried safely. It connects to nothing. |
@@ -60,7 +61,7 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `describe <scan or code>...` | Names for fault codes. Needs no adapter. See below. |
 | `import-names <file> --unit <name> --output <file>` | Code and request names from a definition file you supply. Needs no adapter. See below. |
 
-Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover` and `clear-codes` take `--profile`; for `live` it is optional.
+Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover`, `clear-codes` and `battery` take `--profile`; for `live` it is optional.
 
 The `obd` command asks a car only for what it says it supports: the supported-identifier bitmaps (mode 01 identifiers 00, 20, 40 and onwards, mode 06 and mode 09) decide which values are requested. The decoding follows SAE J1979. Mode 06 test meanings other than the misfire counters differ per maker, so those results are printed with their raw value, limits and scaling identifier and marked as unconfirmed.
 
@@ -287,7 +288,7 @@ The tests run against the scripted adapter and car in [`src/obd_read/simulator.p
 
 ## What has and has not been tested
 
-Everything above the link is tested against the scripted adapter. The Bluetooth LE and serial links, real adapter firmware and real control units are exercised only when someone runs the tool at a car. Bluetooth LE adapters do not share one layout: the tool picks the first service that has both a notifying and a writable characteristic, and `?service=`, `?notify=` and `?write=` on the URL override that choice.
+Everything above the link is tested against the scripted adapter. The Bluetooth LE and serial links, real adapter firmware and real control units are exercised only when someone runs the tool at a car. The reply format of `STVR` is taken from the STN command set as the project issue describes it and has not been checked against an adapter, so `battery` fails with the reply it could not read when the format differs. Bluetooth LE adapters do not share one layout: the tool picks the first service that has both a notifying and a writable characteristic, and `?service=`, `?notify=` and `?write=` on the URL override that choice.
 
 ## Licence
 

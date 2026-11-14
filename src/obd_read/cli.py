@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from . import legislated, monitor, obd
+from .battery import battery_command
 from .diag import NegativeResponse
 from .discovery import discover_command
 from .elm import MAX_SINGLE_FRAME, AdapterInfo, Elm, ElmError, Transcript
@@ -163,6 +164,18 @@ def build_parser() -> argparse.ArgumentParser:
     live.add_argument("--csv", type=Path, help="write each sample to this new CSV file")
     live.add_argument("--id-bits", type=int, choices=(11, 29), default=11)
     live.add_argument("--bitrate", type=int, choices=(250000, 500000), default=500000)
+
+    battery = car_command(
+        "battery",
+        "log the adapter's voltage reading at a fixed interval; needs no profile or car bus",
+        profile=False,
+    )
+    battery.add_argument("--duration", type=float, default=60.0, help="seconds to keep sampling")
+    battery.add_argument("--interval", type=float, default=0.25, help="seconds between samples")
+    battery.add_argument(
+        "--precision", type=int, help="decimals to ask for from an adapter that has STVR"
+    )
+    battery.add_argument("--csv", type=Path, help="write each sample to this new CSV file")
 
     discover = car_command(
         "discover",
@@ -367,7 +380,7 @@ async def run(
             return run_offline(args, out)
         if args.command == "live":
             profile = load_profile(args.profile) if args.profile else None
-        elif args.command in ("obd", "discover", "clear-codes"):
+        elif args.command in ("obd", "discover", "clear-codes", "battery"):
             profile = None
         else:
             profile = load_profile(args.profile)
@@ -379,6 +392,8 @@ async def run(
             out(f"STN extensions: {adapter.stn_identity or 'none (plain ELM327 command set)'}")
             if args.command == "live":
                 return await live_command(elm, profile, args, out)
+            if args.command == "battery":
+                return await battery_command(elm, adapter, args, out)
             if profile is None and args.command == "discover":
                 return await discover_command(elm, args, out)
             if args.command == "clear-codes":
