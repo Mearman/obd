@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .elm import Elm, ElmError
-from .guard import ClearToken, DiagProtocol, permit
+from .guard import DiagProtocol, Token, permit
 
 NEGATIVE_RESPONSE = 0x7F
 RESPONSE_PENDING = 0x78
@@ -70,7 +70,7 @@ class UnitSession:
     def protocol(self) -> DiagProtocol:
         return self._protocol
 
-    async def request(self, payload: bytes, token: ClearToken | None = None) -> bytes:
+    async def request(self, payload: bytes, token: Token | None = None) -> bytes:
         """Send one request and return the unit's positive reply, service byte first.
 
         Raises GuardError when the request is not allowed, NegativeResponse when the unit
