@@ -50,10 +50,56 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code, and each connection starts a fresh car, so `clear` can be tried safely. It connects to nothing. |
 | `profile check <profile>...` | Validates profile files (or shipped names) without connecting to anything; exits 1 on any problem. |
 | `clear <unit> --save <file>` | Erases one unit's stored fault codes. See below. |
+| `compare <first> <second>` | Two saved scans side by side. Needs no adapter. See below. |
+| `describe <scan or code>...` | Names for fault codes. Needs no adapter. See below. |
+| `import-names <file> --unit <name> --output <file>` | Code and request names from a definition file you supply. Needs no adapter. See below. |
 
 Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover` and `clear-codes` take `--profile`.
 
-Fault codes are printed as the unit reports them: hexadecimal code bytes and a status byte. The tool carries no fault-code descriptions.
+Fault codes are printed as the unit reports them: hexadecimal code bytes and a status byte. `describe` adds names to them afterwards.
+
+## Comparing scans
+
+`obd-read compare before.json after.json` takes two files written by `scan --output` (or the snapshot `clear --save` writes) and prints, per unit, the fault codes that appeared, cleared or changed status, the units that started or stopped answering, and any change to a stored freeze frame or identification value. Fault codes are compared only for a unit whose codes both scans read. Units with no difference are not listed.
+
+## Naming fault codes
+
+`describe` looks codes up in three places, most specific first, and prints where each name came from:
+
+- The `[codes.<unit>]` tables of the profile, for the hexadecimal codes a unit reports. Each entry needs `text` and a `source`, and no shipped profile has entries yet because none has been confirmed against a source:
+
+  ```toml
+  [codes.esp."5123"]
+  text = "what the source says this code means"
+  source = "where it says so"
+  ```
+
+- Names imported with `import-names` and passed with `--names <file>`.
+- For SAE codes such as `P0420` (the codes `obd` prints), the generic OBD-II titles in [`src/obd_read/data/obdex-generic.tsv`](src/obd_read/data/obdex-generic.tsv). These are the English titles from [OBDex](https://github.com/foerbsnavi/OBDex), whose data is CC0 1.0, vendored rather than fetched so that the tool works offline in a garage. The file header records the bundle it came from and [`scripts/vendor_obdex.py`](scripts/vendor_obdex.py) rebuilds it.
+
+```sh
+uv run obd-read describe P0420
+uv run obd-read describe scan.json                       # uses the profile the scan recorded
+uv run obd-read describe 5123 --unit esp --profile mercedes-w211
+```
+
+A code with no entry is reported as having no description, never guessed. Generic titles are not applied to a unit's hexadecimal codes, which are the maker's own numbering.
+
+## Importing names from a definition file
+
+The complete names for a car's codes and data live in the maker's diagnostic definition files, which are not redistributable, so none is shipped here. `import-names` reads a file you already hold, at run time, and writes the names for one unit to a new file of your choosing:
+
+```sh
+uv run obd-read import-names definitions.pdx --unit esp --output esp-names.json --variant <layer name>
+uv run obd-read describe 5123 --unit esp --names esp-names.json --request "1A 86"
+```
+
+| Input | Reads |
+|---|---|
+| `.odx`, `.odx-d`, `.xml` or a `.pdx` archive (ODX, ISO 22901-1) | Each DTC's trouble code and text, and the name of each diagnostic service whose request is made of constant bytes. |
+| `.json` written by Trafo from [CaesarSuite](https://github.com/jglim/CaesarSuite) (MIT) | Each variant's `DTCs` and, by request bytes, its `DiagServices`. Convert a Mercedes `.cbf` file with Trafo first; `obd-read` does not read CBF itself and has no dependency on CaesarSuite or on odxtools. |
+
+Without `--variant` every diagnostic layer in the file is read, and a code whose text differs between layers keeps the first and is reported. Codes that are neither hexadecimal nor SAE form are skipped and listed. The names file holds text taken from the definition file, so keep it out of anything you publish. These readers were written from the ODX standard's element names and Trafo's source, and have been run only on synthetic files.
 
 ## Clearing fault codes
 
@@ -144,6 +190,7 @@ The [vehicle communication notes](docs/vehicles/README.md) record how to talk to
 | Protocol | `kwp2000.py`, `uds.py`, `obd.py` | Builds requests and decodes replies. |
 | Vehicle | `profile.py`, `profiles/` | What to address on a given chassis. |
 | Commands | `operations.py`, `obd_clear.py`, `cli.py` | Reading a unit, scanning, saving, clearing. |
+| Saved files | `offline.py`, `scancompare.py`, `codenames.py`, `definitions.py` | Comparing scans and naming codes, with no adapter involved. |
 
 ## Development
 
