@@ -11,6 +11,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from . import legislated, monitor, obd
+from .actuate import ActuationError, actuate_command
+from .actuate import add_command as add_actuate_command
 from .battery import battery_command
 from .diag import NegativeResponse
 from .discovery import discover_command
@@ -211,6 +213,7 @@ def build_parser() -> argparse.ArgumentParser:
     clear.add_argument("--yes", action="store_true", help="do not ask before clearing")
     add_offline_commands(commands)
     add_write_commands(car_command)
+    add_actuate_command(car_command)
     return parser
 
 
@@ -327,6 +330,8 @@ async def profile_command(
     unit = profile.unit(args.unit)
     if args.command in WRITE_COMMANDS:
         return await write_command(elm, adapter, profile, unit, args, out, ask)
+    if args.command == "actuate":
+        return await actuate_command(elm, profile, unit, args, out, ask)
     if args.command in ("ident", "faults", "freeze"):
         report = await read_unit(
             elm,
@@ -414,6 +419,7 @@ async def run(
         NegativeResponse,
         ClearRefused,
         WriteRefused,
+        ActuationError,
         ValueError,
     ) as error:
         out(f"error: {error}")
