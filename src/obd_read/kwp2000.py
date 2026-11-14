@@ -8,6 +8,7 @@ from .guard import ClearToken, DiagProtocol
 
 START_SESSION = 0x10
 READ_FREEZE_FRAME = 0x12
+READ_LOCAL_IDENTIFIER = 0x21
 CLEAR_FAULTS = 0x14
 READ_FAULTS_BY_STATUS = 0x18
 READ_IDENTIFICATION = 0x1A
@@ -68,6 +69,16 @@ class Kwp2000:
             bytes([READ_FREEZE_FRAME, ALL_FRAMES, SELECT_BY_FAULT_CODE, *bytes.fromhex(fault.code)])
         )
         return reply[1:]
+
+    async def read_value(self, identifier: int) -> bytes:
+        """Read one local identifier and return the data bytes that follow it in the reply.
+
+        Raises ElmError when the reply names a different identifier.
+        """
+        reply = await self._session.request(bytes([READ_LOCAL_IDENTIFIER, identifier]))
+        if len(reply) < 2 or reply[1] != identifier:
+            raise ElmError(f"reply {reply.hex()} does not answer local identifier {identifier:02X}")
+        return reply[2:]
 
     async def clear(self, token: ClearToken) -> None:
         """Erase every stored fault code. Needs the token that proves a snapshot was saved."""

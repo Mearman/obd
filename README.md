@@ -49,6 +49,7 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `scan` | Identification and fault codes from every unit. `--output <path>` writes `<path>.json` and `<path>.md`; `--freeze` adds freeze frames. |
 | `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, the freeze frame, misfire counts, which monitors have completed, every current-data value the car supports, the other mode 06 monitor results and the calibration identifier. `--kline <scheme>` reads over K-line instead of CAN. |
 | `clear-codes --save <file>` | Erases the codes of every emissions unit, with no profile. See below. |
+| `live [<unit>]` | Named live values, once or repeatedly. With no unit it reads the legislated values the car supports (`--list` shows their names); with a unit and `--profile` it reads the named values the profile defines for that unit. `--values a,b` picks some, `--count` and `--interval` repeat the read, `--csv <file>` logs each sample to a new file (an existing file is never overwritten). |
 | `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
 | `discover --protocol <kwp2000\|uds>` | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Only the guarded default-session request is sent, but every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
 | `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code, and each connection starts a fresh car, so `clear` can be tried safely. It connects to nothing. |
@@ -59,7 +60,7 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `describe <scan or code>...` | Names for fault codes. Needs no adapter. See below. |
 | `import-names <file> --unit <name> --output <file>` | Code and request names from a definition file you supply. Needs no adapter. See below. |
 
-Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover` and `clear-codes` take `--profile`.
+Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover` and `clear-codes` take `--profile`; for `live` it is optional.
 
 The `obd` command asks a car only for what it says it supports: the supported-identifier bitmaps (mode 01 identifiers 00, 20, 40 and onwards, mode 06 and mode 09) decide which values are requested. The decoding follows SAE J1979. Mode 06 test meanings other than the misfire counters differ per maker, so those results are printed with their raw value, limits and scaling identifier and marked as unconfirmed.
 
@@ -242,6 +243,22 @@ Unconfirmed, because the sources in the [vehicle notes](docs/vehicles/generic-st
 `obd --kline iso9141|kwp2000-slow|kwp2000-fast` reads the legislated OBD-II values over K-line with no profile.
 
 The shipped profiles are `mercedes-w211` and `vag-mqb`, both marked unconfirmed. The W211 table comes from an open-source project for a different variant of the chassis, and the MQB table from a community wiki's captures of MQB cars. `probe` is how a profile is confirmed on a given car. A profile is added only where a readable source states its addresses; for a car with none, `discover` finds them.
+
+A unit can name the live values it reports, for `live`. Each is one KWP2000 local identifier (service 21) or UDS data identifier (service 22), with the bytes to use and how to scale them: the number is the bytes read big-endian (signed when `signed` is true) times `scale` plus `bias`. A value stays `unconfirmed` (the default) until its identifier has been checked on a car, and `live` says so before the first sample. The shipped profiles define none yet, because no identifier in them has a readable source.
+
+```toml
+[units.engine.values.boost]
+label = "boost pressure, actual"
+unit = "kPa"
+identifier = 0x10            # one byte for KWP2000, two for UDS
+offset = 1                   # first data byte to use after the identifier; default 0
+size = 2                     # bytes, 1 to 4; default 1
+signed = false               # default false
+scale = 0.1                  # default 1
+bias = 0                     # default 0
+source = "where this identifier and scaling come from"
+status = "unconfirmed"       # or "confirmed"
+```
 
 The [vehicle communication notes](docs/vehicles/README.md) record how to talk to other makes, with sources, for writing a new profile.
 

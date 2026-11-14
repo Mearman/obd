@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -15,6 +15,46 @@ class ProfileError(Exception):
     """A profile file is missing, malformed or asks for something this tool will not send."""
 
 
+# Keys a [units.<unit>.values.<name>] table may hold.
+VALUE_KEYS = frozenset(
+    {"label", "unit", "identifier", "offset", "size", "signed", "scale", "bias", "source", "status"}
+)
+
+# The widest identifier each protocol's read-by-identifier service takes: KWP2000 service 21 reads a one-byte local identifier, UDS service 22 a two-byte data identifier.
+MAX_IDENTIFIER: dict[DiagProtocol, int] = {DiagProtocol.KWP2000: 0xFF, DiagProtocol.UDS: 0xFFFF}
+MAX_VALUE_BYTES = 4
+
+
+@dataclass(frozen=True)
+class DataValue:
+    """One named value a unit reports: which identifier holds it and how its bytes become a number.
+
+    `offset` and `size` pick the bytes out of the data that follows the identifier in the reply. The number is `raw * scale + bias`, where `raw` is those bytes read big-endian, signed when `signed` is set.
+    """
+
+    name: str
+    label: str
+    unit: str
+    identifier: int
+    offset: int
+    size: int
+    signed: bool
+    scale: float
+    bias: float
+    source: str
+    status: str
+
+    def decode(self, data: bytes) -> float:
+        """Turn a reply's data bytes into the value. Raises ValueError when the reply is too short."""
+        if len(data) < self.offset + self.size:
+            raise ValueError(
+                f"{self.name}: reply holds {len(data)} data bytes, "
+                f"{self.offset + self.size} are needed"
+            )
+        raw = int.from_bytes(data[self.offset : self.offset + self.size], "big", signed=self.signed)
+        return raw * self.scale + self.bias
+
+
 @dataclass(frozen=True)
 class Unit:
     """One control unit: where to send requests and where its replies come from."""
@@ -24,6 +64,7 @@ class Unit:
     request_id: int
     response_id: int
     source: str
+    values: dict[str, DataValue] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -111,6 +152,56 @@ def _field(table: dict[str, Any], key: str, kind: type, where: str) -> Any:
     return value
 
 
+def _number(table: dict[str, Any], key: str, default: float, where: str) -> float:
+    value = table.get(key, default)
+    if not isinstance(value, int | float) or isinstance(value, bool):
+        raise ProfileError(f"{where}: {key} must be a number, got {value!r}")
+    return value
+
+
+def _text(table: dict[str, Any], key: str, default: str, where: str) -> str:
+    value = table.get(key, default)
+    if not isinstance(value, str):
+        raise ProfileError(f"{where}: {key} must be str, got {value!r}")
+    return value
+
+
+def _values(table: dict[str, Any], protocol: DiagProtocol, section: str) -> dict[str, DataValue]:
+    values: dict[str, DataValue] = {}
+    for name, entry in table.items():
+        where = f"{section}.values.{name}]"
+        if not isinstance(entry, dict):
+            raise ProfileError(f"{where}: must be a table")
+        identifier = _field(entry, "identifier", int, where)
+        if not 0 <= identifier <= MAX_IDENTIFIER[protocol]:
+            raise ProfileError(
+                f"{where}: identifier {identifier:#x} does not fit a {protocol.value} identifier"
+            )
+        size = entry.get("size", 1)
+        offset = entry.get("offset", 0)
+        signed = entry.get("signed", False)
+        if not isinstance(size, int) or isinstance(size, bool) or not 1 <= size <= MAX_VALUE_BYTES:
+            raise ProfileError(f"{where}: size must be 1 to {MAX_VALUE_BYTES} bytes, got {size!r}")
+        if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+            raise ProfileError(f"{where}: offset must be a whole number of bytes, got {offset!r}")
+        if not isinstance(signed, bool):
+            raise ProfileError(f"{where}: signed must be true or false, got {signed!r}")
+        values[name] = DataValue(
+            name=name,
+            label=_field(entry, "label", str, where),
+            unit=_text(entry, "unit", "", where),
+            identifier=identifier,
+            offset=offset,
+            size=size,
+            signed=signed,
+            scale=_number(entry, "scale", 1, where),
+            bias=_number(entry, "bias", 0, where),
+            source=_field(entry, "source", str, where),
+            status=_text(entry, "status", "unconfirmed", where),
+        )
+    return values
+
+
 def parse_profile(text: str, where: str) -> Profile:
     """Build a Profile from TOML text. `where` names the source in error messages.
 
@@ -170,6 +261,11 @@ def parse_profile(text: str, where: str) -> Profile:
             request_id=_field(table, "request", int, section),
             response_id=_field(table, "response", int, section),
             source=_field(table, "source", str, section),
+            values=_values(
+                _field(table, "values", dict, section) if "values" in table else {},
+                protocol,
+                section.removesuffix("]"),
+            ),
         )
     if not units:
         raise ProfileError(f"{where}: no units")

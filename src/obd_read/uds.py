@@ -82,6 +82,18 @@ class Uds:
         )
         return reply[2:]
 
+    async def read_value(self, identifier: int) -> bytes:
+        """Read one data identifier and return the data bytes that follow it in the reply.
+
+        Raises ElmError when the reply names a different identifier.
+        """
+        reply = await self._session.request(
+            bytes([READ_DATA_BY_IDENTIFIER, identifier >> 8, identifier & 0xFF])
+        )
+        if len(reply) < 3 or int.from_bytes(reply[1:3], "big") != identifier:
+            raise ElmError(f"reply {reply.hex()} does not answer data identifier {identifier:04X}")
+        return reply[3:]
+
     async def clear(self, token: ClearToken) -> None:
         """Erase every stored fault code. Needs the token that proves a snapshot was saved."""
         await self._session.request(bytes([CLEAR_FAULTS, *ALL_FAULT_GROUPS]), token)

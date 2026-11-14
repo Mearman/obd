@@ -7,12 +7,12 @@ import re
 import tomllib
 from collections.abc import Callable
 
-from .profile import ProfileError, parse_profile, profile_source
+from .profile import VALUE_KEYS, ProfileError, parse_profile, profile_source
 
 PROFILE_KEYS = frozenset({"name", "description", "status", "bus", "diagnostics", "units"})
 BUS_KEYS = frozenset({"id_bits", "bitrate"})
 DIAGNOSTICS_KEYS = frozenset({"protocol", "session"})
-UNIT_KEYS = frozenset({"description", "request", "response", "source"})
+UNIT_KEYS = frozenset({"description", "request", "response", "source", "values"})
 STATUSES = frozenset({"confirmed", "unconfirmed"})
 NAME = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 MAX_ID = {11: 0x7FF, 29: 0x1FFFFFFF}
@@ -21,7 +21,7 @@ MAX_ID = {11: 0x7FF, 29: 0x1FFFFFFF}
 def check_profile(text: str, where: str) -> list[str]:
     """List everything wrong with a profile's TOML text; an empty list means it is sound.
 
-    Covers what loading rejects, and also unknown keys (a misspelt optional-looking key is otherwise silently ignored), a status other than confirmed or unconfirmed, a name that is not lower-case words joined by hyphens, blank descriptions and sources, identifiers wider than the bus allows, a unit whose request and response identifiers are the same, and any identifier shared by two units, which makes a reply impossible to attribute.
+    Covers what loading rejects, and also unknown keys (a misspelt optional-looking key is otherwise silently ignored), a status other than confirmed or unconfirmed, a name that is not lower-case words joined by hyphens, blank descriptions and sources, identifiers wider than the bus allows, a unit whose request and response identifiers are the same, and any identifier shared by two units, which makes a reply impossible to attribute. For named values: unknown keys, a status other than confirmed or unconfirmed, a blank source and a zero scale.
     """
     try:
         profile = parse_profile(text, where)
@@ -39,12 +39,24 @@ def check_profile(text: str, where: str) -> list[str]:
     unknown(data["diagnostics"], DIAGNOSTICS_KEYS, "[diagnostics]")
     for name, table in data["units"].items():
         unknown(table, UNIT_KEYS, f"[units.{name}]")
+        for value_name, value_table in table.get("values", {}).items():
+            unknown(value_table, VALUE_KEYS, f"[units.{name}.values.{value_name}]")
     if profile.status not in STATUSES:
         problems.append(f"status must be confirmed or unconfirmed, got {profile.status!r}")
     if not NAME.fullmatch(profile.name):
         problems.append(f"name {profile.name!r} must be lower-case words joined by hyphens")
     if not profile.description.strip():
         problems.append("description is blank")
+
+    for unit in profile.units.values():
+        for named in unit.values.values():
+            label = f"[units.{unit.name}.values.{named.name}]"
+            if named.status not in STATUSES:
+                problems.append(f"{label}: status must be confirmed or unconfirmed")
+            if not named.source.strip():
+                problems.append(f"{label}: source is blank, so the identifier cannot be traced")
+            if named.scale == 0:
+                problems.append(f"{label}: scale is zero, so every reading is the bias")
 
     limit = MAX_ID[profile.id_bits]
     requests: dict[int, str] = {}
