@@ -8,7 +8,6 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from .elm import CAN_PROTOCOLS
 from .guard import READ_ONLY, DiagProtocol
 
 
@@ -70,7 +69,7 @@ def _field(table: dict[str, Any], key: str, kind: type, where: str) -> Any:
 def parse_profile(text: str, where: str) -> Profile:
     """Build a Profile from TOML text. `where` names the source in error messages.
 
-    Raises ProfileError for a missing or mistyped field, a bus the adapter cannot select,
+    Raises ProfileError for a missing or mistyped field, an identifier width or bit rate that is not valid CAN,
     or a diagnostic session the guard does not allow.
     """
     try:
@@ -81,8 +80,10 @@ def parse_profile(text: str, where: str) -> Profile:
     diagnostics = _field(data, "diagnostics", dict, where)
     id_bits = _field(bus, "id_bits", int, f"{where} [bus]")
     bitrate = _field(bus, "bitrate", int, f"{where} [bus]")
-    if (id_bits, bitrate) not in CAN_PROTOCOLS:
-        raise ProfileError(f"{where}: no adapter protocol for {id_bits}-bit CAN at {bitrate} bit/s")
+    if id_bits not in (11, 29):
+        raise ProfileError(f"{where}: id_bits must be 11 or 29, got {id_bits}")
+    if bitrate <= 0:
+        raise ProfileError(f"{where}: bitrate must be positive, got {bitrate}")
     protocol_name = _field(diagnostics, "protocol", str, f"{where} [diagnostics]")
     if protocol_name not in (DiagProtocol.KWP2000.value, DiagProtocol.UDS.value):
         raise ProfileError(f"{where}: protocol must be kwp2000 or uds, got {protocol_name!r}")

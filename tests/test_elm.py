@@ -51,9 +51,90 @@ async def test_29_bit_addressing_splits_priority_from_header() -> None:
     assert core.sent[:4] == ["ATSP7", "ATCP18", "ATSHDA10F1", "ATCRA18DAF110"]
 
 
-async def test_unsupported_bus_is_refused() -> None:
-    with pytest.raises(ElmError):
-        await make(FakeElmCore({})).select_can(11, 83_333)
+async def test_a_rate_that_is_not_a_divisor_of_500_kbit_is_refused_on_a_plain_adapter() -> None:
+    core = FakeElmCore({})
+    with pytest.raises(ElmError, match="whole number"):
+        await make(core).select_can(11, 83_333)
+    assert core.sent == []
+
+
+@pytest.mark.parametrize("bitrate", [0, -125_000])
+async def test_a_non_positive_bit_rate_is_refused(bitrate: int) -> None:
+    with pytest.raises(ElmError, match="positive"):
+        await make(FakeElmCore({})).select_can(11, bitrate)
+
+
+async def test_an_identifier_width_other_than_11_or_29_is_refused() -> None:
+    with pytest.raises(ElmError, match="11 or 29"):
+        await make(FakeElmCore({})).select_can(12, 500_000)
+
+
+async def test_125_kbit_on_a_plain_adapter_uses_user_protocol_b() -> None:
+    core = FakeElmCore({})
+    await make(core).select_can(11, 125_000)
+    assert core.sent == ["ATPC", "ATPB 81 04", "ATSPB"]
+    assert core.baud == 125_000
+    assert core.id_chars == 3
+
+
+async def test_29_bit_user_protocol_sets_the_identifier_width() -> None:
+    core = FakeElmCore({})
+    elm = make(core)
+    await elm.select_can(29, 125_000)
+    assert core.sent == ["ATPC", "ATPB 01 04", "ATSPB"]
+    assert core.id_chars == 8
+    await elm.address_unit(0x18DA10F1, 0x18DAF110)
+    assert core.sent[3:5] == ["ATCP18", "ATSHDA10F1"]
+
+
+async def test_the_divisor_limit_of_the_user_protocol_is_enforced() -> None:
+    core = FakeElmCore({})
+    await make(core).select_can(11, 10_000)
+    assert core.sent[1] == "ATPB 81 32"
+    with pytest.raises(ElmError, match="whole number"):
+        await make(FakeElmCore({})).select_can(11, 5_000)
+
+
+async def test_an_adapter_without_user_protocol_b_fails_loudly() -> None:
+    core = FakeElmCore({}, unsupported=frozenset({"ATPB 81 04"}))
+    with pytest.raises(AdapterUnsupported, match=r"ATPB 81 04.*no user-defined CAN protocol"):
+        await make(core).select_can(11, 125_000)
+    assert "ATSPB" not in core.sent
+
+
+async def test_an_stn_adapter_sets_and_verifies_the_rate() -> None:
+    core = FakeElmCore({}, stn_identity="STN2255 v5.6.19")
+    elm = make(core)
+    await elm.initialise()
+    core.sent.clear()
+    await elm.select_can(11, 125_000)
+    assert core.sent == ["ATSP6", "STPBR 125000", "STPBRR"]
+    assert core.baud == 125_000
+
+
+async def test_an_stn_adapter_that_rounds_the_rate_is_refused() -> None:
+    core = FakeElmCore({}, stn_identity="STN2255 v5.6.19", stn_rate_step=1000)
+    elm = make(core)
+    await elm.initialise()
+    with pytest.raises(ElmError, match="set 83000 bit/s when 83333 bit/s was requested"):
+        await elm.select_can(11, 83_333)
+
+
+async def test_an_stn_adapter_rejecting_the_rate_command_fails_loudly() -> None:
+    core = FakeElmCore({}, stn_identity="STN2255 v5.6.19", unsupported=frozenset({"STPBR 125000"}))
+    elm = make(core)
+    await elm.initialise()
+    with pytest.raises(AdapterUnsupported, match="STPBR 125000"):
+        await elm.select_can(11, 125_000)
+
+
+async def test_standard_rates_keep_their_protocols_on_an_stn_adapter() -> None:
+    core = FakeElmCore({}, stn_identity="STN2255 v5.6.19")
+    elm = make(core)
+    await elm.initialise()
+    core.sent.clear()
+    await elm.select_can(29, 250_000)
+    assert core.sent == ["ATSP9"]
 
 
 async def test_single_frame_reply() -> None:

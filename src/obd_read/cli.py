@@ -121,7 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     obd_command = car_command("obd", "legislated OBD-II reads; needs no profile", profile=False)
     obd_command.add_argument("--id-bits", type=int, choices=(11, 29), default=11)
-    obd_command.add_argument("--bitrate", type=int, choices=(250000, 500000), default=500000)
+    obd_command.add_argument("--bitrate", type=int, default=500000, help="CAN bit rate in bit/s")
 
     discover = car_command(
         "discover",

@@ -43,6 +43,7 @@ class FakeElmCore:
         unsupported: frozenset[str] = frozenset(),
         identity: str = "ELM327 v2.3",
         stn_identity: str | None = None,
+        stn_rate_step: int = 1,
     ) -> None:
         self.responders = responders
         self.unsupported = unsupported
@@ -51,6 +52,10 @@ class FakeElmCore:
         self.sent: list[str] = []
         self.header = 0
         self.id_chars = 3
+        self.baud: int | None = None
+        self.user_options = 0xE0
+        self.user_divisor = 4
+        self.stn_rate_step = stn_rate_step
         self._partial = b""
 
     @property
@@ -80,7 +85,27 @@ class FakeElmCore:
             return self.stn_identity or "?"
         if line == "ATRV":
             return "12.4V"
+        if line.startswith("ATPB "):
+            options, divisor = (int(part, 16) for part in line[5:].split())
+            if not 1 <= divisor <= 0x40:
+                return "?"
+            self.user_options, self.user_divisor = options, divisor
+            return "OK"
+        if line == "ATSPB":
+            self.id_chars = 3 if self.user_options & 0x80 else 8
+            self.baud = 500_000 // self.user_divisor
+            return "OK"
+        if line.startswith("STPBR "):
+            if self.stn_identity is None:
+                return "?"
+            # The adapter rounds to a rate it can generate, as the STN manual describes.
+            requested = int(line[6:])
+            self.baud = round(requested / self.stn_rate_step) * self.stn_rate_step
+            return "OK"
+        if line == "STPBRR":
+            return "?" if self.baud is None else str(self.baud)
         if line.startswith("ATSP"):
+            self.baud = {"6": 500_000, "7": 500_000, "8": 250_000, "9": 250_000}.get(line[4:])
             self.id_chars = 8 if line[4:] in ("7", "9") else 3
             return "OK"
         if line.startswith("ATSH"):

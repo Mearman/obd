@@ -66,7 +66,8 @@ def test_unknown_profile_lists_the_shipped_ones() -> None:
     [
         ("session = 0x03", "session = 0x02", "not a read-only session"),
         ('protocol = "uds"', 'protocol = "j1939"', "kwp2000 or uds"),
-        ("bitrate = 500000", "bitrate = 83333", "no adapter protocol"),
+        ("bitrate = 500000", "bitrate = 0", "bitrate must be positive"),
+        ("id_bits = 11", "id_bits = 12", "id_bits must be 11 or 29"),
         ("request = 0x7E0", 'request = "7E0"', "request must be int"),
         ("response = 0x7E8\n", "", "missing response"),
         ('status = "confirmed"\n', "", "missing status"),
@@ -88,3 +89,8 @@ def test_vag_mqb_profile_addresses() -> None:
     assert pairs["engine"] == (0x7E0, 0x7E8)
     assert pairs["dashboard"] == (0x714, 0x77E)
     assert pairs["hvac"] == (0x746, 0x7B0)
+
+
+def test_a_profile_may_name_a_non_standard_bit_rate() -> None:
+    profile = parse_profile(MINIMAL.replace("bitrate = 500000", "bitrate = 125000"), "test")
+    assert profile.bitrate == 125_000

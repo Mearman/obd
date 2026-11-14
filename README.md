@@ -6,7 +6,7 @@ Read a car's diagnostics through an ELM327-style adapter, with software you can 
 
 ## What it needs
 
-- An adapter that implements the full ELM327 command set, reached over Bluetooth LE, a serial port (USB or classic Bluetooth) or TCP (Wi-Fi adapters). Cheap clones that lack the addressing commands are detected and named on connection. Only standard `AT` commands are used; on connection the tool also reports whether the adapter has the STN `ST` extensions, which nothing depends on yet.
+- An adapter that implements the full ELM327 command set, reached over Bluetooth LE, a serial port (USB or classic Bluetooth) or TCP (Wi-Fi adapters). Cheap clones that lack the addressing commands are detected and named on connection. Standard `AT` commands are used throughout; on connection the tool also reports whether the adapter has the STN `ST` extensions, which it uses only where a plain ELM327 cannot do the job (see [Bit rates](#bit-rates) and [Requests longer than one frame](#requests-longer-than-one-frame)).
 - [uv](https://docs.astral.sh/uv/).
 - For anything beyond the legislated OBD-II reads, a vehicle profile. The profiles shipped are in [`src/obd_read/profiles`](src/obd_read/profiles).
 
@@ -91,6 +91,15 @@ Every request passes through one guard ([`src/obd_read/guard.py`](src/obd_read/g
 
 The clear service (`14`, or OBD-II mode `04`) is sent only by the `clear` and `clear-codes` commands, after the snapshot is on disk. Everything else is refused before sending: actuator and routine control, writes, security access, resets, programming sessions and data transfer.
 
+## Bit rates
+
+250 and 500 kbit/s use the ELM327 protocols 6 to 9. Any other rate, such as 125 kbit/s for the mid-speed bus on pins 3 and 11 of some Ford and Volvo cars, is set by `select_can` in one of two ways, and the adapter's own reply decides whether it worked:
+
+- **STN adapters:** the 500 kbit/s protocol is selected, then `STPBR <rate>` sets the rate and `STPBRR` reads back the rate in use. The manual says `STPBR` rounds to the nearest rate the hardware can generate and clamps without an error, so any difference from the requested rate is refused.
+- **Plain ELM327:** user-defined protocol B, through `ATPC`, `ATPB <options> <divisor>` and `ATSPB`. The divisor is 500 kbit/s divided by the rate, so only rates that divide 500 kbit/s into a whole number from 1 to 64 are reachable (125 kbit/s is divisor 4). Anything else is refused before a byte is sent.
+
+An adapter that rejects the command stops the run with the command named. Sources: the ELM327 datasheet (`AT PB`, `AT PC`, `AT SP`, PP 2B to 2D) and the OBDLink Family Reference and Programming Manual revision F (`STPBR`, `STPBRR`). The commands are tested against the scripted adapter only. Unconfirmed on hardware: whether `STPBR` takes effect before the protocol opens, which rates each STN model accepts, and whether a clone that accepts `ATPB` honours the divisor. The adapter's transceiver also has to be wired to the pins the bus uses: most adapters reach pins 6 and 14 only.
+
 ## Vehicle profiles
 
 A profile is a TOML file with the bus settings, the diagnostic protocol and one table per control unit:
@@ -102,7 +111,7 @@ status = "unconfirmed"       # or "confirmed" once the addresses are proven on a
 
 [bus]
 id_bits = 11                 # 11 or 29
-bitrate = 500000             # 250000 or 500000
+bitrate = 500000             # bit/s; see "Bit rates" for what an adapter can reach
 
 [diagnostics]
 protocol = "kwp2000"         # or "uds"
