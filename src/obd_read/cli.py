@@ -15,6 +15,7 @@ from .diag import NegativeResponse
 from .discovery import discover_command
 from .elm import AdapterInfo, Elm, ElmError, Transcript
 from .guard import GuardError
+from .kline import KLineElm, select_bus
 from .obd_clear import clear_codes_command
 from .offline import OFFLINE_COMMANDS, add_offline_commands, run_offline
 from .operations import (
@@ -27,7 +28,15 @@ from .operations import (
     scan,
     unit_session,
 )
-from .profile import Profile, ProfileError, builtin_profiles, load_profile
+from .profile import (
+    DEFAULT_TESTER,
+    KLINE_SCHEMES,
+    KLineBus,
+    Profile,
+    ProfileError,
+    builtin_profiles,
+    load_profile,
+)
 from .profile_check import profile_check_command
 from .simulator import simulate_command
 from .transport import Transport, TransportError, open_transport
@@ -38,13 +47,16 @@ TransportFactory = Callable[[str], Transport]
 
 @asynccontextmanager
 async def connected(
-    url: str, log: Path | None, factory: TransportFactory
+    url: str, log: Path | None, factory: TransportFactory, kline: bool = False
 ) -> AsyncIterator[tuple[Elm, AdapterInfo]]:
-    """Open the adapter, initialise it, and close the link on the way out."""
+    """Open the adapter, initialise it, and close the link on the way out.
+
+    `kline` selects the session class that reads K-line replies rather than CAN frames.
+    """
     transport = factory(url)
     await transport.open()
     try:
-        elm = Elm(transport, Transcript(log))
+        elm = (KLineElm if kline else Elm)(transport, Transcript(log))
         yield elm, await elm.initialise()
     finally:
         await transport.close()
@@ -123,6 +135,11 @@ def build_parser() -> argparse.ArgumentParser:
     obd_command = car_command("obd", "legislated OBD-II reads; needs no profile", profile=False)
     obd_command.add_argument("--id-bits", type=int, choices=(11, 29), default=11)
     obd_command.add_argument("--bitrate", type=int, default=500000, help="CAN bit rate in bit/s")
+    obd_command.add_argument(
+        "--kline",
+        choices=tuple(KLINE_SCHEMES),
+        help="read over K-line with this initialisation instead of CAN",
+    )
 
     discover = car_command(
         "discover",
@@ -184,8 +201,12 @@ async def list_adapters(args: argparse.Namespace, out: Printer) -> int:
 
 
 async def obd_command(elm: Elm, args: argparse.Namespace, out: Printer) -> int:
-    await elm.select_can(args.id_bits, args.bitrate)
-    await elm.address_functional(obd.FUNCTIONAL_ID[args.id_bits])
+    if isinstance(elm, KLineElm):
+        await elm.select_kline(KLineBus(args.kline, DEFAULT_TESTER, KLINE_SCHEMES[args.kline][1]))
+        await elm.address_functional(0)
+    else:
+        await elm.select_can(args.id_bits, args.bitrate)
+        await elm.address_functional(obd.FUNCTIONAL_ID[args.id_bits])
     out(f"VIN: {await obd.vin(elm) or 'not reported'}")
     states = await obd.readiness(elm)
     if not states:
@@ -241,7 +262,7 @@ async def profile_command(
     out: Printer,
     ask: Callable[[str], str],
 ) -> int:
-    await elm.select_can(profile.id_bits, profile.bitrate)
+    await select_bus(elm, profile)
     if profile.status != "confirmed":
         out(f"profile {profile.name}: address table is {profile.status}")
 
@@ -325,7 +346,10 @@ async def run(
             if args.command in ("obd", "discover", "clear-codes")
             else load_profile(args.profile)
         )
-        async with connected(args.adapter, args.log, factory) as (elm, adapter):
+        kline = (args.command == "obd" and bool(args.kline)) or (
+            profile is not None and isinstance(profile.bus, KLineBus)
+        )
+        async with connected(args.adapter, args.log, factory, kline) as (elm, adapter):
             out(f"adapter: {adapter.identity}, battery {adapter.voltage or 'not reported'}")
             out(f"STN extensions: {adapter.stn_identity or 'none (plain ELM327 command set)'}")
             if profile is None and args.command == "discover":

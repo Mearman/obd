@@ -43,7 +43,7 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `faults <unit>` | One unit's stored fault codes and status bytes. |
 | `freeze <unit>` | The freeze frame stored with each fault code. |
 | `scan` | Identification and fault codes from every unit. `--output <path>` writes `<path>.json` and `<path>.md`; `--freeze` adds freeze frames. |
-| `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, a few live values. |
+| `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, a few live values. `--kline <scheme>` reads over K-line instead of CAN. |
 | `clear-codes --save <file>` | Erases the codes of every emissions unit, with no profile. See below. |
 | `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
 | `discover --protocol <kwp2000\|uds>` | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Only the guarded default-session request is sent, but every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
@@ -176,6 +176,33 @@ source = "where this address pair comes from"
 
 Pass a shipped profile by name or your own by path: `--profile ./my-car.toml`. Every unit needs a `source`, so an address can be traced to where it was found. Run `obd-read profile check ./my-car.toml` before first use: beyond what loading rejects it reports unknown keys, identifiers too wide for the bus, a request and response that are the same, an identifier shared by two units and blank sources.
 
+### K-line profiles
+
+A car whose units answer only on K-line (ISO 9141-2 or KWP2000 over K-line, pin 7 of the diagnostic socket) names the initialisation scheme instead of CAN settings:
+
+```toml
+[bus]
+kline = "kwp2000-slow"       # iso9141 (ELM327 protocol 3), kwp2000-slow (4) or kwp2000-fast (5)
+tester = 0xF1                # optional: the tester's address byte
+header_format = 0xC0         # optional: the first header byte, 0x68 for iso9141, 0xC0 for kwp2000
+
+[diagnostics]
+protocol = "kwp2000"         # a K-line bus carries kwp2000 only
+session = 0x81
+
+[units.engine]
+description = "Engine control unit"
+request = 0x01               # the unit's K-line address, also the five-baud initialisation address
+response = 0x01              # the address its replies come from
+source = "where this address comes from"
+```
+
+The adapter initialises the bus for one unit at a time: `ATIIA` sets the five-baud address for the slow schemes, `ATSH` the header, and `ATSI` or `ATFI` starts the initialisation before the first request to that unit. A unit that does not answer the initialisation is reported as silent. Every reply carries a checksum that the tool verifies, so a reply it cannot verify is an error and never data.
+
+Unconfirmed, because the sources in the [vehicle notes](docs/vehicles/generic-standards.md) do not settle them: whether the adapter prints the checksum byte with headers on (a reply it cannot verify is refused rather than guessed at), what it does with the length bits of an ISO 14230 format byte (`header_format` overrides the default), and the idle message the adapter sends to keep the bus open, which is its default `68 6A F1 01 00` and is a legislated read. The ISO 9141-2 and ISO 14230-2 wire timing is the adapter's, not the tool's. Units on a second K-line, or on pins other than 7 and 15, cannot be reached by an adapter that drives pin 7 only. Adapters with the STN extensions have further ISO commands (custom fast initialisation, initialisation address parity, inter-byte timing) that the tool does not yet use.
+
+`obd --kline iso9141|kwp2000-slow|kwp2000-fast` reads the legislated OBD-II values over K-line with no profile.
+
 The shipped profiles are `mercedes-w211` and `vag-mqb`, both marked unconfirmed. The W211 table comes from an open-source project for a different variant of the chassis, and the MQB table from a community wiki's captures of MQB cars. `probe` is how a profile is confirmed on a given car. A profile is added only where a readable source states its addresses; for a car with none, `discover` finds them.
 
 The [vehicle communication notes](docs/vehicles/README.md) record how to talk to other makes, with sources, for writing a new profile.
@@ -185,7 +212,7 @@ The [vehicle communication notes](docs/vehicles/README.md) record how to talk to
 | Layer | Code | Job |
 |---|---|---|
 | Link | `transport/` | Bytes to and from the adapter: Bluetooth LE, serial, TCP. |
-| Adapter | `elm.py` | The ELM327 session: set-up, addressing, one request and its reassembled replies. |
+| Adapter | `elm.py`, `kline.py` | The ELM327 session: set-up, addressing, one request and its reassembled replies. `kline.py` is the same session on a K-line bus. |
 | Guard | `guard.py` | Passes or refuses each request. |
 | Protocol | `kwp2000.py`, `uds.py`, `obd.py` | Builds requests and decodes replies. |
 | Vehicle | `profile.py`, `profiles/` | What to address on a given chassis. |
