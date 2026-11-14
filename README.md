@@ -51,6 +51,7 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `clear-codes --save <file>` | Erases the codes of every emissions unit, with no profile. See below. |
 | `live [<unit>]` | Named live values, once or repeatedly. With no unit it reads the legislated values the car supports (`--list` shows their names); with a unit and `--profile` it reads the named values the profile defines for that unit. `--values a,b` picks some, `--count` and `--interval` repeat the read, `--csv <file>` logs each sample to a new file (an existing file is never overwritten). |
 | `battery` | Logs the adapter's own voltage reading at a fixed interval (`--interval`, `--duration`), printing each sample and a summary, and writing a new CSV with `--csv <file>`. Run it before turning the key to record the dip while cranking and the charging voltage afterwards. It reads `ATRV`, or `STVR` (with `--precision` decimals) on an adapter that has the STN extensions, and needs no profile and no car bus. |
+| `mqtt` | Publishes what `live` reads, and the adapter voltage, to an MQTT broker every `--interval` seconds, with Home Assistant discovery. Needs the `mqtt` extra. See [Home Assistant and MQTT](#home-assistant-and-mqtt). |
 | `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
 | `discover --protocol <kwp2000\|uds>` | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Only the guarded default-session request is sent, but every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
 | `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code and holds one invented writable record (KWP2000 local identifier `99`, UDS data identifier `0199`, value `0001`), and each connection starts a fresh car, so `clear`, `write`, `restore` and `actuate` can be tried safely. It connects to nothing. |
@@ -64,7 +65,7 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `restore <unit> --snapshot <file> --save <file>` | Writes back the value a `write` saved. |
 | `actuate <unit> --request <hex> --stop <hex> --seconds <n>` | Drives one actuator with a request you supply, then always sends your stop request. |
 
-Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover`, `clear-codes` and `battery` take `--profile`; for `live` it is optional.
+Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover`, `clear-codes` and `battery` take `--profile`; for `live` and `mqtt` it is optional.
 
 The `obd` command asks a car only for what it says it supports: the supported-identifier bitmaps (mode 01 identifiers 00, 20, 40 and onwards, mode 06 and mode 09) decide which values are requested. The decoding follows SAE J1979. Mode 06 test meanings other than the misfire counters differ per maker, so those results are printed with their raw value, limits and scaling identifier and marked as unconfirmed.
 
@@ -181,6 +182,28 @@ A token is issued only by the guard, only to the command that ran the safeguards
 Write and actuation tokens pass one request each, once, and cannot pass any other request or service; the `request` command and every read command carry no token, so they cannot send `14`, `2E`, `2F`, `30`, `3B` or mode `04`. Everything else is refused before sending, with or without a token: security access (`27`), resets (`11`), routine control (`31`), communication control (`28`), DTC setting control (`85`), programming and other sessions, data transfer (`34` to `37`) and every service not in the table. There is no setting that turns the guard off.
 
 The request layouts the guard checks come from the ISO/DIS 14230-3 draft of 16 December 1996 for KWP2000 (tables 6.4.2.1, 7.1.2.1, 7.5.2.1 and 9.1.2.1, [as mirrored in the sv650sds wiki](https://raw.githubusercontent.com/wiki/synfinatic/sv650sds/pdfs/14230-3.pdf)) and [python-udsoncan's service implementations](https://github.com/pylessard/python-udsoncan/tree/master/udsoncan/services) for UDS. A unit may refuse a write or actuator test in the session the profile opens; the guard does not open other sessions to get round that.
+
+## Home Assistant and MQTT
+
+`mqtt` reads the same values as `live` (the legislated ones, or a unit's profile values with `<unit> --profile`, narrowed with `--values`) and publishes each one to an MQTT broker every `--interval` seconds, together with the adapter's own voltage reading unless `--no-voltage` is given. It sends no request that `live` does not, and every request still passes the guard. The broker client is the optional `mqtt` extra ([aiomqtt](https://github.com/empicano/aiomqtt), BSD-3-Clause, on [paho-mqtt](https://github.com/eclipse-paho/paho.mqtt.python), EPL-2.0 or BSD-3-Clause), so the base install does not carry it:
+
+```sh
+uv sync --extra mqtt
+OBD_READ_MQTT_USER=car OBD_READ_MQTT_PASSWORD=... \
+  uv run obd-read mqtt --adapter ble://vLinker --broker-host homeassistant.local --interval 10
+```
+
+| Option | Meaning |
+|---|---|
+| `--broker-host`, `--broker-port` | The broker, port 1883 unless given. `--tls` connects over TLS with the system certificate authorities. |
+| `--topic-prefix` | Prefix of the state topics, `obd-read` by default. Each value goes to `<prefix>/<device>/<value>`, not retained. |
+| `--discovery-prefix` | Home Assistant's MQTT discovery prefix, `homeassistant` by default. |
+| `--device-id` | The Home Assistant device and topic identifier. By default it is derived from `--adapter`, so one adapter is one device across restarts. |
+| `--count` | Samples to publish; the default 0 keeps going until interrupted. |
+
+The broker user name and password are read only from the environment variables `OBD_READ_MQTT_USER` and `OBD_READ_MQTT_PASSWORD`. No option accepts them, so they never reach a shell history or process list, and the command never prints, logs or publishes them. A password without a user name is refused.
+
+Before the first sample the command publishes one retained discovery message per value under `<discovery prefix>/sensor/<unique id>/config`, carrying the unit of measurement, a device class where Home Assistant lists the unit for one (`°C`, `V`, `kPa` and `km/h`), a `measurement` state class for values with a unit, an `expire_after` of three intervals and the shared device. It then publishes `online` to the retained `<prefix>/<device>/availability` topic. The broker is given `offline` for that topic as its last will, so a connection lost without a clean disconnect leaves every sensor unavailable, and a normal stop publishes `offline` itself. A value that could not be read in a sample is not published, and its sensor expires.
 
 ## Bit rates
 
@@ -308,12 +331,13 @@ The [vehicle communication notes](docs/vehicles/README.md) record how to talk to
 | Guard | `guard.py` | Passes or refuses each request, and issues the tokens for clears, writes and actuator tests. |
 | Protocol | `kwp2000.py`, `uds.py`, `obd.py` | Builds requests and decodes replies. |
 | Vehicle | `profile.py`, `profiles/` | What to address on a given chassis. |
-| Commands | `operations.py`, `obd_clear.py`, `writes.py`, `actuate.py`, `monitor.py`, `cli.py` | Reading a unit, scanning, saving, clearing, writing, restoring, actuator tests, logging the bus. |
+| Commands | `operations.py`, `obd_clear.py`, `writes.py`, `actuate.py`, `monitor.py`, `live.py`, `battery.py`, `mqtt.py`, `cli.py` | Reading a unit, scanning, saving, clearing, writing, restoring, actuator tests, logging the bus, live values, the voltage, publishing to a broker. |
 | Saved files | `offline.py`, `scancompare.py`, `codenames.py`, `definitions.py` | Comparing scans and naming codes, with no adapter involved. |
 
 ## Development
 
 ```sh
+uv sync --all-extras
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
@@ -324,7 +348,7 @@ The tests run against the scripted adapter and car in [`src/obd_read/simulator.p
 
 ## What has and has not been tested
 
-Everything above the link is tested against the scripted adapter. The Bluetooth LE and serial links, real adapter firmware and real control units are exercised only when someone runs the tool at a car. The reply format of `STVR` is taken from the STN command set as the project issue describes it and has not been checked against an adapter, so `battery` fails with the reply it could not read when the format differs. Bluetooth LE adapters do not share one layout: the tool picks the first service that has both a notifying and a writable characteristic, and `?service=`, `?notify=` and `?write=` on the URL override that choice.
+Everything above the link is tested against the scripted adapter, and the `mqtt` command against a recording stand-in for the broker connection, so the aiomqtt connection and a real Home Assistant have not been exercised. The Bluetooth LE and serial links, real adapter firmware and real control units are exercised only when someone runs the tool at a car. The reply format of `STVR` is taken from the STN command set as the project issue describes it and has not been checked against an adapter, so `battery` fails with the reply it could not read when the format differs. Bluetooth LE adapters do not share one layout: the tool picks the first service that has both a notifying and a writable characteristic, and `?service=`, `?notify=` and `?write=` on the URL override that choice.
 
 ## Licence
 

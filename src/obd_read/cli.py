@@ -20,6 +20,8 @@ from .elm import MAX_SINGLE_FRAME, AdapterInfo, Elm, ElmError, Transcript
 from .guard import GuardError
 from .kline import KLineElm, select_bus
 from .live import add_source_options, live_command
+from .mqtt import Connect, connect_aiomqtt, mqtt_command
+from .mqtt import add_arguments as add_mqtt_arguments
 from .obd_clear import clear_codes_command
 from .offline import OFFLINE_COMMANDS, add_offline_commands, run_offline
 from .operations import (
@@ -174,6 +176,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--precision", type=int, help="decimals to ask for from an adapter that has STVR"
     )
     battery.add_argument("--csv", type=Path, help="write each sample to this new CSV file")
+
+    add_mqtt_arguments(
+        car_command(
+            "mqtt",
+            "publish live values and the adapter voltage to an MQTT broker, for Home Assistant",
+            profile=False,
+        )
+    )
 
     discover = car_command(
         "discover",
@@ -368,6 +378,7 @@ async def run(
     out: Printer = print,
     ask: Callable[[str], str] = input,
     factory: TransportFactory = open_transport,
+    broker: Connect = connect_aiomqtt,
 ) -> int:
     """Run one command and return its exit status."""
     args = build_parser().parse_args(argv)
@@ -382,7 +393,7 @@ async def run(
             return profile_check_command(args, out)
         if args.command in OFFLINE_COMMANDS:
             return run_offline(args, out)
-        if args.command == "live":
+        if args.command in ("live", "mqtt"):
             profile = load_profile(args.profile) if args.profile else None
         elif args.command in ("obd", "discover", "clear-codes", "battery"):
             profile = None
@@ -396,6 +407,8 @@ async def run(
             out(f"STN extensions: {adapter.stn_identity or 'none (plain ELM327 command set)'}")
             if args.command == "live":
                 return await live_command(elm, profile, args, out)
+            if args.command == "mqtt":
+                return await mqtt_command(elm, adapter, profile, args, out, broker)
             if args.command == "battery":
                 return await battery_command(elm, adapter, args, out)
             if profile is None and args.command == "discover":
