@@ -12,16 +12,29 @@ from .guard import DiagProtocol, permit
 FUNCTIONAL_ID: dict[int, int] = {11: 0x7DF, 29: 0x18DB33F1}
 
 CURRENT_DATA = 0x01
+FREEZE_FRAME = 0x02
 STORED_CODES = 0x03
 PENDING_CODES = 0x07
+MONITORING_RESULTS = 0x06
 VEHICLE_INFORMATION = 0x09
 PERMANENT_CODES = 0x0A
 
 PID_MONITOR_STATUS = 0x01
+PID_FREEZE_FRAME_CODE = 0x02
+FRAME_NUMBER = 0x00
 INFO_VIN = 0x02
 
 POSITIVE_OFFSET = 0x40
 NEGATIVE_RESPONSE = 0x7F
+
+# Mode 06 misfire monitors: the first is for the engine as a whole, the next ones are per cylinder in monitor order.
+MISFIRE_GENERAL = 0xA1
+MISFIRE_FIRST_CYLINDER = 0xA2
+MISFIRE_LAST_CYLINDER = 0xAD
+# Misfire test identifiers. Their meaning here is GM's published data definition and a Saab service table, not a legislated one, so a caller shows them as unconfirmed for a given maker.
+TID_MISFIRE_AVERAGE = 0x0B  # average over the last ten driving cycles
+TID_MISFIRE_LATEST = 0x0C  # count for the last or current driving cycle
+MONITOR_ENTRY_LENGTH = 9  # monitor, test, unit and scaling, value, minimum, maximum
 
 CODE_LETTERS = "PCBU"
 
@@ -121,3 +134,68 @@ async def live(elm: Elm) -> dict[str, str]:
                 values[value.label] = f"{value.decode(message[2:]):g} {value.unit}"
                 break
     return values
+
+
+@dataclass(frozen=True)
+class FreezeFrame:
+    """The fault code a unit froze its data for, and the live values stored with it."""
+
+    code: str | None
+    values: dict[str, str]
+
+
+async def freeze_frame(elm: Elm) -> dict[int, FreezeFrame]:
+    """Read the freeze frame each unit stored with its first fault code.
+
+    A unit with no freeze frame, or one that does not answer, is left out.
+    """
+    frames: dict[int, FreezeFrame] = {}
+    request = bytes([FREEZE_FRAME, PID_FREEZE_FRAME_CODE, FRAME_NUMBER])
+    for sender, message in (await _read(elm, request)).items():
+        if len(message) < 5:
+            continue
+        pair = message[3:5]
+        code = None if pair == b"\x00\x00" else decode_code(pair)
+        frames[sender] = FreezeFrame(code, {})
+    for pid, value in LIVE_VALUES.items():
+        answers = await _read(elm, bytes([FREEZE_FRAME, pid, FRAME_NUMBER]))
+        for sender, message in answers.items():
+            data = message[3:]
+            if sender in frames and len(data) >= value.size:
+                frames[sender].values[value.label] = f"{value.decode(data):g} {value.unit}"
+    return frames
+
+
+@dataclass(frozen=True)
+class MisfireCounts:
+    """One misfire monitor's counts, keyed by test identifier."""
+
+    monitor: int
+    average_last_ten_cycles: int | None
+    last_cycle: int | None
+
+
+def _monitor_counts(monitor: int, message: bytes) -> MisfireCounts:
+    """Pick the average and latest counts out of one monitor's reply, ignoring other tests."""
+    counts: dict[int, int] = {}
+    body = message[1:]
+    for start in range(0, len(body) - MONITOR_ENTRY_LENGTH + 1, MONITOR_ENTRY_LENGTH):
+        entry = body[start : start + MONITOR_ENTRY_LENGTH]
+        if entry[0] == monitor:
+            counts[entry[1]] = entry[3] * 256 + entry[4]
+    return MisfireCounts(monitor, counts.get(TID_MISFIRE_AVERAGE), counts.get(TID_MISFIRE_LATEST))
+
+
+async def misfire_counts(elm: Elm) -> dict[int, list[MisfireCounts]]:
+    """Read the misfire monitors from every unit: the whole engine first, then each cylinder.
+
+    Cylinder monitors are read until the first one a unit does not report.
+    """
+    result: dict[int, list[MisfireCounts]] = {}
+    for monitor in range(MISFIRE_GENERAL, MISFIRE_LAST_CYLINDER + 1):
+        answers = await _read(elm, bytes([MONITORING_RESULTS, monitor]))
+        if not answers and monitor != MISFIRE_GENERAL:
+            break
+        for sender, message in answers.items():
+            result.setdefault(sender, []).append(_monitor_counts(monitor, message))
+    return result

@@ -178,6 +178,34 @@ async def test_obd_command_needs_no_profile() -> None:
     assert "04" not in car.core.requests
 
 
+async def test_obd_command_reads_freeze_frame_and_misfire_counts() -> None:
+    car = Car()
+    car.core.responders[0x7DF] = lambda r: {
+        "020200": [(0x7E8, bytes.fromhex("4202000302"))],
+        "020500": [(0x7E8, bytes.fromhex("42050072"))],
+        "020C00": [(0x7E8, bytes.fromhex("420c002c00"))],
+        "06A1": [(0x7E8, bytes.fromhex("46a10c2400040000ffff"))],
+        "06A2": [(0x7E8, bytes.fromhex("46a20b2400000000ffffa20c2400010000ffff"))],
+        "06A3": [(0x7E8, bytes.fromhex("46a30b2400540000ffffa30c2400030000ffff"))],
+    }.get(r.hex().upper(), [])
+    assert await car.run("obd", "--adapter", "tcp://fake:1") == 0
+    assert "freeze frame from 7E8: P0302" in car.output
+    assert "coolant temperature: 74 \N{DEGREE SIGN}C" in car.output
+    assert "engine speed: 2816 rpm" in car.output
+    assert "engine: last cycle 4, average of last ten cycles not reported" in car.output
+    assert "cylinder 1: last cycle 1, average of last ten cycles 0" in car.output
+    assert "cylinder 2: last cycle 3, average of last ten cycles 84" in car.output
+    assert "cylinder 3" not in car.output
+
+
+async def test_obd_command_with_no_freeze_frame_or_monitors_prints_neither() -> None:
+    car = Car()
+    car.core.responders[0x7DF] = lambda r: []
+    assert await car.run("obd", "--adapter", "tcp://fake:1") == 0
+    assert "freeze frame" not in car.output
+    assert "misfire counts" not in car.output
+
+
 async def test_transcript_is_logged_to_a_file(tmp_path: Path) -> None:
     car = Car()
     log = tmp_path / "run.log"

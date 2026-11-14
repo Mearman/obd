@@ -164,6 +164,28 @@ async def obd_command(elm: Elm, args: argparse.Namespace, out: Printer) -> int:
             out(f"{label} codes from {sender:X}: {', '.join(codes) or 'none'}")
     for name, value in (await obd.live(elm)).items():
         out(f"{name}: {value}")
+    for sender, frame in (await obd.freeze_frame(elm)).items():
+        out(f"freeze frame from {sender:X}: {frame.code or 'no code'}")
+        for name, value in frame.values.items():
+            out(f"  {name}: {value}")
+    for sender, monitors in (await obd.misfire_counts(elm)).items():
+        out(
+            f"misfire counts from {sender:X} "
+            "(cylinder order follows the monitor order and is unconfirmed):"
+        )
+        for counts in monitors:
+            where = (
+                "engine"
+                if counts.monitor == obd.MISFIRE_GENERAL
+                else (f"cylinder {counts.monitor - obd.MISFIRE_FIRST_CYLINDER + 1}")
+            )
+            average = (
+                "not reported"
+                if counts.average_last_ten_cycles is None
+                else counts.average_last_ten_cycles
+            )
+            latest = "not reported" if counts.last_cycle is None else counts.last_cycle
+            out(f"  {where}: last cycle {latest}, average of last ten cycles {average}")
     return 0
 
 
