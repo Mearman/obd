@@ -159,6 +159,37 @@ def split_names(text: str | None) -> list[str]:
     return [name.strip() for name in text.split(",") if name.strip()] if text else []
 
 
+def add_source_options(sub: argparse.ArgumentParser) -> None:
+    """Add the options that choose what a live-style command reads."""
+    sub.add_argument(
+        "unit", nargs="?", help="a unit in --profile; omit to read the legislated OBD-II values"
+    )
+    sub.add_argument("--profile", help="profile name or path; needed to name a unit")
+    sub.add_argument("--values", help="comma-separated value names; default is every value")
+    sub.add_argument("--id-bits", type=int, choices=(11, 29), default=11)
+    sub.add_argument("--bitrate", type=int, choices=(250000, 500000), default=500000)
+
+
+async def build_source(
+    elm: Elm, profile: Profile | None, args: argparse.Namespace, out: Printer
+) -> Source:
+    """Select the bus and build the source a unit's profile values or the legislated values name.
+
+    Raises ValueError for a bad value name and ProfileError when a unit is named without a profile.
+    """
+    wanted = split_names(args.values)
+    if args.unit is None:
+        await elm.select_can(args.id_bits, args.bitrate)
+        await elm.address_functional(FUNCTIONAL_ID[args.id_bits])
+        return await legislated_source(elm, wanted)
+    if profile is None:
+        raise ProfileError("naming a unit needs --profile")
+    await elm.select_can(profile.id_bits, profile.bitrate)
+    if profile.status != "confirmed":
+        out(f"profile {profile.name}: address table is {profile.status}")
+    return await unit_source(elm, profile, profile.unit(args.unit), wanted)
+
+
 async def live_command(
     elm: Elm, profile: Profile | None, args: argparse.Namespace, out: Printer
 ) -> int:
@@ -170,18 +201,7 @@ async def live_command(
         raise ValueError("--count must be at least 1")
     if args.interval < 0:
         raise ValueError("--interval must not be negative")
-    wanted = split_names(args.values)
-    if args.unit is None:
-        await elm.select_can(args.id_bits, args.bitrate)
-        await elm.address_functional(FUNCTIONAL_ID[args.id_bits])
-        source = await legislated_source(elm, wanted)
-    else:
-        if profile is None:
-            raise ProfileError("naming a unit needs --profile")
-        await elm.select_can(profile.id_bits, profile.bitrate)
-        if profile.status != "confirmed":
-            out(f"profile {profile.name}: address table is {profile.status}")
-        source = await unit_source(elm, profile, profile.unit(args.unit), wanted)
+    source = await build_source(elm, profile, args, out)
     if args.list:
         out(f"available values: {', '.join(source.available)}")
         return 0

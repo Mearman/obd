@@ -19,7 +19,7 @@ from .discovery import discover_command
 from .elm import MAX_SINGLE_FRAME, AdapterInfo, Elm, ElmError, Transcript
 from .guard import GuardError
 from .kline import KLineElm, select_bus
-from .live import live_command
+from .live import add_source_options, live_command
 from .obd_clear import clear_codes_command
 from .offline import OFFLINE_COMMANDS, add_offline_commands, run_offline
 from .operations import (
@@ -157,17 +157,11 @@ def build_parser() -> argparse.ArgumentParser:
         "read named live values once or repeatedly, optionally logging to CSV",
         profile=False,
     )
-    live.add_argument(
-        "unit", nargs="?", help="a unit in --profile; omit to read the legislated OBD-II values"
-    )
-    live.add_argument("--profile", help="profile name or path; needed to name a unit")
-    live.add_argument("--values", help="comma-separated value names; default is every value")
+    add_source_options(live)
     live.add_argument("--list", action="store_true", help="list the value names and stop")
     live.add_argument("--count", type=int, default=1, help="how many samples to take")
     live.add_argument("--interval", type=float, default=1.0, help="seconds between samples")
     live.add_argument("--csv", type=Path, help="write each sample to this new CSV file")
-    live.add_argument("--id-bits", type=int, choices=(11, 29), default=11)
-    live.add_argument("--bitrate", type=int, choices=(250000, 500000), default=500000)
 
     battery = car_command(
         "battery",
