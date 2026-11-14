@@ -45,11 +45,12 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `scan` | Identification and fault codes from every unit. `--output <path>` writes `<path>.json` and `<path>.md`; `--freeze` adds freeze frames. |
 | `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, a few live values. |
 | `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
+| `discover --protocol <kwp2000\|uds>` | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Only the guarded default-session request is sent, but every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
 | `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code, and each connection starts a fresh car, so `clear` can be tried safely. It connects to nothing. |
 | `profile check <profile>...` | Validates profile files (or shipped names) without connecting to anything; exits 1 on any problem. |
 | `clear <unit> --save <file>` | Erases one unit's stored fault codes. See below. |
 
-Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd` take `--profile`.
+Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd` and `discover` take `--profile`.
 
 Fault codes are printed as the unit reports them: hexadecimal code bytes and a status byte. The tool carries no fault-code descriptions.
 

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from . import obd
 from .diag import NegativeResponse
+from .discovery import discover_command
 from .elm import AdapterInfo, Elm, ElmError, Transcript
 from .guard import GuardError
 from .operations import (
@@ -120,6 +121,19 @@ def build_parser() -> argparse.ArgumentParser:
     obd_command = car_command("obd", "legislated OBD-II reads; needs no profile", profile=False)
     obd_command.add_argument("--id-bits", type=int, choices=(11, 29), default=11)
     obd_command.add_argument("--bitrate", type=int, choices=(250000, 500000), default=500000)
+
+    discover = car_command(
+        "discover",
+        "sweep CAN request identifiers for units that answer a session request",
+        profile=False,
+    )
+    discover.add_argument("--protocol", choices=("kwp2000", "uds"), required=True)
+    discover.add_argument("--session", type=lambda text: int(text, 0), help="default per protocol")
+    discover.add_argument("--bitrate", type=int, choices=(250000, 500000), default=500000)
+    discover.add_argument("--first", type=lambda text: int(text, 0), default=0x700)
+    discover.add_argument("--last", type=lambda text: int(text, 0), default=0x7FF)
+    discover.add_argument("--output", type=Path, help="write a draft profile to this new file")
+    discover.add_argument("--name", default="discovered", help="name for the draft profile")
 
     request = car_command("request", "send one read-only request, given as hexadecimal bytes")
     request.add_argument("unit")
@@ -292,10 +306,12 @@ async def run(
             return await simulate_command(args, out)
         if args.command == "profile":
             return profile_check_command(args, out)
-        profile = None if args.command == "obd" else load_profile(args.profile)
+        profile = None if args.command in ("obd", "discover") else load_profile(args.profile)
         async with connected(args.adapter, args.log, factory) as (elm, adapter):
             out(f"adapter: {adapter.identity}, battery {adapter.voltage or 'not reported'}")
             out(f"STN extensions: {adapter.stn_identity or 'none (plain ELM327 command set)'}")
+            if profile is None and args.command == "discover":
+                return await discover_command(elm, args, out)
             if profile is None:
                 return await obd_command(elm, args, out)
             return await profile_command(elm, adapter, profile, args, out, ask)
