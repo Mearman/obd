@@ -2,7 +2,7 @@
 
 Read a car's diagnostics through an ELM327-style adapter, with software you can read and change.
 
-`obd-read` talks to the control units behind the diagnostic socket: it reads their identification, stored fault codes and freeze frames. It can also clear a unit's fault codes, after saving what it is about to erase. It has no actuator tests, coding, writes or flashing, and no setting that adds them.
+`obd-read` talks to the control units behind the diagnostic socket: it reads their identification, stored fault codes and freeze frames. It can also clear a unit's fault codes, after saving what it is about to erase, and send a coding or adaptation write or an actuator test that you supply byte for byte, under the safeguards in [Writes and actuator tests](#writes-and-actuator-tests). It has no security access, flashing or programming, and no setting that adds them.
 
 ## What it needs
 
@@ -53,13 +53,16 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `battery` | Logs the adapter's own voltage reading at a fixed interval (`--interval`, `--duration`), printing each sample and a summary, and writing a new CSV with `--csv <file>`. Run it before turning the key to record the dip while cranking and the charging voltage afterwards. It reads `ATRV`, or `STVR` (with `--precision` decimals) on an adapter that has the STN extensions, and needs no profile and no car bus. |
 | `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
 | `discover --protocol <kwp2000\|uds>` | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Only the guarded default-session request is sent, but every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
-| `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code, and each connection starts a fresh car, so `clear` can be tried safely. It connects to nothing. |
+| `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code and holds one invented writable record (KWP2000 local identifier `99`, UDS data identifier `0199`, value `0001`), and each connection starts a fresh car, so `clear`, `write`, `restore` and `actuate` can be tried safely. It connects to nothing. |
 | `profile check <profile>...` | Validates profile files (or shipped names) without connecting to anything; exits 1 on any problem. |
 | `monitor` | Logs CAN traffic without transmitting. See [Bus monitor](#bus-monitor). |
 | `clear <unit> --save <file>` | Erases one unit's stored fault codes. See below. |
 | `compare <first> <second>` | Two saved scans side by side. Needs no adapter. See below. |
 | `describe <scan or code>...` | Names for fault codes. Needs no adapter. See below. |
 | `import-names <file> --unit <name> --output <file>` | Code and request names from a definition file you supply. Needs no adapter. See below. |
+| `write <unit> --request <hex> --read <hex> --save <file>` | Writes one coding or adaptation value you supply, after saving the value it replaces. See [Writes and actuator tests](#writes-and-actuator-tests). |
+| `restore <unit> --snapshot <file> --save <file>` | Writes back the value a `write` saved. |
+| `actuate <unit> --request <hex> --stop <hex> --seconds <n>` | Drives one actuator with a request you supply, then always sends your stop request. |
 
 Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover`, `clear-codes` and `battery` take `--profile`; for `live` it is optional.
 
@@ -134,17 +137,50 @@ A unit that refuses its freeze frames is recorded as such and can still be clear
 
 It takes `--id-bits` and `--bitrate` like `obd`.
 
+## Writes and actuator tests
+
+No vendor requests ship with the tool. No readable source documents the Mercedes coding, adaptation or actuator requests for the cars this was built for, so the tool carries none and invents none: you supply the exact request bytes, from your own documentation, and the tool checks their structure, not their meaning. A wrong request can disable a control unit or move a part on the car.
+
+### Coding and adaptation writes
+
+`write` sends one write by identifier (KWP2000 `3B`, UDS `2E`). `--read` is the request that reads the same identifier (KWP2000 `21` or UDS `22`, then the identifier and nothing else); a read that names another identifier is refused before anything is sent. The order is fixed and stops at the first step that fails:
+
+1. Opens the profile's session and reads the current value with `--read`. If that read fails, nothing is written.
+2. Writes the unit, its address pair, the protocol, both requests, the current value, a timestamp and the full adapter transcript to the `--save` file. The file must not already exist.
+3. Prints the unit, the exact write request, the new value and the current value, and asks you to type `yes`. There is no flag that skips the question.
+4. Sends the write once, which the guard passes only with a write token for that exact request and that saved file.
+5. Reads the value again and says whether it now matches the request. A value that does not match exits 1 and names the snapshot to restore from.
+
+`restore` writes back the value a `write` snapshot saved, to the same identifier. It is a write of its own, under the same steps: it reads the value it replaces, saves its own `--save` snapshot, asks for `yes` and reads back. It refuses a file that is not a write snapshot, or one taken from another unit, address pair or protocol.
+
+### Actuator tests
+
+`actuate` sends one input or output control request (KWP2000 `30`, UDS `2F`) and, afterwards, the stop request you give with `--stop`, which must be the same service and name the same identifier; for UDS that is normally control parameter `00`, return control to the unit. `--seconds` is capped by `ACTUATION_MAX_SECONDS` in [`guard.py`](src/obd_read/guard.py): an output held longer than its normal duty can overheat or sit at its end stop, so a longer test is run again. Nothing is sent when the requests or the duration are out of bounds.
+
+1. Opens the profile's session and prints the unit and both requests, then asks you to type `yes`. There is no flag that skips the question.
+2. Sends the start request and prints the reply.
+3. Holds for `--seconds`, sending tester present every `TESTER_PRESENT_SECONDS` ([`actuate.py`](src/obd_read/actuate.py)) so the unit stays in the session the test runs in.
+4. Sends the stop request and prints the reply. This step runs whatever happened before it: a refused or silent start, an error mid-test, a timeout or Ctrl-C. Press Ctrl-C once; a second press can stop Python before the stop request is out. If the stop request itself fails, the error says so, and switching the ignition off ends the test.
+
 ## What it will not send
 
 Every request passes through one guard ([`src/obd_read/guard.py`](src/obd_read/guard.py)) before it reaches the adapter.
 
-| Protocol | Services allowed |
-|---|---|
-| KWP2000 | `10` (default and standard diagnostic sessions), `12`, `17`, `18`, `1A`, `21`, `3E` |
-| UDS | `10` (default and extended sessions), `19`, `22`, `3E` |
-| OBD-II | modes `01`, `02`, `03`, `06`, `07`, `09`, `0A` |
+| Protocol | Read-only services allowed | Services allowed only with a token |
+|---|---|---|
+| KWP2000 | `10` (default and standard diagnostic sessions), `12`, `17`, `18`, `1A`, `21`, `3E` | `14` clear, `3B` write, `30` actuator test |
+| UDS | `10` (default and extended sessions), `19`, `22`, `3E` | `14` clear, `2E` write, `2F` actuator test |
+| OBD-II | modes `01`, `02`, `03`, `06`, `07`, `09`, `0A` | mode `04` clear |
 
-The clear service (`14`, or OBD-II mode `04`) is sent only by the `clear` and `clear-codes` commands, after the snapshot is on disk. Everything else is refused before sending: actuator and routine control, writes, security access, resets, programming sessions and data transfer.
+A token is issued only by the guard, only to the command that ran the safeguards for it, in the same run:
+
+- `clear` and `clear-codes` get a clear token once the snapshot is on disk.
+- `write` and `restore` get a write token for one exact request, once a snapshot recording that request and the value it replaces is on disk.
+- `actuate` gets a pair of tokens for its exact start and stop requests, after the confirmation.
+
+Write and actuation tokens pass one request each, once, and cannot pass any other request or service; the `request` command and every read command carry no token, so they cannot send `14`, `2E`, `2F`, `30`, `3B` or mode `04`. Everything else is refused before sending, with or without a token: security access (`27`), resets (`11`), routine control (`31`), communication control (`28`), DTC setting control (`85`), programming and other sessions, data transfer (`34` to `37`) and every service not in the table. There is no setting that turns the guard off.
+
+The request layouts the guard checks come from the ISO/DIS 14230-3 draft of 16 December 1996 for KWP2000 (tables 6.4.2.1, 7.1.2.1, 7.5.2.1 and 9.1.2.1, [as mirrored in the sv650sds wiki](https://raw.githubusercontent.com/wiki/synfinatic/sv650sds/pdfs/14230-3.pdf)) and [python-udsoncan's service implementations](https://github.com/pylessard/python-udsoncan/tree/master/udsoncan/services) for UDS. A unit may refuse a write or actuator test in the session the profile opens; the guard does not open other sessions to get round that.
 
 ## Bit rates
 
@@ -269,10 +305,10 @@ The [vehicle communication notes](docs/vehicles/README.md) record how to talk to
 |---|---|---|
 | Link | `transport/` | Bytes to and from the adapter: Bluetooth LE, serial, TCP. For raw CAN, frames to and from the bus (`transport/socketcan.py`, `transport/slcan.py`) with `transport/rawcan.py` and `isotp.py` presenting them as an adapter. |
 | Adapter | `elm.py`, `kline.py` | The ELM327 session: set-up, addressing, one request and its reassembled replies. `kline.py` is the same session on a K-line bus. |
-| Guard | `guard.py` | Passes or refuses each request. |
+| Guard | `guard.py` | Passes or refuses each request, and issues the tokens for clears, writes and actuator tests. |
 | Protocol | `kwp2000.py`, `uds.py`, `obd.py` | Builds requests and decodes replies. |
 | Vehicle | `profile.py`, `profiles/` | What to address on a given chassis. |
-| Commands | `operations.py`, `obd_clear.py`, `monitor.py`, `cli.py` | Reading a unit, scanning, saving, clearing, logging the bus. |
+| Commands | `operations.py`, `obd_clear.py`, `writes.py`, `actuate.py`, `monitor.py`, `cli.py` | Reading a unit, scanning, saving, clearing, writing, restoring, actuator tests, logging the bus. |
 | Saved files | `offline.py`, `scancompare.py`, `codenames.py`, `definitions.py` | Comparing scans and naming codes, with no adapter involved. |
 
 ## Development
