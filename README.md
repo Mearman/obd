@@ -103,6 +103,8 @@ Pass a shipped profile by name or your own by path: `--profile ./my-car.toml`. E
 
 The `mercedes-w211` profile is marked unconfirmed: its address table comes from an open-source project for a different variant of the chassis. `probe` is how it is confirmed on a given car.
 
+The [vehicle communication notes](docs/vehicles/README.md) record how to talk to other makes, with sources, for writing a new profile.
+
 ## How it is built
 
 | Layer | Code | Job |
