@@ -104,7 +104,7 @@ source = "where this address pair comes from"
 
 Pass a shipped profile by name or your own by path: `--profile ./my-car.toml`. Every unit needs a `source`, so an address can be traced to where it was found. Run `obd-read profile check ./my-car.toml` before first use: beyond what loading rejects it reports unknown keys, identifiers too wide for the bus, a request and response that are the same, an identifier shared by two units and blank sources.
 
-The `mercedes-w211` profile is marked unconfirmed: its address table comes from an open-source project for a different variant of the chassis. `probe` is how it is confirmed on a given car.
+The shipped profiles are `mercedes-w211` and `vag-mqb`, both marked unconfirmed. The W211 table comes from an open-source project for a different variant of the chassis, and the MQB table from a community wiki's captures of MQB cars. `probe` is how a profile is confirmed on a given car. A profile is added only where a readable source states its addresses; for a car with none, `discover` finds them.
 
 The [vehicle communication notes](docs/vehicles/README.md) record how to talk to other makes, with sources, for writing a new profile.
 

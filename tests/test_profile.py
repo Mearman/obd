@@ -77,3 +77,14 @@ def test_invalid_profiles_are_refused(old: str, new: str, message: str) -> None:
     assert old in MINIMAL
     with pytest.raises(ProfileError, match=message):
         parse_profile(MINIMAL.replace(old, new), "test")
+
+
+def test_vag_mqb_profile_addresses() -> None:
+    profile = load_profile("vag-mqb")
+    assert (profile.id_bits, profile.bitrate) == (11, 500_000)
+    assert (profile.protocol, profile.session) == (DiagProtocol.UDS, 0x01)
+    assert profile.status == "unconfirmed"
+    pairs = {name: (unit.request_id, unit.response_id) for name, unit in profile.units.items()}
+    assert pairs["engine"] == (0x7E0, 0x7E8)
+    assert pairs["dashboard"] == (0x714, 0x77E)
+    assert pairs["hvac"] == (0x746, 0x7B0)
