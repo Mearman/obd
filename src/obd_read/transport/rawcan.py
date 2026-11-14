@@ -83,6 +83,11 @@ class RawCanTransport:
         self._flow_mode = 0
         self._timeout = 1.02
 
+    @property
+    def link(self) -> CanLink:
+        """The raw CAN link, for a caller that reads frames directly, such as the bus monitor."""
+        return self._link
+
     async def open(self) -> None:
         await self._link.open()
 

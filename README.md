@@ -53,6 +53,7 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `discover --protocol <kwp2000\|uds>` | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Only the guarded default-session request is sent, but every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
 | `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code, and each connection starts a fresh car, so `clear` can be tried safely. It connects to nothing. |
 | `profile check <profile>...` | Validates profile files (or shipped names) without connecting to anything; exits 1 on any problem. |
+| `monitor` | Logs CAN traffic without transmitting. See [Bus monitor](#bus-monitor). |
 | `clear <unit> --save <file>` | Erases one unit's stored fault codes. See below. |
 | `compare <first> <second>` | Two saved scans side by side. Needs no adapter. See below. |
 | `describe <scan or code>...` | Names for fault codes. Needs no adapter. See below. |
@@ -167,6 +168,24 @@ SocketCAN exists only on Linux. On any other platform `socketcan://` fails with 
 
 The raw layer is classic CAN only (no CAN FD, no remote frames) and implements only the ELM327 commands the tool sends; anything else is answered `?` as a clone adapter does. Not confirmed: that every control unit accepts frames padded with `0xCC`, the fill byte Wikipedia recommends, and the identifier a unit sends flow control for on functional (broadcast) requests, which follows the ISO 15765-4 pairing. Frames that reach the link are the request's own frames and the flow control a reply needs; the read-only guard sits above the link and is unchanged.
 
+## Bus monitor
+
+`monitor` logs the frames on the bus and sends nothing. Watching a known-good tool talk to a car is the quickest way to learn the addresses and requests for a new profile.
+
+```sh
+uv run obd-read monitor --adapter slcan:///dev/ttyACM0 --id 7E8 --id 7E0 --duration 60 --output bus.log
+```
+
+Each log line is a UTC time, the identifier and the data in hexadecimal. `--id`, `--block` and `--flow-control` (each repeatable, hexadecimal) choose the identifiers kept, `--count` and `--duration` stop it, and Ctrl-C stops it at any point. `--output` writes the log to a new file and refuses to overwrite one. Status messages from the adapter, such as `BUFFER FULL`, which means frames were lost, appear in the log as `#` lines.
+
+| Adapter | What the log holds | How it stays silent |
+|---|---|---|
+| Raw CAN (`slcan://`, `socketcan://`) | Every frame on the bus. | The link is opened listen-only and only its receive side reaches the monitor. SLCAN is put in listen-only mode by the tool. SocketCAN's mode belongs to the interface, so set it first: `ip link set can0 type can bitrate 500000 listen-only on`. |
+| STN extensions | What passes the adapter's own filters (`STFPA`, `STFBA`, `STFFCA`), read with `STM`. | `STCMM 0`, the monitoring mode that does not acknowledge frames. |
+| Plain ELM327 | What passes `ATCRA`, or `ATCF` and `ATCM` for several identifiers, read with `ATMA`. A block list is applied by the tool after the adapter. | Not confirmed: the sources used here do not say whether a plain ELM327 acknowledges frames while it monitors. |
+
+The only commands the monitor sends to an adapter are receive filters, the monitoring commands and `STCMM 0`; anything else is refused before it is sent. The `STFFCA` argument form is assumed to match `STFPA` and `STFBA`, which is not confirmed. A busy bus can overrun an ELM327-style adapter's buffer; the raw forms do not have that limit.
+
 ## Vehicle profiles
 
 A profile is a TOML file with the bus settings, the diagnostic protocol and one table per control unit:
@@ -233,7 +252,7 @@ The [vehicle communication notes](docs/vehicles/README.md) record how to talk to
 | Guard | `guard.py` | Passes or refuses each request. |
 | Protocol | `kwp2000.py`, `uds.py`, `obd.py` | Builds requests and decodes replies. |
 | Vehicle | `profile.py`, `profiles/` | What to address on a given chassis. |
-| Commands | `operations.py`, `obd_clear.py`, `cli.py` | Reading a unit, scanning, saving, clearing. |
+| Commands | `operations.py`, `obd_clear.py`, `monitor.py`, `cli.py` | Reading a unit, scanning, saving, clearing, logging the bus. |
 | Saved files | `offline.py`, `scancompare.py`, `codenames.py`, `definitions.py` | Comparing scans and naming codes, with no adapter involved. |
 
 ## Development

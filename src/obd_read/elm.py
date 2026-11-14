@@ -160,6 +160,11 @@ class Elm:
         self._request_id: int | None = None
 
     @property
+    def transport(self) -> Transport:
+        """The link to the adapter, for the one caller that streams from it instead of exchanging lines."""
+        return self._transport
+
+    @property
     def transcript(self) -> Transcript:
         return self._transcript
 

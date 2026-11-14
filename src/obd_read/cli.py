@@ -10,7 +10,7 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from . import obd
+from . import monitor, obd
 from .diag import NegativeResponse
 from .discovery import discover_command
 from .elm import MAX_SINGLE_FRAME, AdapterInfo, Elm, ElmError, Transcript
@@ -105,6 +105,7 @@ def build_parser() -> argparse.ArgumentParser:
             )
         return sub
 
+    monitor.add_arguments(commands)
     adapters = commands.add_parser("adapters", help="list Bluetooth LE devices and serial ports")
     adapters.add_argument(
         "--inspect", metavar="NAME", help="show one Bluetooth LE device's services"
@@ -339,6 +340,8 @@ async def run(
     try:
         if args.command == "adapters":
             return await list_adapters(args, out)
+        if args.command == "monitor":
+            return await monitor.run_monitor(args, out, factory)
         if args.command == "simulate":
             return await simulate_command(args, out)
         if args.command == "profile":
@@ -377,4 +380,7 @@ async def run(
 
 
 def main() -> None:
-    sys.exit(asyncio.run(run(sys.argv[1:])))
+    try:
+        sys.exit(asyncio.run(run(sys.argv[1:])))
+    except KeyboardInterrupt:
+        sys.exit(130)
