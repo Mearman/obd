@@ -1,3 +1,134 @@
 # obd-read
 
-Read vehicle diagnostics through ELM327-style adapters.
+Read a car's diagnostics through an ELM327-style adapter, with software you can read and change.
+
+`obd-read` talks to the control units behind the diagnostic socket: it reads their identification, stored fault codes and freeze frames. It can also clear a unit's fault codes, after saving what it is about to erase. It has no actuator tests, coding, writes or flashing, and no setting that adds them.
+
+## What it needs
+
+- An adapter that implements the full ELM327 command set, reached over Bluetooth LE, a serial port (USB or classic Bluetooth) or TCP (Wi-Fi adapters). Cheap clones that lack the addressing commands are detected and named on connection.
+- [uv](https://docs.astral.sh/uv/).
+- For anything beyond the legislated OBD-II reads, a vehicle profile. The profiles shipped are in [`src/obd_read/profiles`](src/obd_read/profiles).
+
+## Getting started
+
+```sh
+uv sync
+uv run obd-read adapters
+```
+
+`adapters` lists the Bluetooth LE devices in range and the serial ports present. Name the adapter by URL on every other command:
+
+| Link | URL |
+|---|---|
+| Bluetooth LE | `ble://<part of the device name, or its address>` |
+| Serial | `serial:///dev/tty.usbserial-1` (add `?baud=38400` to change the speed) |
+| TCP | `tcp://192.168.80.1:35000` |
+
+First run at a car, ignition on:
+
+```sh
+uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log first-run.log
+```
+
+`probe` asks every unit in the profile to identify itself and prints which answered. Nothing else is sent.
+
+## Commands
+
+| Command | What it reads |
+|---|---|
+| `adapters` | Bluetooth LE devices and serial ports. `--inspect <name>` prints one device's services and characteristics. |
+| `probe` | Which units in the profile answer. |
+| `ident <unit>` | One unit's identification. |
+| `faults <unit>` | One unit's stored fault codes and status bytes. |
+| `freeze <unit>` | The freeze frame stored with each fault code. |
+| `scan` | Identification and fault codes from every unit. `--output <path>` writes `<path>.json` and `<path>.md`; `--freeze` adds freeze frames. |
+| `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, a few live values. |
+| `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
+| `clear <unit> --save <file>` | Erases one unit's stored fault codes. See below. |
+
+Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd` take `--profile`.
+
+Fault codes are printed as the unit reports them: hexadecimal code bytes and a status byte. The tool carries no fault-code descriptions.
+
+## Clearing fault codes
+
+Clearing erases the evidence a fault leaves behind, so `clear` does it in a fixed order and stops at the first step that fails:
+
+1. Reads the unit's identification, fault codes and the freeze frame for each code.
+2. Writes them, with the full adapter transcript, to the `--save` file. The file must not already exist.
+3. Prints the codes and asks you to type `yes`. `--yes` skips the question.
+4. Sends the clear request.
+5. Reads the unit again and prints what remains.
+
+A unit that refuses its freeze frames is recorded as such and can still be cleared. A unit whose fault codes cannot be read is not cleared. One unit is cleared per run.
+
+## What it will not send
+
+Every request passes through one guard ([`src/obd_read/guard.py`](src/obd_read/guard.py)) before it reaches the adapter.
+
+| Protocol | Services allowed |
+|---|---|
+| KWP2000 | `10` (default and standard diagnostic sessions), `12`, `17`, `18`, `1A`, `21`, `3E` |
+| UDS | `10` (default and extended sessions), `19`, `22`, `3E` |
+| OBD-II | modes `01`, `02`, `03`, `06`, `07`, `09`, `0A` |
+
+The clear service (`14`, or OBD-II mode `04`) is sent only by the `clear` command, after the snapshot is on disk. Everything else is refused before sending: actuator and routine control, writes, security access, resets, programming sessions and data transfer.
+
+## Vehicle profiles
+
+A profile is a TOML file with the bus settings, the diagnostic protocol and one table per control unit:
+
+```toml
+name = "example-car"
+description = "Example chassis"
+status = "unconfirmed"       # or "confirmed" once the addresses are proven on a car
+
+[bus]
+id_bits = 11                 # 11 or 29
+bitrate = 500000             # 250000 or 500000
+
+[diagnostics]
+protocol = "kwp2000"         # or "uds"
+session = 0x92               # the session opened before reading
+
+[units.engine]
+description = "Engine control unit"
+request = 0x7E0
+response = 0x7E8
+source = "where this address pair comes from"
+```
+
+Pass a shipped profile by name or your own by path: `--profile ./my-car.toml`. Every unit needs a `source`, so an address can be traced to where it was found.
+
+The `mercedes-w211` profile is marked unconfirmed: its address table comes from an open-source project for a different variant of the chassis. `probe` is how it is confirmed on a given car.
+
+## How it is built
+
+| Layer | Code | Job |
+|---|---|---|
+| Link | `transport/` | Bytes to and from the adapter: Bluetooth LE, serial, TCP. |
+| Adapter | `elm.py` | The ELM327 session: set-up, addressing, one request and its reassembled replies. |
+| Guard | `guard.py` | Passes or refuses each request. |
+| Protocol | `kwp2000.py`, `uds.py`, `obd.py` | Builds requests and decodes replies. |
+| Vehicle | `profile.py`, `profiles/` | What to address on a given chassis. |
+| Commands | `operations.py`, `cli.py` | Reading a unit, scanning, saving, clearing. |
+
+## Development
+
+```sh
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy
+uv run pytest
+```
+
+The tests run against a scripted adapter and car in [`tests/fake_elm.py`](tests/fake_elm.py), including over a local TCP socket.
+
+## What has and has not been tested
+
+Everything above the link is tested against the scripted adapter. The Bluetooth LE and serial links, real adapter firmware and real control units are exercised only when someone runs the tool at a car. Bluetooth LE adapters do not share one layout: the tool picks the first service that has both a notifying and a writable characteristic, and `?service=`, `?notify=` and `?write=` on the URL override that choice.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
