@@ -15,6 +15,7 @@ from .diag import NegativeResponse
 from .discovery import discover_command
 from .elm import AdapterInfo, Elm, ElmError, Transcript
 from .guard import GuardError
+from .obd_clear import clear_codes_command
 from .operations import (
     ClearRefused,
     UnitReport,
@@ -134,6 +135,15 @@ def build_parser() -> argparse.ArgumentParser:
     discover.add_argument("--last", type=lambda text: int(text, 0), default=0x7FF)
     discover.add_argument("--output", type=Path, help="write a draft profile to this new file")
     discover.add_argument("--name", default="discovered", help="name for the draft profile")
+    clear_codes = car_command(
+        "clear-codes",
+        "save, then erase, every emissions unit's codes; needs no profile",
+        profile=False,
+    )
+    clear_codes.add_argument("--id-bits", type=int, choices=(11, 29), default=11)
+    clear_codes.add_argument("--bitrate", type=int, choices=(250000, 500000), default=500000)
+    clear_codes.add_argument("--save", type=Path, required=True, help="new file for the snapshot")
+    clear_codes.add_argument("--yes", action="store_true", help="do not ask before clearing")
 
     request = car_command("request", "send one read-only request, given as hexadecimal bytes")
     request.add_argument("unit")
@@ -306,12 +316,18 @@ async def run(
             return await simulate_command(args, out)
         if args.command == "profile":
             return profile_check_command(args, out)
-        profile = None if args.command in ("obd", "discover") else load_profile(args.profile)
+        profile = (
+            None
+            if args.command in ("obd", "discover", "clear-codes")
+            else load_profile(args.profile)
+        )
         async with connected(args.adapter, args.log, factory) as (elm, adapter):
             out(f"adapter: {adapter.identity}, battery {adapter.voltage or 'not reported'}")
             out(f"STN extensions: {adapter.stn_identity or 'none (plain ELM327 command set)'}")
             if profile is None and args.command == "discover":
                 return await discover_command(elm, args, out)
+            if args.command == "clear-codes":
+                return await clear_codes_command(elm, adapter, args, out, ask)
             if profile is None:
                 return await obd_command(elm, args, out)
             return await profile_command(elm, adapter, profile, args, out, ask)
