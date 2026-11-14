@@ -1,5 +1,4 @@
 import json
-import zipfile  # noqa: F401
 from pathlib import Path
 
 from obd_read.cli import run
