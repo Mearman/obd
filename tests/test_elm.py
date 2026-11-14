@@ -16,7 +16,14 @@ async def test_initialise_sends_the_setup_every_request_assumes() -> None:
     assert core.sent[:8] == ["ATZ", "ATE0", "ATL0", "ATS0", "ATH1", "ATCAF1", "ATAT0", "ATSTFF"]
     assert info.identity == "ELM327 v2.3"
     assert info.stn_identity is None
+    assert not info.has_stn_extensions
     assert info.voltage == "12.4V"
+
+
+async def test_an_adapter_with_stn_extensions_is_recognised() -> None:
+    info = await make(FakeElmCore({}, stn_identity="STN2255 v5.6.19")).initialise()
+    assert info.stn_identity == "STN2255 v5.6.19"
+    assert info.has_stn_extensions
 
 
 async def test_an_adapter_missing_a_needed_command_is_named() -> None:

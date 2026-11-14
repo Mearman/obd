@@ -39,6 +39,7 @@ async def test_probe_reports_which_units_answer() -> None:
     assert "kombi (796 -> 797): no answer" in car.output
     assert "2 of 13 units answered" in car.output
     assert "address table is unconfirmed" in car.output
+    assert "STN extensions: none (plain ELM327 command set)" in car.output
     assert car.transport.closed
     assert "1802FF00" not in car.core.requests
 

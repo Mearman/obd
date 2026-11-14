@@ -31,10 +31,12 @@ class FakeElmCore:
         responders: dict[int, Responder],
         unsupported: frozenset[str] = frozenset(),
         identity: str = "ELM327 v2.3",
+        stn_identity: str | None = None,
     ) -> None:
         self.responders = responders
         self.unsupported = unsupported
         self.identity = identity
+        self.stn_identity = stn_identity
         self.sent: list[str] = []
         self.header = 0
         self.id_chars = 3
@@ -64,7 +66,7 @@ class FakeElmCore:
         if line == "AT@1":
             return "OBDII to RS232 Interpreter"
         if line == "STI":
-            return "?"
+            return self.stn_identity or "?"
         if line == "ATRV":
             return "12.4V"
         if line.startswith("ATSP"):

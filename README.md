@@ -6,7 +6,7 @@ Read a car's diagnostics through an ELM327-style adapter, with software you can 
 
 ## What it needs
 
-- An adapter that implements the full ELM327 command set, reached over Bluetooth LE, a serial port (USB or classic Bluetooth) or TCP (Wi-Fi adapters). Cheap clones that lack the addressing commands are detected and named on connection.
+- An adapter that implements the full ELM327 command set, reached over Bluetooth LE, a serial port (USB or classic Bluetooth) or TCP (Wi-Fi adapters). Cheap clones that lack the addressing commands are detected and named on connection. Only standard `AT` commands are used; on connection the tool also reports whether the adapter has the STN `ST` extensions, which nothing depends on yet.
 - [uv](https://docs.astral.sh/uv/).
 - For anything beyond the legislated OBD-II reads, a vehicle profile. The profiles shipped are in [`src/obd_read/profiles`](src/obd_read/profiles).
 

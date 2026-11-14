@@ -251,6 +251,7 @@ async def run(
         profile = None if args.command == "obd" else load_profile(args.profile)
         async with connected(args.adapter, args.log, factory) as (elm, adapter):
             out(f"adapter: {adapter.identity}, battery {adapter.voltage or 'not reported'}")
+            out(f"STN extensions: {adapter.stn_identity or 'none (plain ELM327 command set)'}")
             if profile is None:
                 return await obd_command(elm, args, out)
             return await profile_command(elm, adapter, profile, args, out, ask)

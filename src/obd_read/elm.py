@@ -85,6 +85,11 @@ class AdapterInfo:
     stn_identity: str | None
     voltage: str | None
 
+    @property
+    def has_stn_extensions(self) -> bool:
+        """Whether the adapter answered the STN identity command, so ST commands exist."""
+        return self.stn_identity is not None
+
 
 def isotp_reassemble(frames: list[tuple[int, bytes]]) -> dict[int, list[bytes]]:
     """Rebuild diagnostic messages from CAN frames, per sender.
