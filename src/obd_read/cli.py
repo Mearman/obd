@@ -10,7 +10,7 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from . import monitor, obd
+from . import legislated, monitor, obd
 from .diag import NegativeResponse
 from .discovery import discover_command
 from .elm import MAX_SINGLE_FRAME, AdapterInfo, Elm, ElmError, Transcript
@@ -232,8 +232,7 @@ async def obd_command(elm: Elm, args: argparse.Namespace, out: Printer) -> int:
             continue
         for sender, codes in found.items():
             out(f"{label} codes from {sender:X}: {', '.join(codes) or 'none'}")
-    for name, value in (await obd.live(elm)).items():
-        out(f"{name}: {value}")
+    await legislated.report(elm, out)
     for sender, frame in (await obd.freeze_frame(elm)).items():
         out(f"freeze frame from {sender:X}: {frame.code or 'no code'}")
         for name, value in frame.values.items():

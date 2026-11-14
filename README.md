@@ -47,7 +47,7 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `faults <unit>` | One unit's stored fault codes and status bytes. |
 | `freeze <unit>` | The freeze frame stored with each fault code. |
 | `scan` | Identification and fault codes from every unit. `--output <path>` writes `<path>.json` and `<path>.md`; `--freeze` adds freeze frames. |
-| `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, a few live values. `--kline <scheme>` reads over K-line instead of CAN. |
+| `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, the freeze frame, misfire counts, which monitors have completed, every current-data value the car supports, the other mode 06 monitor results and the calibration identifier. `--kline <scheme>` reads over K-line instead of CAN. |
 | `clear-codes --save <file>` | Erases the codes of every emissions unit, with no profile. See below. |
 | `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
 | `discover --protocol <kwp2000\|uds>` | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Only the guarded default-session request is sent, but every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
@@ -60,6 +60,8 @@ uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log firs
 | `import-names <file> --unit <name> --output <file>` | Code and request names from a definition file you supply. Needs no adapter. See below. |
 
 Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover` and `clear-codes` take `--profile`.
+
+The `obd` command asks a car only for what it says it supports: the supported-identifier bitmaps (mode 01 identifiers 00, 20, 40 and onwards, mode 06 and mode 09) decide which values are requested. The decoding follows SAE J1979. Mode 06 test meanings other than the misfire counters differ per maker, so those results are printed with their raw value, limits and scaling identifier and marked as unconfirmed.
 
 Fault codes are printed as the unit reports them: hexadecimal code bytes and a status byte. `describe` adds names to them afterwards.
 

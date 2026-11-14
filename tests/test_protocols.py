@@ -7,6 +7,8 @@ from obd_read.diag import Fault, NegativeResponse, UnitSession
 from obd_read.elm import Elm, ElmError
 from obd_read.guard import DiagProtocol, GuardError, authorise_clear
 from obd_read.kwp2000 import Kwp2000
+from obd_read.legislated import read_pid
+from obd_read.pids import PIDS
 from obd_read.uds import Uds
 
 from .fake_elm import FakeElmCore, FakeTransport, KwpEcu, Responder
@@ -160,11 +162,9 @@ async def test_obd_reads() -> None:
     assert (state[0x7E8].lamp_on, state[0x7E8].code_count) == (True, 2)
     assert (state[0x7E9].lamp_on, state[0x7E9].code_count) == (False, 0)
     assert await obd.codes(elm, obd.STORED_CODES) == {0x7E8: ["P0123", "P0420"], 0x7E9: []}
-    assert await obd.live(elm) == {
-        "coolant temperature": "50 °C",
-        "engine speed": "800 rpm",
-        "control module voltage": "12.4 V",
-    }
+    assert await read_pid(elm, PIDS[0x05]) == {0x7E8: (50,)}
+    assert await read_pid(elm, PIDS[0x0C]) == {0x7E8: (800,)}
+    assert await read_pid(elm, PIDS[0x42]) == {0x7E8: (12.4,)}
 
 
 @pytest.mark.parametrize(

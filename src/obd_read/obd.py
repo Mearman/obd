@@ -125,17 +125,6 @@ async def vin(elm: Elm) -> str | None:
     return None
 
 
-async def live(elm: Elm) -> dict[str, str]:
-    """Read the current-data parameters the car supports, formatted with units."""
-    values: dict[str, str] = {}
-    for pid, value in LIVE_VALUES.items():
-        for message in (await _read(elm, bytes([CURRENT_DATA, pid]))).values():
-            if len(message) >= 2 + value.size:
-                values[value.label] = f"{value.decode(message[2:]):g} {value.unit}"
-                break
-    return values
-
-
 @dataclass(frozen=True)
 class FreezeFrame:
     """The fault code a unit froze its data for, and the live values stored with it."""
