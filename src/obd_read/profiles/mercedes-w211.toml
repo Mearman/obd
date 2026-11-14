@@ -1,0 +1,99 @@
+# Mercedes-Benz E-Class, chassis 211 (W211 saloon, S211 estate).
+#
+# The diagnostic socket's CAN pair (pins 6 and 14) reaches the central gateway at
+# 500 kbit/s. Control units answer KWP2000 requests carried over ISO 15765-2.
+#
+# The address table is transcribed from an open E55 AMG project that states no model
+# year. Treat every row as unconfirmed on a given car until `obd-read probe` shows the
+# unit answering.
+
+name = "mercedes-w211"
+description = "Mercedes-Benz E-Class, chassis 211"
+status = "unconfirmed"
+
+[bus]
+id_bits = 11
+bitrate = 500000
+
+[diagnostics]
+protocol = "kwp2000"
+# 0x92 is the session W211 instrument-cluster code opens before reading data.
+session = 0x92
+
+[units.engine]
+description = "Engine control unit"
+request = 0x7E0
+response = 0x7E8
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.gearbox]
+description = "Transmission control unit"
+request = 0x7E1
+response = 0x7E9
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.esp]
+description = "Electronic stability programme"
+request = 0x784
+response = 0x785
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.ewm]
+description = "Electronic selector lever module (EWM)"
+request = 0x788
+response = 0x789
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.fscm]
+description = "FSCM, as named in the source"
+request = 0x778
+response = 0x779
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.cas]
+description = "CAS, as named in the source"
+request = 0x77A
+response = 0x77B
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.ehb]
+description = "Electrohydraulic brake (EHB)"
+request = 0x79A
+response = 0x79B
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.dtr]
+description = "Distronic (DTR)"
+request = 0x702
+response = 0x4A0
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.kombi]
+description = "Instrument cluster (KOMBI)"
+request = 0x796
+response = 0x797
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.lwr]
+description = "Headlamp range control (LWR)"
+request = 0x794
+response = 0x795
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.fs]
+description = "FS, as named in the source"
+request = 0x78C
+response = 0x78D
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.rgs-1]
+description = "RGS, as named in the source (first address pair)"
+request = 0x7B2
+response = 0x7B3
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+
+[units.rgs-2]
+description = "RGS, as named in the source (second address pair)"
+request = 0x7B4
+response = 0x7B5
+source = "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
