@@ -117,19 +117,28 @@ def parse_profile(text: str, where: str) -> Profile:
     )
 
 
-def load_profile(name_or_path: str) -> Profile:
-    """Load a shipped profile by name, or any profile by file path.
+def profile_source(name_or_path: str) -> tuple[str, str]:
+    """Find a shipped profile by name, or any profile by file path.
 
-    Raises ProfileError when neither exists or the file is invalid.
+    Returns (TOML text, label for error messages). Raises ProfileError when neither exists.
     """
     path = Path(name_or_path)
     if path.suffix == ".toml" or path.exists():
         if not path.is_file():
             raise ProfileError(f"no profile file at {path}")
-        return parse_profile(path.read_text(encoding="utf-8"), str(path))
+        return path.read_text(encoding="utf-8"), str(path)
     if name_or_path not in builtin_profiles():
         raise ProfileError(
             f"no profile named {name_or_path!r}; shipped profiles: {', '.join(builtin_profiles())}"
         )
     resource = resources.files("obd_read.profiles").joinpath(f"{name_or_path}.toml")
-    return parse_profile(resource.read_text(encoding="utf-8"), name_or_path)
+    return resource.read_text(encoding="utf-8"), name_or_path
+
+
+def load_profile(name_or_path: str) -> Profile:
+    """Load a shipped profile by name, or any profile by file path.
+
+    Raises ProfileError when neither exists or the file is invalid.
+    """
+    text, where = profile_source(name_or_path)
+    return parse_profile(text, where)

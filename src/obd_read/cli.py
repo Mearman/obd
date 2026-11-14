@@ -25,6 +25,7 @@ from .operations import (
     unit_session,
 )
 from .profile import Profile, ProfileError, builtin_profiles, load_profile
+from .profile_check import profile_check_command
 from .transport import Transport, TransportError, open_transport
 
 Printer = Callable[[str], None]
@@ -89,6 +90,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--inspect", metavar="NAME", help="show one Bluetooth LE device's services"
     )
     adapters.add_argument("--timeout", type=float, default=8.0, help="scan time in seconds")
+
+    profile_group = commands.add_parser("profile", help="work with vehicle profiles")
+    profile_actions = profile_group.add_subparsers(dest="action", required=True)
+    check = profile_actions.add_parser(
+        "check", help="validate profile files without connecting to anything"
+    )
+    check.add_argument("targets", nargs="+", metavar="PROFILE", help="a profile name or .toml path")
 
     car_command("probe", "ask every unit in the profile to identify itself")
     car_command("ident", "read one unit's identification").add_argument("unit")
@@ -270,6 +278,8 @@ async def run(
     try:
         if args.command == "adapters":
             return await list_adapters(args, out)
+        if args.command == "profile":
+            return profile_check_command(args, out)
         profile = None if args.command == "obd" else load_profile(args.profile)
         async with connected(args.adapter, args.log, factory) as (elm, adapter):
             out(f"adapter: {adapter.identity}, battery {adapter.voltage or 'not reported'}")
