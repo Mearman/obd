@@ -200,3 +200,9 @@ No snapshot found:
 - https://www.quantexlab.com/en/develop/elm327_hsfz.html
 -
 - https://www.spoolstreet.com/threads/e9x-bench-setup.6469
+
+## Links that did not load when checked
+
+These pages returned an error or no response when the links were checked. Claims resting only on them are less certain.
+
+- https://dzid26.github.io/opendbc-BMW-E8x-E9x

@@ -12,7 +12,7 @@ Japanese and Korean cars split into three tiers for a read-only tool built on an
 
 - The ELM327 supports ISO 9141-2 (5 baud init, 10.4 kbaud), ISO 14230-4 KWP with either 5 baud or fast initiation, SAE J1850 PWM and VPW, and ISO 15765-4 CAN at 11 or 29 bit and 250 or 500 kbaud, with protocol selection by `AT SP` ([ELM327 datasheet](https://www.scantool.net/scantool/downloads/103/elm327dsh.pdf)).
 - It can set the header bytes for K-line and CAN requests, so a CAN request can be addressed to a specific module rather than the broadcast address; the same datasheet documents the header, filter and flow-control commands (`AT SH`, `AT CRA`, `AT FC...`), and [Quantexlab's ELM327 notes](https://www.quantexlab.com/en/develop/elm327.html) show worked examples (BMW, not a Japanese or Korean make).
-- The K-line baud rate is limited to what the datasheet allows: the 10.4 kbaud default can be adjusted, but the chip is an OBD-II interface, not a general UART ([ELM327 datasheet](https://www.scantool.net/scantool/downloads/103/elm327dsh.pdf)). Subaru SSM runs at 4800 baud and SSM1 at 1953 baud, so a stock ELM327 cannot be a native SSM interface; a RomRaider developer notes that ELM327 chips are routinely reflashed for SSM K-line ([RomRaider forum](https://mailserver.romraider.com/forum/viewtopic.php?p=147617)). Treat any claim of SSM through an unmodified ELM327 as unconfirmed.
+- The K-line baud rate is limited to what the datasheet allows: the 10.4 kbaud default can be adjusted, but the chip is an OBD-II interface, not a general UART ([ELM327 datasheet](https://www.scantool.net/scantool/downloads/103/elm327dsh.pdf)). Subaru SSM runs at 4800 baud and SSM1 at 1953 baud, so a stock ELM327 cannot be a native SSM interface; a RomRaider developer notes that ELM327 chips are routinely reflashed for SSM K-line ([RomRaider forum](https://www.romraider.com/forum/viewtopic.php?p=147617)). Treat any claim of SSM through an unmodified ELM327 as unconfirmed.
 - Cheap clones often implement only part of the command set or have faulty firmware. Forum users on both the Leaf and Prius communities report clones failing on the car-specific work ([leaf-obd tutorial](https://leaf-obd.readthedocs.io/en/latest/tutorial/elm327.html), [Priuschat](https://www.priuschat.com/goto/post?id=1754304)).
 - Header handling matters to a polling tool: some apps switch to the custom PID's header and then no longer poll standard PIDs alongside ([RaceChrono forum](https://racechrono.com/forum/discussion/comment/10804/)). A tool should reset the header (`AT SH` back to the functional address) between standard and module-specific requests.
 - STN-based adapters (OBDLink) add features beyond the ELM327 command set; OBDLink states that its MX+ has add-ons for Honda/Acura and Hyundai/Kia ([OBDLink support](https://support.obdlink.com/support/solutions/articles/43000711154)). What those add-ons do at protocol level is unconfirmed: the page is vendor material and the result I saw did not describe the wire behaviour.
@@ -37,7 +37,7 @@ The tool should therefore never infer the protocol from make and year: probe wit
 
 ## Honda and Acura
 
-- **Pinout.** A Honda pinout reference lists K-line on pin 7 (ISO 9141-2 and ISO 14230-4) and pin 9 as the Service Check System line, not a K-line; it lists ISO 9141 for roughly 1996 to 2006, a mix for 2006 to 2008 and CAN from 2008 ([evoscan Honda pinout via search summary](https://mail.evoscan.com/technical-vehicle-manuals/107); the page failed to load when fetched, so this is unconfirmed from a single source). The "pin-specific K-line" idea, that Honda's own diagnostic tool uses a different line than the generic one, could not be confirmed from any source I opened.
+- **Pinout.** A Honda pinout reference lists K-line on pin 7 (ISO 9141-2 and ISO 14230-4) and pin 9 as the Service Check System line, not a K-line; it lists ISO 9141 for roughly 1996 to 2006, a mix for 2006 to 2008 and CAN from 2008 ([evoscan Honda pinout via search summary](https://www.evoscan.com/technical-vehicle-manuals/107); the page failed to load when fetched, so this is unconfirmed from a single source). The "pin-specific K-line" idea, that Honda's own diagnostic tool uses a different line than the generic one, could not be confirmed from any source I opened.
 - **Gateway behaviour.** A forum discussion of a seventh-generation Accord describes two K-line connections, one to the engine ECU following the standard approach and one to a proprietary gateway (the MICU) that Honda's HDS can read but some ELM327 units cannot; forum users conclude generic readers do not get beyond engine data on those cars ([Honda-Tech](https://honda-tech.com/forums/sitemap/t-3366115.html); forum opinion, unconfirmed).
 - **Engine data works.** A project reads live engine data from a 2007 Civic Si with an ELM327 USB adapter and pyobd ([Hackster](https://www.hackster.io/jvarner4/obd-ii-information-logger-and-diagnostics-reader-952dd9)). A bridge that translates Honda's own OBD protocol into ELM327 output exists as [ArduinoHondaOBD](https://www.scribd.com/document/902944802/GitHub-AutotronicCommunity-ArduinoHondaOBD) (a Scribd copy of a GitHub README; I did not open the repository).
 - **CAN era.** AiM's logger documentation describes the 2006 to 2011 Civic as offering a standard CAN-based diagnostic protocol through the OBD-II port ([AiM Civic 2006-2011](https://aim-sportline.com/download/ecu/stock/honda/Honda_CivicUSA_2006-2011_eng.pdf)); whether ABS and SRS answer a generic request there is unconfirmed (no source found).
@@ -61,9 +61,9 @@ The tool should therefore never infer the protocol from make and year: probe wit
 
 ## Subaru
 
-- **SSM1, SSM2.** RomRaider's wiki describes the original Select Monitor as an ISO 9141-style serial interface at 4800 baud, 8 data bits, no parity, 1 stop bit ([RomRaider SSM protocol](https://mailserver.romraider.com/index.php/RomRaider/SsmProtocol), via search summary; the page failed to load on direct fetch). [LibSSM2](https://github.com/src0x/LibSSM2) (GPL-3.0, C#) says SSM2 runs at 4800 baud, older cars use SSM1 at 1953 baud, and it implements eight of the ten well-known SSM2 packet types; the "from 2001" boundary carries a question mark in its own text.
-- **Tools.** [RomRaider](https://mailserver.romraider.com/) logger (select the SSM K-line protocol, point it at a logger definitions folder) and [FreeSSM](https://github.com/Comer352L/FreeSSM) (Qt, engine and transmission control units, 1999 onwards, J2534 interface mentioned) are the open implementations; RomRaider's logger definitions hold the parameter-to-address mappings ([HP Academy setup guide](https://www.hpacademy.com/es/foro/ajuste-de-inyeccion-electronica-de-combustible/show/setting-up-rom-raider/), [SubaruDefs](https://github.com/eatinginternet/SubaruDefs)). A third-party blog reports FreeSSM and the RomRaider logger working over a KKL/VAG-COM cable on K-line cars ([obdii365](https://blog.obdii365.com/2019/06/25/subaru-freessm-can-work-kkl-vag-com-cables/); vendor blog, unconfirmed). FreeSSM's README does not say whether it covers SSM1, SSM2 or SSM over CAN.
-- **SSM over CAN.** RomRaider forum posts describe a single-byte read as an A8 request sent to CAN ID 0x7E0 inside an ISO-TP single frame, with the ECU answering on 0x7E8 and the response service ID OR 0x40, the ECU also broadcasting on 0x600, and SSM-III service routines resembling mode 22 ([RomRaider forum](https://mailserver.romraider.com/forum/viewtopic.php?p=147617), [another thread](https://mailserver.romraider.com/forum/viewtopic.php?p=147609)). A developer notes that CAN SSM is a different message format from OBD-II on CAN ([RomRaider forum](https://mailserver.romraider.com/forum/viewtopic.php?p=151518)). Users with an OBDLink MX+ report no data from 7E0 queries for CVT values and a developer notes some ECUs (including 2015 and later WRX and a Hitachi ECU) are not supported by the logger over SSM ([RomRaider forum](https://mailserver.romraider.com/forum/viewtopic.php?p=165956), [here](https://mailserver.romraider.com/forum/viewtopic.php?p=161735)). Because the A8 service is not a standard OBD-II service, a stock ELM327 may reject or mangle it: unconfirmed, no thread I opened shows it working.
+- **SSM1, SSM2.** RomRaider's wiki describes the original Select Monitor as an ISO 9141-style serial interface at 4800 baud, 8 data bits, no parity, 1 stop bit ([RomRaider SSM protocol](https://www.romraider.com/index.php/RomRaider/SsmProtocol), read directly: ISO 9141 interface, 4800 bps, 8 data bits, no parity, 1 stop bit). [LibSSM2](https://github.com/src0x/LibSSM2) (GPL-3.0, C#) says SSM2 runs at 4800 baud, older cars use SSM1 at 1953 baud, and it implements eight of the ten well-known SSM2 packet types; the "from 2001" boundary carries a question mark in its own text.
+- **Tools.** [RomRaider](https://www.romraider.com/) logger (select the SSM K-line protocol, point it at a logger definitions folder) and [FreeSSM](https://github.com/Comer352L/FreeSSM) (Qt, engine and transmission control units, 1999 onwards, J2534 interface mentioned) are the open implementations; RomRaider's logger definitions hold the parameter-to-address mappings ([HP Academy setup guide](https://www.hpacademy.com/es/foro/ajuste-de-inyeccion-electronica-de-combustible/show/setting-up-rom-raider/), [SubaruDefs](https://github.com/eatinginternet/SubaruDefs)). A third-party blog reports FreeSSM and the RomRaider logger working over a KKL/VAG-COM cable on K-line cars ([obdii365](https://blog.obdii365.com/2019/06/25/subaru-freessm-can-work-kkl-vag-com-cables/); vendor blog, unconfirmed). FreeSSM's README does not say whether it covers SSM1, SSM2 or SSM over CAN.
+- **SSM over CAN.** RomRaider forum posts describe a single-byte read as an A8 request sent to CAN ID 0x7E0 inside an ISO-TP single frame, with the ECU answering on 0x7E8 and the response service ID OR 0x40, the ECU also broadcasting on 0x600, and SSM-III service routines resembling mode 22 ([RomRaider forum](https://www.romraider.com/forum/viewtopic.php?p=147617), [another thread](https://www.romraider.com/forum/viewtopic.php?p=147609)). A developer notes that CAN SSM is a different message format from OBD-II on CAN ([RomRaider forum](https://www.romraider.com/forum/viewtopic.php?p=151518)). Users with an OBDLink MX+ report no data from 7E0 queries for CVT values and a developer notes some ECUs (including 2015 and later WRX and a Hitachi ECU) are not supported by the logger over SSM ([RomRaider forum](https://www.romraider.com/forum/viewtopic.php?p=165956), [here](https://www.romraider.com/forum/viewtopic.php?p=161735)). Because the A8 service is not a standard OBD-II service, a stock ELM327 may reject or mangle it: unconfirmed, no thread I opened shows it working.
 - **For a read-only tool.** J1979 mode 01 works on the CAN cars (one user reads the ECU ID that way on a 2015 Impreza when SSM-CAN fails, per the forum above). Native SSM needs either a K-line interface that speaks 4800 baud or a CAN stack that can send the A8 read; SSM write and flash services must be excluded.
 
 ## Mitsubishi
@@ -172,14 +172,14 @@ No snapshot found:
 - https://industrialmonitordirect.com/ko/blogs/knowledgebase/siemens-s7-300-to-abs-ecu-kwp2000-k-line-integration-guide
 - https://kiwix.lema.org/stackoverflow.com_en_all_2023-11/questions/57306799/how-to-decode-obd-2-data-from-hyundai-ioniq-ev
 - https://leaf-obd.readthedocs.io/en/latest/pid/5b3.html
-- https://mail.evoscan.com/technical-vehicle-manuals/107
-- https://mailserver.romraider.com/
-- https://mailserver.romraider.com/forum/viewtopic.php?p=147609
-- https://mailserver.romraider.com/forum/viewtopic.php?p=147617
-- https://mailserver.romraider.com/forum/viewtopic.php?p=151518
-- https://mailserver.romraider.com/forum/viewtopic.php?p=161735
-- https://mailserver.romraider.com/forum/viewtopic.php?p=165956
-- https://mailserver.romraider.com/index.php/RomRaider/SsmProtocol
+- https://www.evoscan.com/technical-vehicle-manuals/107
+- https://www.romraider.com/
+- https://www.romraider.com/forum/viewtopic.php?p=147609
+- https://www.romraider.com/forum/viewtopic.php?p=147617
+- https://www.romraider.com/forum/viewtopic.php?p=151518
+- https://www.romraider.com/forum/viewtopic.php?p=161735
+- https://www.romraider.com/forum/viewtopic.php?p=165956
+- https://www.romraider.com/index.php/RomRaider/SsmProtocol
 - https://mx5-nd-forum.de/forum/thread/7187-tpms-data-through-obd-ecu
 - https://myimiev.com/goto/post?id=49328
 - https://nissanecu.miraheze.org
@@ -198,3 +198,15 @@ No snapshot found:
 - https://www.priuschat.com/goto/post?id=2241649
 - https://www.priuschat.com/goto/post?id=2489140
 - https://www.tindie.com/products/opendiag/opendiag-open-source-obd2-interface/
+
+## Links that did not load when checked
+
+These pages returned an error or no response when the links were checked. Claims resting only on them are less certain.
+
+- https://aim-sportline.com/download/ecu/stock/honda/Honda_CivicUSA_2006-2011_eng.pdf
+- https://blog.obdii365.com/2019/06/25/subaru-freessm-can-work-kkl-vag-com-cables/
+- https://iamcarhacker.com/obd2-scanner/tool-guides/how-to-use-car-scanner-elm-obd2-app/
+- https://pinouts.ru/CarElectronics/Toyota_lexus_obd2_diagnostic.shtml
+- https://racechrono.com/forum/discussion/comment/10804/
+- https://racechrono.com/forum/discussion/comment/11271
+- https://reddit.ny4.dev/r/carhacking

@@ -197,3 +197,10 @@ No snapshot found:
 - https://wiki.mr-fix.info/index.php?title=CAN-BUS_sniffing
 - https://wiki.ross-tech.com/wiki/index.php/VW_Golf_VII_(5G/AU
 - https://www.blafusel.de/phpbb/viewtopic.php?p=1662
+
+## Links that did not load when checked
+
+These pages returned an error or no response when the links were checked. Claims resting only on them are less certain.
+
+- https://torque-bhp.com/community/main-forum/vagcom/paged/7
+- https://wiki.ross-tech.com/wiki/index.php/VW_Golf_VII_(5G/AU

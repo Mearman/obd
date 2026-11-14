@@ -32,7 +32,7 @@ What ELM327 can do: generic OBD-II on pins 6 and 14 or pin 7, plus manual ISO-TP
 
 ## PSA (Peugeot, Citroen, DS)
 
-K-line era: an Evoscan pinout page for post-1997 Peugeots lists pin 7 as the K-line for engine and transmission diagnostics, pin 15 as an optional L-line, and pins 6 and 14 as CAN: https://mail.evoscan.com/technical-vehicle-manuals/132. A 206 1.4 HDI owner reports an ELM327 connecting to the engine ECU as ISO 14230 with 5-baud init after wiring K and L (pins 7 and 15): https://206info.co.uk/Forums/viewtopic/p=522799.html (forum, seen via search summary). A 2008 207 owner reports from measurement that pin 7 is a direct ISO 14230 link to the engine ECU and pin 12 a second K-line directly to the ABS ECU, and that clearing engine faults via pin 7 avoids the BSI logging it: https://frenchcarforum.co.uk/forum/viewtopic.php?p=853778 (one vehicle, one poster).
+K-line era: an Evoscan pinout page for post-1997 Peugeots lists pin 7 as the K-line for engine and transmission diagnostics, pin 15 as an optional L-line, and pins 6 and 14 as CAN: https://www.evoscan.com/technical-vehicle-manuals/132. A 206 1.4 HDI owner reports an ELM327 connecting to the engine ECU as ISO 14230 with 5-baud init after wiring K and L (pins 7 and 15): https://206info.co.uk/Forums/viewtopic/p=522799.html (forum, seen via search summary). A 2008 207 owner reports from measurement that pin 7 is a direct ISO 14230 link to the engine ECU and pin 12 a second K-line directly to the ABS ECU, and that clearing engine faults via pin 7 avoids the BSI logging it: https://frenchcarforum.co.uk/forum/viewtopic.php?p=853778 (one vehicle, one poster).
 
 CAN era: the same post lists CAN IS on pins 6 and 14, which ServiceBox diagrams call 250 kbit/s but which the poster measured at 500 kbit/s with about 26 IDs, none of which answered UDS requests at the main ECU addresses; and a diagnostic CAN on pins 3 and 8 at 500 kbit/s, which an Actia/Lexia with a Y adapter showed Diagbox to use exclusively: https://frenchcarforum.co.uk/forum/viewtopic.php?p=853766. The arduino-psa-diag README independently gives pin 3 (CAN High) and pin 8 (CAN Low) for AEE2004 and AEE2010 cars and pins 6 and 14 for NEA2020 cars, where those pins also carry DoIP: https://github.com/ludwig-v/arduino-psa-diag. The BSI appears to gate traffic between buses (the forum post says "appears to", so inference).
 
@@ -153,7 +153,7 @@ No snapshot found:
 Cheap-adapter
 - https://jan-jansen.readthedocs.io/en/latest/volvo-diagnostic.html
 - https://jonesrh.info/volvo850/elm327_volvo_850_svc70_scan.html
-- https://mail.evoscan.com/technical-vehicle-manuals/132
+- https://www.evoscan.com/technical-vehicle-manuals/132
 - https://manuals.autorepairshq.com/Volvo/2005/S60%20L5-2.4L%20VIN%2061%20B5244S/Repair%20and%20Diagnosis/Accessories%20and%20Optional%20Equipment/Entertainment%20Systems/Testing%20and%20Inspection
 - https://multiecuscan.net/forum/viewtopic.php?p=22782
 - https://multiecuscan.net/forum/viewtopic.php?p=4447
@@ -175,3 +175,13 @@ Later
 
 The
 - https://www.vehicleservicepros.com/service-repair/the-garage/blogs/blog/21238728/snapon-diagnostics-mid-speed-can-bus-failure-on-a-volvo-xc60
+
+## Links that did not load when checked
+
+These pages returned an error or no response when the links were checked. Claims resting only on them are less certain.
+
+- https://206info.co.uk/Forums/viewtopic/p=522799.html
+- https://206info.co.uk/Forums/viewtopic/p=523012.html
+- https://manuals.autorepairshq.com/Volvo/2005/S60%20L5-2.4L%20VIN%2061%20B5244S/Repair%20and%20Diagnosis/Accessories%20and%20Optional%20Equipment/Entertainment%20Systems/Testing%20and%20Inspection
+- https://multiecuscan.net/forum/viewtopic.php?p=22782
+- https://multiecuscan.net/forum/viewtopic.php?p=4447

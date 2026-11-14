@@ -160,3 +160,11 @@ No snapshot found:
 - https://www.ford-trucks.com/forums/1579756-extended-can-pid-codes-mode-22-obd2.html
 - https://www.manualsdir.com/manuals/710473/scantool-stn1100-frpm.html?page=15
 - https://www.scantool.net/scantool/downloads/206/stn2120-ds.pdf
+
+## Links that did not load when checked
+
+These pages returned an error or no response when the links were checked. Claims resting only on them are less certain.
+
+- https://racechrono.com/forum/discussion/comment/12814
+- https://service.tesla.com/docs/ServiceBulletins/External/CD/CD-20-17-001_Model_3Y_Third-Party_CAN_Bus_Interface_R4.pdf
+- https://www.carmodder.com/viewtopic.php?p=18424

@@ -275,3 +275,10 @@ No snapshot found:
 - https://forum.forscan.org/viewtopic.php?p=16201
 - https://www.ime-actia.de/en/?p=5053
 - https://www.ime-actia.de/en/?p=5089
+
+## Links that did not load when checked
+
+These pages returned an error or no response when the links were checked. Claims resting only on them are less certain.
+
+- https://en.wikipedia.org/wiki/Diagnostics_over_IP
+- https://en.wikipedia.org/wiki/Doip

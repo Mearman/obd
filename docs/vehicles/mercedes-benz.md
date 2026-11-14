@@ -170,3 +170,11 @@ No snapshot found:
 - https://www.desertcart.nz/products/50218569
 - https://www.libble.eu/elm-327/online-manual-727154/?page=0060
 - https://www.youcanic.com/mercedes-benz-models-with-38-pin-port/
+
+## Links that did not load when checked
+
+These pages returned an error or no response when the links were checked. Claims resting only on them are less certain.
+
+- https://blog.obdexpress.co.uk/2018/10/15/xentry-vs-das-whats-the-difference/
+- https://pinouts.ru/CarElectronics/mercedes_old_16pin.shtml
+- https://service-info-int.mercedes-benz-trucks.com/media/wysiwyg/XPTEU/FAQ_XPTEU_EN.pdf
