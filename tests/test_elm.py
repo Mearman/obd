@@ -1,9 +1,9 @@
 import pytest
 
 from obd_read.elm import AdapterUnsupported, Elm, ElmError, NoResponse, isotp_reassemble
-from obd_read.guard import DiagProtocol, permit
+from obd_read.guard import DiagProtocol, GuardError, permit
 
-from .fake_elm import FakeElmCore, FakeTransport, KwpEcu, isotp_frames
+from .fake_elm import FakeElmCore, FakeTransport, KwpEcu, Responder, isotp_frames
 
 
 def make(core: FakeElmCore) -> Elm:
@@ -174,10 +174,106 @@ async def test_adapter_errors_are_raised(line: str) -> None:
         await elm.request(permit(DiagProtocol.KWP2000, bytes.fromhex("1092")))
 
 
-async def test_request_longer_than_one_frame_is_refused() -> None:
-    elm = make(FakeElmCore({}))
-    with pytest.raises(ElmError, match="single frame"):
-        await elm.request(permit(DiagProtocol.KWP2000, bytes.fromhex("2101020304050607")))
+LONG_UDS_READ = bytes.fromhex("22F190F191F192F193F194")
+
+
+def echo_ecu(response_id: int) -> Responder:
+    def respond(request: bytes) -> list[tuple[int, bytes]]:
+        return [(response_id, bytes([request[0] + 0x40]) + request[1:3] + bytes(range(20)))]
+
+    return respond
+
+
+async def test_a_request_longer_than_one_frame_is_refused_on_a_plain_adapter() -> None:
+    core = FakeElmCore({0x784: echo_ecu(0x785)})
+    elm = make(core)
+    await elm.select_can(11, 500_000)
+    await elm.address_unit(0x784, 0x785)
+    sent = len(core.sent)
+    with pytest.raises(ElmError, match=r"plain ELM327.*STN"):
+        await elm.request(permit(DiagProtocol.UDS, LONG_UDS_READ))
+    assert core.sent[sent:] == []
+
+
+async def test_a_long_request_goes_through_stpx_on_an_stn_adapter() -> None:
+    core = FakeElmCore({0x784: echo_ecu(0x785)}, stn_identity="STN2255 v5.6.19")
+    elm = make(core)
+    await elm.initialise()
+    await elm.select_can(11, 500_000)
+    await elm.address_unit(0x784, 0x785)
+    replies = await elm.request(permit(DiagProtocol.UDS, LONG_UDS_READ))
+    assert core.sent[-1] == f"STPX H:784, D:{LONG_UDS_READ.hex().upper()}"
+    assert core.long_requests == [LONG_UDS_READ]
+    assert replies == {0x785: [b"\x62\xf1\x90" + bytes(range(20))]}
+
+
+async def test_a_short_request_still_goes_as_plain_hex_on_an_stn_adapter() -> None:
+    core = FakeElmCore({0x784: echo_ecu(0x785)}, stn_identity="STN2255 v5.6.19")
+    elm = make(core)
+    await elm.initialise()
+    await elm.select_can(11, 500_000)
+    await elm.address_unit(0x784, 0x785)
+    await elm.request(permit(DiagProtocol.UDS, bytes.fromhex("22F190")))
+    assert core.sent[-1] == "22F190"
+
+
+async def test_a_long_request_to_a_29_bit_unit_names_the_full_identifier() -> None:
+    core = FakeElmCore({0x18DA10F1: echo_ecu(0x18DAF110)}, stn_identity="STN2255 v5.6.19")
+    elm = make(core)
+    await elm.initialise()
+    await elm.select_can(29, 500_000)
+    await elm.address_unit(0x18DA10F1, 0x18DAF110)
+    await elm.request(permit(DiagProtocol.UDS, LONG_UDS_READ))
+    assert core.sent[-1].startswith("STPX H:18DA10F1, D:")
+
+
+async def test_addressing_on_an_stn_adapter_registers_the_flow_control_pair() -> None:
+    core = FakeElmCore({}, stn_identity="STN2255 v5.6.19")
+    elm = make(core)
+    await elm.initialise()
+    await elm.select_can(11, 500_000)
+    await elm.address_unit(0x784, 0x785)
+    assert "STCFCPA 784, 785" in core.sent
+    assert core.flow_control_pairs == {(0x784, 0x785)}
+
+
+async def test_a_long_request_without_a_registered_pair_fails_loudly() -> None:
+    core = FakeElmCore({0x784: echo_ecu(0x785)}, stn_identity="STN2255 v5.6.19")
+    elm = make(core)
+    await elm.initialise()
+    await elm.select_can(11, 500_000)
+    await elm._set_header(0x784)
+    with pytest.raises(ElmError, match="FB ERROR"):
+        await elm.request(permit(DiagProtocol.UDS, LONG_UDS_READ))
+
+
+async def test_an_stn_adapter_rejecting_stpx_is_named() -> None:
+    core = FakeElmCore(
+        {0x784: echo_ecu(0x785)},
+        stn_identity="STN2255 v5.6.19",
+        unsupported=frozenset({f"STPX H:784, D:{LONG_UDS_READ.hex().upper()}"}),
+    )
+    elm = make(core)
+    await elm.initialise()
+    await elm.select_can(11, 500_000)
+    await elm.address_unit(0x784, 0x785)
+    with pytest.raises(AdapterUnsupported, match="STPX"):
+        await elm.request(permit(DiagProtocol.UDS, LONG_UDS_READ))
+
+
+async def test_a_request_beyond_the_iso_tp_limit_is_refused() -> None:
+    core = FakeElmCore({}, stn_identity="STN2255 v5.6.19")
+    elm = make(core)
+    await elm.initialise()
+    sent = len(core.sent)
+    with pytest.raises(ElmError, match="4095"):
+        await elm.request(permit(DiagProtocol.UDS, b"\x22" + bytes(4095)))
+    assert core.sent[sent:] == []
+
+
+async def test_the_guard_still_refuses_a_long_write_before_the_adapter() -> None:
+    with pytest.raises(GuardError):
+        permit(DiagProtocol.UDS, bytes.fromhex("2EF190") + bytes(20))
 
 
 async def test_no_prompt_is_an_error() -> None:

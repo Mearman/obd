@@ -16,6 +16,9 @@ PROMPT = b">"
 # Longest request the adapter can send as a single CAN frame: 8 data bytes less the length byte.
 MAX_SINGLE_FRAME = 7
 
+# Longest diagnostic message ISO 15765-2 can carry: the first frame's length field is 12 bits.
+MAX_ISOTP_MESSAGE = 4095
+
 # CAN data bytes per frame.
 FRAME_BYTES = 8
 
@@ -148,6 +151,7 @@ class Elm:
         self._transcript = transcript or Transcript()
         self._id_bits = 11
         self._stn = False
+        self._request_id: int | None = None
 
     @property
     def transcript(self) -> Transcript:
@@ -273,6 +277,7 @@ class Elm:
         await self.require("ATSPB", unsupported)
 
     async def _set_header(self, can_id: int) -> None:
+        self._request_id = can_id
         if self._id_bits == 11:
             await self.require(f"ATSH{can_id:03X}")
         else:
@@ -290,6 +295,13 @@ class Elm:
         await self.require(f"ATFCSH{self._format_id(request_id)}")
         await self.require("ATFCSD300000")
         await self.require("ATFCSM1")
+        if self._stn:
+            # Transmit segmentation (STPX) waits for the unit's flow-control frame, which the adapter recognises only for a registered (tester identifier, unit identifier) pair; the defaults cover the legislated identifiers only. "Takes two three-digit or eight-digit parameters: txid is transmitter ID (i.e. ID transmitted by the OBDLink), and rxid is receiver ID (i.e. ID transmitted by the ECU)."
+            # Source: OBDLink FRPM revision F, "STCFCPA"; https://www.scantool.net/scantool/downloads/682/obdlink_frpm_f.pdf
+            await self.require(
+                f"STCFCPA {self._format_id(request_id)}, {self._format_id(response_id)}",
+                "the adapter has STN extensions but would not register the flow-control pair that long requests need",
+            )
 
     async def address_functional(self, request_id: int) -> None:
         """Broadcast requests to every emissions-related unit and accept all replies."""
@@ -297,15 +309,33 @@ class Elm:
         await self.require("ATAR")
         await self.require("ATFCSM0")
 
+    def _long_request_command(self, payload: bytes) -> str:
+        if not self._stn:
+            raise ElmError(
+                f"request of {len(payload)} bytes does not fit a single frame, and a plain ELM327 "
+                "cannot send more than one: its datasheet documents no multi-frame sending "
+                "(only an adapter with the STN extensions can)"
+            )
+        if len(payload) > MAX_ISOTP_MESSAGE:
+            raise ElmError(
+                f"request of {len(payload)} bytes exceeds the {MAX_ISOTP_MESSAGE} bytes ISO 15765-2 can carry"
+            )
+        # STPX transmits an arbitrary message; "This command will turn on segmentation but will revert segmentation back to its previous state (on or off) after sending the message", so STCSEGT is never left on. `h` is the CAN identifier and `d` the data bytes without the PCI bytes. With segmentation on the first frame, consecutive frames and the wait for the unit's flow control are the adapter's work; the separation time defaults to the unit's STmin.
+        # Source: OBDLink FRPM revision F, "STPX" and "STCSEGT"; https://www.scantool.net/scantool/downloads/682/obdlink_frpm_f.pdf
+        # Unconfirmed on hardware: the longest command line an adapter accepts (the manual's `l:` mode exists for messages longer than the UART buffer, and gives 2 kB or 4 kB maxima by model), and whether `h:` takes an eight-digit identifier for 29-bit CAN.
+        header = "" if self._request_id is None else f"h:{self._format_id(self._request_id)}, "
+        return f"STPX {header}d:{payload.hex().upper()}"
+
     async def request(self, permit: Permit, timeout: float = 8.0) -> dict[int, list[bytes]]:
         """Send one guarded request and return each sender's reply messages.
 
-        Raises NoResponse when no unit answers, and ElmError for an adapter error, an unreadable reply or a request too long for a single frame.
+        A request over one frame (more than 7 bytes) is sent with the STN `STPX` command, which segments it per ISO 15765-2 and handles the unit's flow control. A plain ELM327 has no documented way to send one, so it refuses.
+        Raises NoResponse when no unit answers, and ElmError for an adapter error, an unreadable reply, or a request too long for the adapter or for ISO 15765-2. Raises AdapterUnsupported when an STN adapter rejects STPX.
         """
         payload = permit.payload
-        if len(payload) > MAX_SINGLE_FRAME:
-            raise ElmError(f"request of {len(payload)} bytes does not fit a single frame")
-        lines = await self.command(payload.hex().upper(), timeout=timeout)
+        long_request = len(payload) > MAX_SINGLE_FRAME
+        text = self._long_request_command(payload) if long_request else payload.hex().upper()
+        lines = await self.command(text, timeout=timeout)
         id_chars = 3 if self._id_bits == 11 else 8
         frames: list[tuple[int, bytes]] = []
         for line in lines:
@@ -315,6 +345,11 @@ class Elm:
             if compact == "NODATA":
                 raise NoResponse("no control unit answered")
             if compact == "?":
+                if long_request:
+                    raise AdapterUnsupported(
+                        "the adapter rejected STPX (replied '?'); "
+                        "it has STN extensions but would not send a request over one frame"
+                    )
                 raise ElmError(f"the adapter did not understand {payload.hex().upper()}")
             if compact.startswith(ADAPTER_ERRORS):
                 raise ElmError(f"adapter error: {line}")

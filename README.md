@@ -100,6 +100,10 @@ The clear service (`14`, or OBD-II mode `04`) is sent only by the `clear` and `c
 
 An adapter that rejects the command stops the run with the command named. Sources: the ELM327 datasheet (`AT PB`, `AT PC`, `AT SP`, PP 2B to 2D) and the OBDLink Family Reference and Programming Manual revision F (`STPBR`, `STPBRR`). The commands are tested against the scripted adapter only. Unconfirmed on hardware: whether `STPBR` takes effect before the protocol opens, which rates each STN model accepts, and whether a clone that accepts `ATPB` honours the divisor. The adapter's transceiver also has to be wired to the pins the bus uses: most adapters reach pins 6 and 14 only.
 
+## Requests longer than one frame
+
+A request of up to 7 bytes goes as one CAN frame on any adapter. A longer one, such as a read of several data identifiers at once, goes only through an adapter with the STN extensions: `STPX h:<id>, d:<data>` transmits it, segmented per ISO 15765-2, and turns transmit segmentation on only for that message. Addressing a unit on such an adapter also registers the unit's identifier pair with `STCFCPA`, because the adapter waits for the unit's flow-control frame and recognises it only for registered pairs. A plain ELM327 refuses a long request with a message naming the reason, since its datasheet documents no multi-frame sending; nothing is sent. The longest request is 4095 bytes, the ISO 15765-2 limit. Every long request has passed the guard like any other. Sources: the OBDLink Family Reference and Programming Manual revision F (`STPX`, `STCSEGT`, `STCFCPA`). Tested against the scripted adapter only; unconfirmed on hardware: the longest command line an adapter accepts (the manual's `l:` mode, not used here, exists for messages beyond the UART buffer), eight-digit identifiers in `h:` for 29-bit CAN, and that every STN model registers pairs for non-legislated identifiers.
+
 ## Vehicle profiles
 
 A profile is a TOML file with the bus settings, the diagnostic protocol and one table per control unit:

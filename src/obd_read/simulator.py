@@ -52,6 +52,8 @@ class FakeElmCore:
         self.sent: list[str] = []
         self.header = 0
         self.id_chars = 3
+        self.long_requests: list[bytes] = []
+        self.flow_control_pairs: set[tuple[int, int]] = set()
         self.baud: int | None = None
         self.user_options = 0xE0
         self.user_divisor = 4
@@ -71,6 +73,30 @@ class FakeElmCore:
             output += self._handle(line.decode("ascii").strip().upper()).encode("ascii") + b"\r\r>"
         return output
 
+    def _handle_stpx(self, arguments: str) -> str:
+        """Send a long request as STN adapters do: segmentation needs a registered flow-control pair."""
+        if self.stn_identity is None:
+            return "?"
+        fields = dict(part.strip().split(":", 1) for part in arguments.split(","))
+        header = int(fields["H"], 16) if "H" in fields else self.header
+        payload = bytes.fromhex(fields["D"])
+        responder = self.responders.get(header)
+        replies = responder(payload) if responder is not None else []
+        if not replies:
+            return "NO DATA"
+        registered = all((header, sender) in self.flow_control_pairs for sender, _ in replies)
+        if not registered:
+            return "FB ERROR"  # no flow control frame was recognised from the unit
+        self.long_requests.append(payload)
+        return self._frames(replies)
+
+    def _frames(self, replies: list[tuple[int, bytes]]) -> str:
+        return "\r".join(
+            f"{sender:0{self.id_chars}X}{frame.hex().upper()}"
+            for sender, payload in replies
+            for frame in isotp_frames(payload)
+        )
+
     def _handle(self, line: str) -> str:
         self.sent.append(line)
         if line in self.unsupported:
@@ -85,6 +111,14 @@ class FakeElmCore:
             return self.stn_identity or "?"
         if line == "ATRV":
             return "12.4V"
+        if line.startswith("STCFCPA "):
+            if self.stn_identity is None:
+                return "?"
+            tx, rx = (int(part, 16) for part in line[8:].split(","))
+            self.flow_control_pairs.add((tx, rx))
+            return "OK"
+        if line.startswith("STPX "):
+            return self._handle_stpx(line[5:])
         if line.startswith("ATPB "):
             options, divisor = (int(part, 16) for part in line[5:].split())
             if not 1 <= divisor <= 0x40:
@@ -117,11 +151,7 @@ class FakeElmCore:
         replies = responder(bytes.fromhex(line)) if responder is not None else []
         if not replies:
             return "NO DATA"
-        return "\r".join(
-            f"{sender:0{self.id_chars}X}{frame.hex().upper()}"
-            for sender, payload in replies
-            for frame in isotp_frames(payload)
-        )
+        return self._frames(replies)
 
 
 async def serve_cars(
