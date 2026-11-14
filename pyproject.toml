@@ -10,6 +10,11 @@ dependencies = ["bleak>=0.22", "pyserial>=3.5"]
 [project.scripts]
 obd-read = "obd_read.cli:main"
 
+[project.optional-dependencies]
+mqtt = [
+    "aiomqtt>=2.5.1",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
