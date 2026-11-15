@@ -1,0 +1,442 @@
+{
+  "notes": "Mercedes-Benz MFA compact cars: W176 A-Class (2012 to 2018), W246 B-Class (2011 to 2018), C117 CLA (2013 to 2019) and X156 GLA (2014 to 2020).\n\nThe bus is the OBD socket's 11-bit CAN at 500 kbit/s (stated for a W246 by w246-b180cdi-obd; OBDb's captures also use 11-bit identifiers). Units speak UDS: a W176 capture in Memostats-V2 shows `10 03` answered with `50 03 00 14 00 C8`, identification read through `22 F1 00`, `22 F1 11`, `22 F1 21` and `22 F1 8C`, and fault codes through `19 02 0D`, so the profile opens the extended session 0x03 as the official app's scan does. The engine also answers service 22 in the default session (w246-b180cdi-obd, OBDb).\n\nMost units reply on 0x4xx identifiers, not on the request plus 8, and a clone adapter that only passes replies on 0x7E8 to 0x7EF (reported by w246-b180cdi-obd) will hear the engine and the 0x7Ex units only.\n\nThe address table is transcribed from Memostats-V2's W176 catalogue, which its author took from the MBito app's database: 70 request and response pairs, 23 of them on one W176's record and reported answering a scan there, with raw frames captured for three (SCCM166, TPM_172, PARK117). The rest are catalogue entries, which may be optional equipment or other markets' units. One 0x7E2 unit comes only from OBDb. The units carry W246, C117 and other chassis numbers in their names (EPS246, HVAC246, PARK117, FCW246), which is the basis for applying the table to the whole platform; for the W246, C117 and X156 that reach is an inference, apart from the engine, transmission and 0x7E2 and 0x7E5 units that OBDb and w246-b180cdi-obd show on those cars. OBDb is cited for addresses only (CC-BY-SA-4.0); no signal definitions are copied.\n\nTreat every row as unconfirmed on a given car until `obd-read probe` shows the unit answering. Sources and their limits are in docs/vehicles/mercedes-compact.md.",
+  "name": "mercedes-mfa",
+  "description": "Mercedes-Benz MFA compact cars (W176 A-Class, W246 B-Class, C117 CLA, X156 GLA), UDS over 11-bit CAN",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 3
+  },
+  "units": {
+    "engine": {
+      "description": "Engine control unit",
+      "request": 2016,
+      "response": 2024,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): MED40 (also CRD, CRD3, CRR1, MED40AMG) at 0x7E0 to 0x7E8, on the car's MBito record, with `19 01 0D` and `19 02 0D` answered; OBDb: service 22 answered on 0x7E0 with replies on 0x7E8 on a 2014 A-Class (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2014/command_support.yaml (archived https://web.archive.org/web/20261115171928/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2014/command_support.yaml)) and a 2015 GLA (https://github.com/OBDb/Mercedes-Benz-GLA-Class/blob/main/tests/test_cases/2015/command_support.yaml (archived https://web.archive.org/web/20261115172025/https://github.com/OBDb/Mercedes-Benz-GLA-Class/blob/main/tests/test_cases/2015/command_support.yaml)); w246-b180cdi-obd: a W246 B 180 CDI engine on 0x7E0 to 0x7E8, UDS service 22 in the default session (https://github.com/vicoMaz/w246-b180cdi-obd (archived https://web.archive.org/web/20261115172415/https://github.com/vicoMaz/w246-b180cdi-obd)). Three sources agree. Not read from a car by this project."
+    },
+    "transmission": {
+      "description": "Transmission control unit (dual-clutch)",
+      "request": 2017,
+      "response": 2025,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): DCT at 0x7E1 to 0x7E9 in the W176 catalogue, not on the car's record; OBDb: service 22 answered on 0x7E1 with replies on 0x7E9 on a 2014 A-Class (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2014/command_support.yaml (archived https://web.archive.org/web/20261115171928/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2014/command_support.yaml)) and a 2015 GLA (https://github.com/OBDb/Mercedes-Benz-GLA-Class/blob/main/tests/test_cases/2015/command_support.yaml (archived https://web.archive.org/web/20261115172025/https://github.com/OBDb/Mercedes-Benz-GLA-Class/blob/main/tests/test_cases/2015/command_support.yaml)). Two sources agree; the catalogue types it OLD_ECU_MANSPEC, which may mean KWP2000-style identification. Not read from a car by this project."
+    },
+    "instrument-cluster": {
+      "description": "Instrument cluster",
+      "request": 1546,
+      "response": 1153,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): IC172 (also IC_204, IC197) at 0x60a to 0x481, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "hermes": {
+      "description": "Communication module, as named in the source",
+      "request": 1547,
+      "response": 1419,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): HERMES (also COM222, PASS166) at 0x60b to 0x58b, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "ignition-switch": {
+      "description": "Electronic ignition switch (EZS)",
+      "request": 1554,
+      "response": 1154,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): EZS166 (also EIS166, EZS218, EZS231) at 0x612 to 0x482, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "steering-column": {
+      "description": "Steering column module",
+      "request": 1570,
+      "response": 1156,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): SCCM166 at 0x622 to 0x484, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "esp": {
+      "description": "Electronic stability programme",
+      "request": 1586,
+      "response": 1158,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): ESP9MFA at 0x632 to 0x486, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "tyre-pressure": {
+      "description": "Tyre pressure monitor",
+      "request": 1602,
+      "response": 1160,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): TPM_172 at 0x642 to 0x488, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "restraints": {
+      "description": "Occupant restraint controller (airbags)",
+      "request": 1610,
+      "response": 1161,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): ORC166 at 0x64a to 0x489, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "head-unit": {
+      "description": "Head unit",
+      "request": 1618,
+      "response": 1162,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): HU5S1 (also HU45, USBR45) at 0x652 to 0x48a, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "fcw": {
+      "description": "FCW, as named in the source",
+      "request": 1626,
+      "response": 1163,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): FCW246 at 0x65a to 0x48b, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "keyless-go": {
+      "description": "Keyless Go, as named in the source (KG)",
+      "request": 1675,
+      "response": 1233,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): KG212M at 0x68b to 0x4d1, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "smpc": {
+      "description": "SMPC, as named in the source",
+      "request": 1698,
+      "response": 1172,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): SMPC212 (also MPC212) at 0x6a2 to 0x494, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "hvac": {
+      "description": "Climate control",
+      "request": 1699,
+      "response": 1236,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): HVAC246 at 0x6a3 to 0x4d4, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "power-steering": {
+      "description": "Electric power steering",
+      "request": 1714,
+      "response": 1174,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): EPS246 at 0x6b2 to 0x496, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "cbc": {
+      "description": "CBC, as named in the source",
+      "request": 1779,
+      "response": 1246,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): CBCBOLERO (also CBC) at 0x6f3 to 0x4de, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "fscm": {
+      "description": "FSCM, as named in the source",
+      "request": 1786,
+      "response": 1183,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): FSCM212 at 0x6fa to 0x49f, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "door-front-left": {
+      "description": "Front left door module",
+      "request": 1795,
+      "response": 1248,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): DMFL166 at 0x703 to 0x4e0, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "door-front-right": {
+      "description": "Front right door module",
+      "request": 1803,
+      "response": 1249,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): DMFR166 at 0x70b to 0x4e1, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "parking-brake": {
+      "description": "Electric parking brake",
+      "request": 1842,
+      "response": 1190,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): EPKB166 at 0x732 to 0x4a6, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "controller": {
+      "description": "CTRLC, as named in the source",
+      "request": 1859,
+      "response": 1256,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): CTRLC5S1 (also CTRLC_204) at 0x743 to 0x4e8, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "headlamp-left": {
+      "description": "Left headlamp unit, as named in the source (HLI_FL)",
+      "request": 1898,
+      "response": 1197,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): HLI_FL176 (also HLC166, HLI_FL212) at 0x76a to 0x4ad, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "headlamp-right": {
+      "description": "Right headlamp unit, as named in the source (HLI_FR)",
+      "request": 1906,
+      "response": 1198,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): HLI_FR176 (also HLI_FR212) at 0x772 to 0x4ae, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "parking": {
+      "description": "Parking system",
+      "request": 1930,
+      "response": 1201,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): PARK117 (also PTS246) at 0x78a to 0x4b1, on the MBito record of one W176 and reported answering the official app's scan there. One source. Not read from a car by this project."
+    },
+    "fscm-ec": {
+      "description": "FSCM_EC, as named in the source (drivetrain)",
+      "request": 2019,
+      "response": 2027,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): FSCM_EC at 0x7e3 to 0x7eb in the W176 catalogue, not on the car's record; OBDb: 0x7E3 answers OBD mode 01 on a 2014 A-Class (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2014/command_support.yaml (archived https://web.archive.org/web/20261115171928/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2014/command_support.yaml)). Two sources agree on the request identifier; the response is the catalogue's. Not read from a car by this project."
+    },
+    "obd-7e2": {
+      "description": "Unidentified unit on 0x7E2 that answers wheel-speed and acceleration identifiers (not in the MBito catalogue)",
+      "request": 2018,
+      "response": 2026,
+      "source": "OBDb: service 22 identifiers 2001 and 2002 answered on 0x7E2 with replies on 0x7EA on a 2017 A-Class (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2017/command_support.yaml (archived https://web.archive.org/web/20261115171947/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2017/command_support.yaml)) and a 2018 CLA 200 (https://github.com/OBDb/Mercedes-Benz-CLA-200/blob/main/tests/test_cases/2018/command_support.yaml (archived https://web.archive.org/web/20261115172125/https://github.com/OBDb/Mercedes-Benz-CLA-200/blob/main/tests/test_cases/2018/command_support.yaml)). Two captures; which unit answers is not stated. Not read from a car by this project."
+    },
+    "cepc": {
+      "description": "CEPC, as named in the source (drivetrain)",
+      "request": 2021,
+      "response": 2029,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): CEPC, CEPC_MFA at 0x7e5 to 0x7ed in the W176 catalogue, not on the car's record; OBDb: service 22 answered on 0x7E5 on a 2017 A-Class (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2017/command_support.yaml (archived https://web.archive.org/web/20261115171947/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2017/command_support.yaml)) and a 2018 CLA (https://github.com/OBDb/Mercedes-Benz-CLA-Class/blob/main/tests/test_cases/2018/command_support.yaml (archived https://web.archive.org/web/20261115172106/https://github.com/OBDb/Mercedes-Benz-CLA-Class/blob/main/tests/test_cases/2018/command_support.yaml)). Two sources agree on the request identifier; the response is the catalogue's. Not read from a car by this project."
+    },
+    "ecall-rus": {
+      "description": "ECALL_RUS, as named in the source (catalogue only)",
+      "request": 1116,
+      "response": 1117,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): ECALL_RUS at 0x45c to 0x45d in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "drvu": {
+      "description": "DRVU, as named in the source (catalogue only)",
+      "request": 1578,
+      "response": 1157,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): DRVU at 0x62a to 0x485 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "navbox": {
+      "description": "NAVBOX45, as named in the source (catalogue only)",
+      "request": 1587,
+      "response": 1222,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): NAVBOX45 at 0x633 to 0x4c6 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "hu5": {
+      "description": "HU5, as named in the source (catalogue only)",
+      "request": 1592,
+      "response": 1464,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): HU5, HU5_ENTRY at 0x638 to 0x5b8 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "vta": {
+      "description": "VTA166, as named in the source (catalogue only)",
+      "request": 1595,
+      "response": 1223,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): VTA166 at 0x63b to 0x4c7 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "ibsm-r1": {
+      "description": "IBSM212_R1, as named in the source (catalogue only)",
+      "request": 1650,
+      "response": 1166,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): IBSM212_R1, IBSM3G_R1 at 0x672 to 0x48e in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "ibsm-r4": {
+      "description": "IBSM212_R4, as named in the source (catalogue only)",
+      "request": 1658,
+      "response": 1167,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): IBSM212_R4, IBSM3G_R4 at 0x67a to 0x48f in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "mpm": {
+      "description": "MPM, as named in the source (catalogue only)",
+      "request": 1667,
+      "response": 1232,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): MPM at 0x683 to 0x4d0 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "ess": {
+      "description": "ESS292, as named in the source (catalogue only)",
+      "request": 1674,
+      "response": 1169,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): ESS292 at 0x68a to 0x491 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "sound": {
+      "description": "SND5S1, as named in the source (catalogue only)",
+      "request": 1681,
+      "response": 1106,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): SND5S1, SOUND45, SOUND_204 at 0x691 to 0x452 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "spc": {
+      "description": "SPC_MFA, as named in the source (catalogue only)",
+      "request": 1682,
+      "response": 1170,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): SPC_MFA at 0x692 to 0x492 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "ptcm": {
+      "description": "PTCM156, as named in the source (catalogue only)",
+      "request": 1683,
+      "response": 1234,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): PTCM156 at 0x693 to 0x4d2 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "tv": {
+      "description": "TV221, as named in the source (catalogue only)",
+      "request": 1697,
+      "response": 1108,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): TV221, TV45 at 0x6a1 to 0x454 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "dab": {
+      "description": "DAB45, as named in the source (catalogue only)",
+      "request": 1705,
+      "response": 1109,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): DAB45, DAB_204, TB5DABS1 at 0x6a9 to 0x455 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "ihtm": {
+      "description": "IHTM166, as named in the source (catalogue only)",
+      "request": 1707,
+      "response": 1237,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): IHTM166 at 0x6ab to 0x4d5 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "umi": {
+      "description": "DRVKTPLS, as named in the source (catalogue only)",
+      "request": 1713,
+      "response": 1110,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): DRVKTPLS, UMI at 0x6b1 to 0x456 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "tssr": {
+      "description": "TSSR176, as named in the source (catalogue only)",
+      "request": 1715,
+      "response": 1238,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): TSSR176 at 0x6b3 to 0x4d6 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "rbtm-left": {
+      "description": "RBTMFL_204, as named in the source (catalogue only)",
+      "request": 1722,
+      "response": 1175,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): RBTMFL_204 at 0x6ba to 0x497 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "hud": {
+      "description": "HUD_ZUB, as named in the source (catalogue only)",
+      "request": 1729,
+      "response": 1112,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): HUD_ZUB at 0x6c1 to 0x458 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "rbtm-right": {
+      "description": "RBTMFR_204, as named in the source (catalogue only)",
+      "request": 1730,
+      "response": 1176,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): RBTMFR_204 at 0x6c2 to 0x498 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "seat-driver": {
+      "description": "SEATD166, as named in the source (catalogue only)",
+      "request": 1731,
+      "response": 1240,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): SEATD166 at 0x6c3 to 0x4d8 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "sdar": {
+      "description": "SDAR221, as named in the source (catalogue only)",
+      "request": 1737,
+      "response": 1113,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): SDAR221, TB5TVSDARSS1, TV5S1HD at 0x6c9 to 0x459 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "seat-passenger": {
+      "description": "SEATP166, as named in the source (catalogue only)",
+      "request": 1739,
+      "response": 1241,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): SEATP166 at 0x6cb to 0x4d9 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "uci": {
+      "description": "UCI45, as named in the source (catalogue only)",
+      "request": 1745,
+      "response": 1114,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): UCI45, UCI_204 at 0x6d1 to 0x45a in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "ibs2g": {
+      "description": "IBS2G166, as named in the source (catalogue only)",
+      "request": 1749,
+      "response": 1712,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): IBS2G166 at 0x6d5 to 0x6b0 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "tm": {
+      "description": "TM166, as named in the source (catalogue only)",
+      "request": 1771,
+      "response": 1245,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): TM166, TM166IBK at 0x6eb to 0x4dd in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "long-range-radar": {
+      "description": "LRR3, as named in the source (catalogue only)",
+      "request": 1794,
+      "response": 1184,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): LRR3, LRR3_463 at 0x702 to 0x4a0 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "tpss": {
+      "description": "TPSS, as named in the source (catalogue only)",
+      "request": 1799,
+      "response": 1791,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): TPSS at 0x707 to 0x6ff in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "tb5-tv": {
+      "description": "TB5_TV_SDARS, as named in the source (catalogue only)",
+      "request": 1808,
+      "response": 1792,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): TB5_TV_SDARS, TV5HD at 0x710 to 0x700 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "tb5-dab": {
+      "description": "TB5_DAB, as named in the source (catalogue only)",
+      "request": 1812,
+      "response": 1796,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): TB5_DAB at 0x714 to 0x704 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "rear-camera": {
+      "description": "RVC166, as named in the source (catalogue only)",
+      "request": 1843,
+      "response": 1254,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): RVC166, RVC218 at 0x733 to 0x4e6 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "ocm": {
+      "description": "OCM_172, as named in the source (catalogue only)",
+      "request": 1855,
+      "response": 1863,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): OCM_172 at 0x73f to 0x747 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "asbm": {
+      "description": "ASBM_U, as named in the source (catalogue only)",
+      "request": 1871,
+      "response": 1879,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): ASBM_U, IBS166 at 0x74f to 0x757 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "display": {
+      "description": "DISPC_204, as named in the source (catalogue only)",
+      "request": 1875,
+      "response": 1258,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): DISPC_204, DSPC5S1 at 0x753 to 0x4ea in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "ec": {
+      "description": "EC166, as named in the source (catalogue only)",
+      "request": 1919,
+      "response": 1927,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): EC166, GDO166, LRSM166, OHCM246, VCS166 at 0x77f to 0x787 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "psm": {
+      "description": "PSMD166, as named in the source (catalogue only)",
+      "request": 1935,
+      "response": 1943,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): PSMD166, PSMP166 at 0x78f to 0x797 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "dsi": {
+      "description": "DSI, as named in the source (catalogue only)",
+      "request": 1938,
+      "response": 1202,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): DSI at 0x792 to 0x4b2 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "awd": {
+      "description": "AWD_MFA, as named in the source (catalogue only)",
+      "request": 1946,
+      "response": 1203,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): AWD_MFA at 0x79a to 0x4b3 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "swsp": {
+      "description": "SWSP166, as named in the source (catalogue only)",
+      "request": 1951,
+      "response": 1959,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): SWSP166 at 0x79f to 0x7a7 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "siren": {
+      "description": "SIREN166, as named in the source (catalogue only)",
+      "request": 1967,
+      "response": 1975,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): SIREN166, SIREN222STAR1 at 0x7af to 0x7b7 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "cpf": {
+      "description": "CPF117, as named in the source (catalogue only)",
+      "request": 1979,
+      "response": 1271,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): CPF117 at 0x7bb to 0x4f7 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "light-left": {
+      "description": "LAMSL, as named in the source (catalogue only)",
+      "request": 1983,
+      "response": 1991,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): LAMSL, LCU_FL212, XCUL166 at 0x7bf to 0x7c7 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "light-right": {
+      "description": "LAMSR, as named in the source (catalogue only)",
+      "request": 1999,
+      "response": 2007,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): LAMSR, LCU_FR212, XCUR166 at 0x7cf to 0x7d7 in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    },
+    "scrcm": {
+      "description": "SCRCM, as named in the source (catalogue only)",
+      "request": 2020,
+      "response": 2028,
+      "source": "Memostats-V2 W176-ECUS.md (https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md, archived https://web.archive.org/web/20261115172218/https://github.com/Memo1309/Memostats-V2/blob/main/memostats-v2/docs/W176-ECUS.md): SCRCM at 0x7e4 to 0x7ec in the MBito W176 catalogue, not on the one car's record, so it may be optional equipment or another market's unit. One derived source. Not read from a car by this project."
+    }
+  }
+}
