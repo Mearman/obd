@@ -26,7 +26,7 @@ import { GENERIC_BUS } from "./generic.js";
 import { DiagProtocol, READ_SERVICE, permit } from "./guard.js";
 import { selectBus } from "./kline.js";
 import { readAddressedObdScan } from "./obd-scan.js";
-import { readUnit, scan, type UnitReport } from "./operations.js";
+import { readUnit, type UnitReport } from "./operations.js";
 import { FUNCTIONAL_ID } from "./obd.js";
 import { NegativeResponse } from "./diag.js";
 import {
@@ -117,7 +117,7 @@ export interface CaptureRunOptions {
   readonly id: string;
   /** Told after each step and every few requests. */
   readonly progress?: (progress: CaptureProgress) => void;
-  /** Asked before every request of a sweep and between steps; `true` stops the capture. */
+  /** Asked between steps, before each unit is read and before every request of a sweep; `true` stops the capture. */
   readonly stopped?: () => boolean;
   readonly now?: () => number;
   readonly sleep?: (milliseconds: number) => Promise<void>;
@@ -226,7 +226,12 @@ export async function captureEverything(elm: Elm, options: CaptureRunOptions): P
     if (profile !== undefined) {
       tell("units", `reading the ${String(profile.units.size)} units of ${profile.name}`);
       await selectBus(elm, profile);
-      keep(profile, await scan(elm, profile, { faults: true, freeze: true }));
+      const reports: UnitReport[] = [];
+      for (const unit of profile.units.values()) {
+        check();
+        reports.push(await readUnit(elm, profile, unit, { faults: true, freeze: true }));
+      }
+      keep(profile, reports);
     } else {
       const range = options.discovery ?? DEFAULT_DISCOVERY;
       await elm.selectCan(GENERIC_BUS.idBits, GENERIC_BUS.bitrate);
