@@ -1,7 +1,7 @@
 {
-  "notes": "Nissan and Infiniti cars on the diagnostic socket's CAN pair (pins 6 and 14, 11-bit identifiers, 500 kbit/s): Qashqai J11 (2013 to 2021), Juke F15 (2010 to 2019) and X-Trail T32 (2014 to 2021). The same addresses appear for the Rogue and the Infiniti Q50 and QX50 in the sources, which is the only evidence for Infiniti.\n\nEvery address is a fact transcribed from open diagnostic-tool sources; no signal definition is copied. Treat every row as unconfirmed until `obd-read probe` shows the unit answering.\n\nThe response offset is not always 8. opendbc states a receive offset of 0x20 for Nissan units and OBDb agrees for 0x740, 0x743, 0x744, 0x748, 0x758 and 0x75C, but the engine and transmission answer at the legislated offset of 8 (0x7E0 to 0x7E8, 0x7E1 to 0x7E9) and 0x723 answers at 0x735, an offset of 0x12. Each unit therefore names its own response identifier.\n\nService is per unit. opendbc opens a Nissan unit with session 0x81 and reads its software version with service 21 identifier 0x83, so the profile defaults to KWP2000 with session 0x81. OBDb shows only service 22 (two-byte identifiers) for 0x723 and 0x748, which therefore carry UDS with session 0x01.\n\nSome units sit on 29-bit identifiers (a gateway at 0x18DAD0F1 in opendbc, and OBDb headers DA15, DA18, DA2D, DADA and DADB). A profile has one identifier width, so they are in `nissan-infiniti-can-29bit`.\n\nA vendor handout lists a Nissan secure gateway from 2020, which is not documented in any source here. A unit that stays silent on a newer car is reported as no response, not as a fault.\n\nSession caveat: no source shows a Leaf, Qashqai, Juke or X-Trail unit accepting the session this profile opens. opendbc sends 10 81 and then 21 83 to Nissan units only to fingerprint their software version, and OBDb's Leaf file sets diagnosticLevel C0, which the guard does not allow, so the profile does not use it. Session 0x81 (KWP2000) and 0x01 (UDS) are guard-permitted values chosen from that evidence and are unconfirmed; confirming them on a real car is tracked in https://github.com/Mearman/obd/issues/70.",
+  "notes": "Nissan and Infiniti cars on the diagnostic socket's CAN pair (pins 6 and 14, 11-bit identifiers, 500 kbit/s): Qashqai J11 (2013 to 2021), Juke F15 (2010 to 2019) and X-Trail T32 (2014 to 2021). The same addresses appear for the Rogue and the Infiniti Q50 and QX50 in the sources, which is the only evidence for Infiniti.\n\nEvery address is a fact transcribed from open diagnostic-tool sources; no signal definition is copied. Treat every row as unconfirmed until `obd-read probe` shows the unit answering.\n\nThe response offset is not always 8. opendbc states a receive offset of 0x20 for Nissan units and OBDb agrees for 0x740, 0x743, 0x744, 0x748, 0x758 and 0x75C, but the engine and transmission answer at the legislated offset of 8 (0x7E0 to 0x7E8, 0x7E1 to 0x7E9) and 0x723 answers at 0x735, an offset of 0x12. Each unit therefore names its own response identifier.\n\nService is per unit. opendbc opens a Nissan unit with session 0x81 and reads its software version with service 21 identifier 0x83, so the profile defaults to KWP2000 with session 0x81. OBDb shows only service 22 (two-byte identifiers) for 0x723 and 0x748, which therefore carry UDS with session 0x01.\n\nSome units sit on 29-bit identifiers (a gateway at 0x18DAD0F1 in opendbc, and OBDb headers DA15, DA18, DA2D, DADA and DADB); each of those units carries `id_bits` 29 beside the bus's 11. The 29-bit request identifier is 0x18DA, the unit address and the tester address 0xF1, and the reply swaps the two address bytes (ISO 15765-4 normal fixed addressing). That derivation is an inference: opendbc gives the gateway as 0x18DAD0F1, and OBDb gives only a short header (DA15) and a short receive address (15) per unit, whose expansion its schema documents only for six-digit and eight-digit receive addresses, so the 29-bit reply identifiers are the least certain rows. OBDb reads those units with service 22, so they carry UDS with session 0x01; opendbc reads the gateway with service 21.\n\nA vendor handout lists a Nissan secure gateway from 2020, which is not documented in any source here. A unit that stays silent on a newer car is reported as no response, not as a fault.\n\nSession caveat: no source shows a Leaf, Qashqai, Juke or X-Trail unit accepting the session this profile opens. opendbc sends 10 81 and then 21 83 to Nissan units only to fingerprint their software version, and OBDb's Leaf file sets diagnosticLevel C0, which the guard does not allow, so the profile does not use it. Session 0x81 (KWP2000) and 0x01 (UDS) are guard-permitted values chosen from that evidence and are unconfirmed; confirming them on a real car is tracked in https://github.com/Mearman/obd/issues/70.",
   "name": "nissan-infiniti-can",
-  "description": "Nissan and Infiniti CAN, 11-bit: Qashqai J11, Juke F15, X-Trail T32",
+  "description": "Nissan and Infiniti CAN, 11-bit and 29-bit units: Qashqai J11, Juke F15, X-Trail T32",
   "status": "unconfirmed",
   "bus": {
     "id_bits": 11,
@@ -85,6 +85,72 @@
       "request": 2017,
       "response": 2025,
       "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x7E1 to 0x7E9, ecu type transmission, services 21 and 22)"
+    },
+    "gateway": {
+      "description": "Gateway, named by opendbc at address 0xD0 (Ecu.gateway 0x18dad0f1)",
+      "request": 416993521,
+      "response": 417001936,
+      "id_bits": 29,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/fingerprints.py and https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/values.py (Ecu.gateway 0x18dad0f1, Leaf and X-Trail), read there with service 21"
+    },
+    "unit-15": {
+      "description": "Unit at address 0x15, which answers engine-related reads in OBDb (header DA15)",
+      "request": 416945649,
+      "response": 417001749,
+      "id_bits": 29,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json (header DA15, receive address 15, service 22)"
+    },
+    "unit-18": {
+      "description": "Unit at address 0x18, which answers battery and fuel-related reads in OBDb (header DA18)",
+      "request": 416946417,
+      "response": 417001752,
+      "id_bits": 29,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (header DA18, receive address 18, service 22)"
+    },
+    "unit-2d": {
+      "description": "Unit at address 0x2D, which answers tyre-related reads in OBDb (header DA2D)",
+      "request": 416951793,
+      "response": 417001773,
+      "id_bits": 29,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (header DA2D, receive address 2D, service 22)"
+    },
+    "unit-da": {
+      "description": "Unit at address 0xDA, which answers engine-related reads in OBDb (header DADA)",
+      "request": 416996081,
+      "response": 417001946,
+      "id_bits": 29,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json (header DADA, receive address DA, service 22)"
+    },
+    "unit-db": {
+      "description": "Unit at address 0xDB, which answers battery-related reads in OBDb (header DADB)",
+      "request": 416996337,
+      "response": 417001947,
+      "id_bits": 29,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json (header DADB, receive address DB, service 22)"
     }
   }
 }
