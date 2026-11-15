@@ -1,0 +1,40 @@
+{
+  "format": "obd-read-plan",
+  "version": 1,
+  "name": "drive-cycle-watch",
+  "title": "Watch codes through a drive",
+  "description": "Records while the car is driven, from moving off until it has been stopped for half a minute, reading the fault code lists throughout and logging each code that appears or clears with its time. The person drives on a safe road, obeying the law; someone else watches the screen, or nobody does until the car is parked.",
+  "source": "Stated reason: a pending code sets, and a stored code confirms or clears, only while the monitors run during driving, so watching the lists through a drive shows when in the drive each change happened. The drive ends when vehicle speed has read zero for 30 seconds.",
+  "needs": { "values": "all" },
+  "phases": [
+    {
+      "id": "before",
+      "title": "Before the drive",
+      "instruction": "Parked: start the engine, fasten the seat belt and confirm when ready to drive; leave the screen to a passenger or alone while driving.",
+      "reads": { "start": ["stored-codes", "pending-codes", "permanent-codes", "freeze-frame"] },
+      "end": {
+        "when": { "kind": "confirm", "prompt": "Ready to drive?" },
+        "timeout": 600,
+        "onTimeout": "fail"
+      }
+    },
+    {
+      "id": "drive",
+      "title": "Drive",
+      "instruction": "Drive normally on a safe road; to finish, park and stay stopped for half a minute.",
+      "sample": { "every": 2 },
+      "watchCodes": true,
+      "reads": { "end": ["stored-codes", "pending-codes", "permanent-codes", "freeze-frame"] },
+      "start": {
+        "when": { "kind": "value", "value": "vehicle-speed", "op": ">", "than": 5, "for": 3 },
+        "timeout": 900,
+        "onTimeout": "fail"
+      },
+      "end": {
+        "when": { "kind": "value", "value": "vehicle-speed", "op": "<", "than": 1, "for": 30 },
+        "timeout": 10800,
+        "onTimeout": "skip"
+      }
+    }
+  ]
+}

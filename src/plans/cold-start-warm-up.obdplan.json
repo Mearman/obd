@@ -1,0 +1,51 @@
+{
+  "format": "obd-read-plan",
+  "version": 1,
+  "name": "cold-start-warm-up",
+  "title": "Cold start and warm-up",
+  "description": "Records from key-on through a cold start and warm-up at idle until the coolant temperature settles, with the fault codes read at the start and at the end. Start with a cold engine. The person does the work at the car, parked with the handbrake on in a ventilated space.",
+  "source": "Stated reason: an engine warms until its thermostat opens and then holds the coolant in a narrow band, so the plan ends once coolant temperature has stayed within 2 °C for two minutes, which shows the thermostat regulating; the timeout ends it on a car whose coolant never settles, which is itself a finding.",
+  "needs": { "values": "all" },
+  "phases": [
+    {
+      "id": "key-on",
+      "title": "Ignition on",
+      "instruction": "Parked with the handbrake on: turn the ignition on without starting the engine, wait for the dashboard lamps to settle, then confirm.",
+      "reads": { "start": ["stored-codes", "pending-codes", "permanent-codes"] },
+      "end": {
+        "when": { "kind": "confirm", "prompt": "Is the ignition on with the engine not running?" },
+        "timeout": 300,
+        "onTimeout": "fail"
+      }
+    },
+    {
+      "id": "start",
+      "title": "Start the engine",
+      "instruction": "Start the engine and leave it idling, parked with the handbrake on, in neutral or P, in a ventilated space.",
+      "end": {
+        "when": { "kind": "value", "value": "engine-speed", "op": ">", "than": 300, "for": 3 },
+        "timeout": 120,
+        "onTimeout": "fail"
+      }
+    },
+    {
+      "id": "warm-up",
+      "title": "Warm up at idle",
+      "instruction": "Leave the engine idling, parked with the handbrake on, in neutral or P, in a ventilated space and nobody at the pedals, until the coolant temperature settles.",
+      "sample": { "every": 2 },
+      "watchCodes": true,
+      "reads": { "end": ["stored-codes", "pending-codes", "permanent-codes", "freeze-frame"] },
+      "end": {
+        "when": {
+          "kind": "value",
+          "value": "coolant-temperature",
+          "op": "stable",
+          "within": 2,
+          "for": 120
+        },
+        "timeout": 2400,
+        "onTimeout": "skip"
+      }
+    }
+  ]
+}

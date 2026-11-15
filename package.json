@@ -20,6 +20,10 @@
       "types": "./dist/profiles/index.d.ts",
       "default": "./dist/profiles/index.js"
     },
+    "./plans": {
+      "types": "./dist/plans/index.d.ts",
+      "default": "./dist/plans/index.js"
+    },
     "./node": {
       "types": "./dist/node/index.d.ts",
       "default": "./dist/node/index.js"

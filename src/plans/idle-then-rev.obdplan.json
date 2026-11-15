@@ -1,0 +1,69 @@
+{
+  "format": "obd-read-plan",
+  "version": 1,
+  "name": "idle-then-rev",
+  "title": "Idle, hold revs, idle, blips",
+  "description": "Idles for a minute, holds a steady engine speed band for a minute, idles again for half a minute, then three quick blips of the pedal, reading the fault codes at the end of each phase. The person works the pedal with the car parked, handbrake on, in neutral or P, in a ventilated space; nobody drives.",
+  "source": "Stated reason: the order of a test done by hand while looking for a fault that shows at idle or under revs, with each phase long enough to log a minute of readings and a code read after each, so a code that sets is tied to the phase that set it.",
+  "needs": { "values": "all" },
+  "phases": [
+    {
+      "id": "idle",
+      "title": "Idle",
+      "instruction": "Parked, handbrake on, in neutral or P, ventilated: start the engine if it is not running and let it idle without touching the pedal.",
+      "reads": {
+        "start": ["stored-codes", "pending-codes"],
+        "end": ["stored-codes", "pending-codes"]
+      },
+      "start": {
+        "when": { "kind": "value", "value": "engine-speed", "op": ">", "than": 300, "for": 3 },
+        "timeout": 120,
+        "onTimeout": "fail"
+      },
+      "end": { "when": { "kind": "elapsed", "seconds": 60 }, "timeout": 90, "onTimeout": "skip" }
+    },
+    {
+      "id": "hold",
+      "title": "Hold steady revs",
+      "instruction": "Still parked, handbrake on, in neutral or P: press the pedal and hold the engine between 2000 and 2500 rpm until told to stop.",
+      "reads": { "end": ["stored-codes", "pending-codes"] },
+      "end": {
+        "when": {
+          "kind": "value",
+          "value": "engine-speed",
+          "op": "between",
+          "min": 2000,
+          "max": 2500,
+          "for": 60
+        },
+        "timeout": 240,
+        "onTimeout": "skip"
+      }
+    },
+    {
+      "id": "idle-again",
+      "title": "Idle again",
+      "instruction": "Release the pedal and let the engine return to idle, still parked in neutral or P with the handbrake on.",
+      "reads": { "end": ["stored-codes", "pending-codes"] },
+      "end": { "when": { "kind": "elapsed", "seconds": 30 }, "timeout": 60, "onTimeout": "skip" }
+    },
+    {
+      "id": "blip",
+      "title": "Quick blip",
+      "instruction": "Parked, handbrake on, in neutral or P: press the pedal briskly until the engine passes 3000 rpm, then release it at once and let it settle.",
+      "sample": { "values": ["engine-speed"], "every": "fastest" },
+      "repeat": { "times": 3 },
+      "reads": { "end": ["stored-codes", "pending-codes"] },
+      "start": {
+        "when": { "kind": "value", "value": "engine-speed", "op": ">", "than": 3000 },
+        "timeout": 60,
+        "onTimeout": "skip"
+      },
+      "end": {
+        "when": { "kind": "value", "value": "engine-speed", "op": "<", "than": 1200, "for": 2 },
+        "timeout": 30,
+        "onTimeout": "skip"
+      }
+    }
+  ]
+}
