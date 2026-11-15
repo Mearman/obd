@@ -13,6 +13,7 @@ import { ORPCError, implement } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/message-port";
 import { z } from "zod";
 import { fromHex, toUpperHex } from "../core/bytes.js";
+import { startPort } from "./message-port.js";
 import type { Scheme } from "../core/transport.js";
 import { schemeTransportHost, type TransportHost } from "../core/transport-host.js";
 import { TransportError, TransportTimeout, type Transport } from "../core/transport.js";
@@ -111,6 +112,7 @@ export function serveTransports(
     }),
   });
   new RPCHandler(router).upgrade(port);
+  startPort(port);
   return {
     prepare: async (adapterUrl) => {
       const transport = create(adapterUrl);
@@ -169,6 +171,7 @@ export function remoteTransportHost(
   schemes: readonly Scheme[],
 ): TransportHost {
   const client: TransportClient = createORPCClient(new RPCLink({ port }));
+  startPort(port);
   let issued = 0;
   return schemeTransportHost(schemes, (adapterUrl) => {
     issued += 1;
