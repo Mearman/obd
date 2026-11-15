@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openSection } from "./session";
 import {
   FAULT_SIGNALS,
   PLAN_PHASE_SIGNAL,
@@ -169,7 +170,7 @@ test("a plan made in the editor is shared, recorded elsewhere and its results co
   await expect(
     page.getByRole("button", { name: "Record Accelerator pedal check" }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("tab", { name: "Connect" }).click();
+  await openSection(page, "Connection");
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
   await page.getByRole("tab", { name: "Guide" }).click();
