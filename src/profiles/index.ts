@@ -6,10 +6,16 @@
 
 import { pythonRepr } from "../core/format.js";
 import { ProfileError, parseProfile, type Profile } from "../core/profile.js";
+import bmwFFem from "./bmw-f-fem.json" with { type: "json" };
+import bmwG29 from "./bmw-g29.json" with { type: "json" };
+import bmwI3 from "./bmw-i3.json" with { type: "json" };
 import mercedesW211 from "./mercedes-w211.json" with { type: "json" };
 import vagMqb from "./vag-mqb.json" with { type: "json" };
 
 const SHIPPED: ReadonlyMap<string, unknown> = new Map<string, unknown>([
+  ["bmw-f-fem", bmwFFem],
+  ["bmw-g29", bmwG29],
+  ["bmw-i3", bmwI3],
   ["mercedes-w211", mercedesW211],
   ["vag-mqb", vagMqb],
 ]);

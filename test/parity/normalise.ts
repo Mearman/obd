@@ -7,6 +7,7 @@
  *    with several characteristics repeats it; TypeScript prints it once per service. Consecutive
  *    repeated `service` lines in Python's output are collapsed.
  * 3. `simulate` listens on an operating-system port when asked for port 0, so the port in its banner is replaced by `<port>`.
+ * 5. The port ships vehicle profiles the Python command line never had. In a `shipped profiles: ` list on the TypeScript side only the names in {@link PYTHON_SHIPPED_PROFILES} are kept, in the order printed, so the list still has to hold the Python profiles in the Python order.
  */
 
 import { parse } from "smol-toml";
@@ -41,6 +42,20 @@ function collapseServices(text: string): string {
       return !repeated;
     })
     .join("\n");
+}
+
+/** The profiles the Python command line shipped. */
+export const PYTHON_SHIPPED_PROFILES: readonly string[] = ["mercedes-w211", "vag-mqb"];
+
+function pythonShippedOnly(text: string): string {
+  return text.replaceAll(
+    /shipped profiles: ([a-z0-9, -]+)/g,
+    (_match, list: string) =>
+      `shipped profiles: ${list
+        .split(", ")
+        .filter((name) => PYTHON_SHIPPED_PROFILES.includes(name))
+        .join(", ")}`,
+  );
 }
 
 function maskPort(text: string): string {
@@ -99,8 +114,8 @@ export function observedTypeScript(
   }
   return {
     exit: observed.exit,
-    stdout: maskPort(rename(observed.stdout)),
-    stderr: dropUsage(rename(observed.stderr), observed.exit),
+    stdout: pythonShippedOnly(maskPort(rename(observed.stdout))),
+    stderr: pythonShippedOnly(dropUsage(rename(observed.stderr), observed.exit)),
     files,
   };
 }

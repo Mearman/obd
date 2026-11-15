@@ -1,0 +1,121 @@
+{
+  "notes": "BMW i3 and i3s (I01), read over the CAN pair on the OBD-II socket.\n\nUnits are reached with ISO 15765-2 extended addressing: requests on CAN identifier 0x6F1 with the unit's address as the first data byte, replies on 0x600 plus the address starting with the tester address 0xF1 (docs/vehicles/bmw-mini.md).\n\nThe address table is transcribed from the transmit and receive identifiers in the Open Vehicle Monitoring System's read-only i3 module, developed against a 2018 i3s and polling these units with UDS ReadDataByIdentifier under extended addressing. The source says the car answers over the OBD-II port with the ignition on and for about 40 seconds after it is switched off or woken, and that the alarm sounds if anything is left plugged into the port when the car is locked. Treat every row as unconfirmed on a given car until `obd-read probe` shows the unit answering.\n\nThe bus is 11-bit CAN at 500 kbit/s. The default session, which every UDS unit must accept, is the one opened.",
+  "name": "bmw-i3",
+  "description": "BMW i3 and i3s (I01), UDS over CAN with BMW extended addressing",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 1
+  },
+  "units": {
+    "sme": {
+      "description": "SME, high-voltage battery: the source reads state of charge, pack voltage and cell voltages",
+      "request": 1777,
+      "response": 1543,
+      "extended_address": 7,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "edm": {
+      "description": "EDM, drive management: the source reads the accelerator pedal and the 12 V battery sensor",
+      "request": 1777,
+      "response": 1554,
+      "extended_address": 18,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "lim": {
+      "description": "LIM, charging interface: the source reads the charge port, plug and pilot signal",
+      "request": 1777,
+      "response": 1556,
+      "extended_address": 20,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "kle": {
+      "description": "KLE, on-board charger: the source reads charger state, power, voltage and current",
+      "request": 1777,
+      "response": 1557,
+      "extended_address": 21,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "eme": {
+      "description": "EME, electric motor electronics: the source reads motor current, speed and temperatures",
+      "request": 1777,
+      "response": 1562,
+      "extended_address": 26,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "sas": {
+      "description": "SAS, as named in the source",
+      "request": 1777,
+      "response": 1570,
+      "extended_address": 34,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "dsc": {
+      "description": "Dynamic stability control (DSC)",
+      "request": 1777,
+      "response": 1577,
+      "extended_address": 41,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "eps": {
+      "description": "Electronic power steering (EPS)",
+      "request": 1777,
+      "response": 1584,
+      "extended_address": 48,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "bdc": {
+      "description": "BDC, body domain controller: the source reads the handbrake contact and the VIN",
+      "request": 1777,
+      "response": 1600,
+      "extended_address": 64,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "fzd": {
+      "description": "FZD, roof function centre: the source reads the door and flap contacts",
+      "request": 1777,
+      "response": 1622,
+      "extended_address": 86,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "kafas": {
+      "description": "KAFAS, camera-based driver assistance",
+      "request": 1777,
+      "response": 1629,
+      "extended_address": 93,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "kombi": {
+      "description": "KOMBI, instrument cluster: the source reads speed, odometer, range and outside temperature",
+      "request": 1777,
+      "response": 1632,
+      "extended_address": 96,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "nbt": {
+      "description": "NBT, head unit: the source reads wheel speeds and direction",
+      "request": 1777,
+      "response": 1635,
+      "extended_address": 99,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "zbe": {
+      "description": "ZBE, iDrive controller",
+      "request": 1777,
+      "response": 1639,
+      "extended_address": 103,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    },
+    "ihx": {
+      "description": "IHX, heating and climate: the source reads cabin temperature and climate state",
+      "request": 1777,
+      "response": 1656,
+      "extended_address": 120,
+      "source": "ecu_definitions in the OVMS BMW i3 vehicle module (https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/tree/master/vehicle/OVMS.V3/components/vehicle_bmwi3), as recorded in docs/vehicles/bmw-mini.md"
+    }
+  }
+}

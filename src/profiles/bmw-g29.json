@@ -1,0 +1,35 @@
+{
+  "notes": "BMW Z4 (G29) and the Toyota Supra (J29) built on the same platform, read over the diagnostic CAN (D-CAN) on the OBD-II socket, which the source says connects only to the central gateway (ZGM).\n\nThe one unit with an address in the source is the engine (DME) at 0x12, reached with ISO 15765-2 extended addressing: the request goes on CAN identifier 0x6F1 with 0x12 as the first data byte, and the reply comes on 0x612 starting with 0xF1. The source's worked example reads data identifier 0x4300 (coolant temperature) with UDS service 0x22. It names the BDC and KOMBI without addresses, so they are left out. Treat the row and the value as unconfirmed on a given car until `obd-read probe` shows the unit answering.\n\nThe bus is 11-bit CAN at 500 kbit/s. The default session, which every UDS unit must accept, is the one opened.",
+  "name": "bmw-g29",
+  "description": "BMW Z4 G29 and Toyota Supra J29, UDS over D-CAN with BMW extended addressing",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 1
+  },
+  "units": {
+    "dme": {
+      "description": "Digital motor electronics, engine (DME)",
+      "request": 1777,
+      "response": 1554,
+      "extended_address": 18,
+      "source": "https://thesecretingredient.neocities.org/bmw (G29 and J29 platform write-up), as recorded in docs/vehicles/bmw-mini.md",
+      "values": {
+        "coolant-temperature": {
+          "label": "Coolant temperature",
+          "unit": "°C",
+          "identifier": 17152,
+          "size": 2,
+          "scale": 0.1,
+          "bias": -273.14,
+          "source": "worked example in https://thesecretingredient.neocities.org/bmw (G29 and J29 platform write-up), as recorded in docs/vehicles/bmw-mini.md: reply 62 43 00 0D BA scaled by 0.1 with bias -273.14; the source prints about 80.96 for it, but that scaling gives 78.26, so the bytes or the scaling are wrong",
+          "status": "unconfirmed"
+        }
+      }
+    }
+  }
+}
