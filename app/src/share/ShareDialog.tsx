@@ -2,7 +2,7 @@ import {
   MAX_ENCODED_LENGTH,
   PRACTICAL_LINK_LENGTH,
   encodeShare,
-  redactScan,
+  redactEnvelope,
   shareContents,
   shareLink,
   type ShareEnvelope,
@@ -82,12 +82,10 @@ function Body({
   }, [load]);
 
   const envelope = loaded.status === "ready" ? loaded.envelope : undefined;
-  const isScan = envelope?.kind === "scan";
+  const hasIdentity = envelope?.kind === "scan" || envelope?.kind === "obd-report";
   const shown = useMemo(() => {
     if (envelope === undefined) return undefined;
-    return envelope.kind === "scan" && redact
-      ? { ...envelope, data: redactScan(envelope.data) }
-      : envelope;
+    return redact ? redactEnvelope(envelope) : envelope;
   }, [envelope, redact]);
 
   useEffect(() => {
@@ -157,7 +155,7 @@ function Body({
           {shown !== undefined && shareContents(shown).map((line) => <li key={line}>{line}</li>)}
         </ul>
       </div>
-      {isScan && (
+      {hasIdentity && (
         <Switch
           label="Remove the VIN and serial numbers"
           checked={redact}
@@ -203,7 +201,7 @@ function Body({
 }
 
 /**
- * A button that opens a dialog for sharing a result as a link: it lists exactly what the link carries, offers to remove the VIN and serial numbers of a scan (on by default), shows the link's length against the practical limit and copies it or hands it to the system share sheet.
+ * A button that opens a dialog for sharing a result as a link: it lists exactly what the link carries, offers to remove the VIN and serial numbers of a scan or generic OBD-II read (on by default), shows the link's length against the practical limit and copies it or hands it to the system share sheet.
  *
  * Nothing leaves the page: the link is made here and only the user sends it.
  */

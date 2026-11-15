@@ -2,6 +2,7 @@ import {
   decodeShare,
   sharedScanReport,
   unitReportOf,
+  type ObdReportShareData,
   type RunSummaryShareData,
   type ScanShareData,
   type ShareEnvelope,
@@ -9,6 +10,7 @@ import {
 import { streamShareCodec } from "obd-read/web";
 import { useEffect, useState } from "react";
 import { useDatabase } from "../database/DatabaseProvider";
+import { ObdReport } from "../screens/ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
 import { error, muted, page, row, title as headingStyle, heading } from "../screens/screen.css";
 import { Badge, Button, Card, DataTable } from "../ui";
@@ -94,6 +96,18 @@ function ScanView({ data }: { readonly data: ScanShareData }) {
           rowKey={(item) => item.key}
         />
       )}
+    </>
+  );
+}
+
+function ObdView({ data }: { readonly data: ObdReportShareData }) {
+  return (
+    <>
+      <Card
+        title="The OBD-II read"
+        description={`Read through the legislated OBD-II services with no profile, taken ${data.taken}, adapter ${data.adapter.label === "" ? "unknown" : data.adapter.label}. ${data.redacted ? "The sender removed the VIN and calibration identifiers." : "The VIN and calibration identifiers are included."}`}
+      />
+      <ObdReport scan={data.obd} />
     </>
   );
 }
@@ -199,6 +213,7 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
         </p>
       )}
       {envelope?.kind === "scan" && <ScanView data={envelope.data} />}
+      {envelope?.kind === "obd-report" && <ObdView data={envelope.data} />}
       {envelope?.kind === "run-summary" && <RunView data={envelope.data} />}
       <div className={row}>
         {envelope?.kind === "scan" && (

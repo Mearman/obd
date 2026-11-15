@@ -26,6 +26,11 @@ const MONITOR_COLUMNS: readonly Column<MonitorResult>[] = [
   },
 ];
 
+/** The VIN as shown: a VIN that sharing removed is `""`, which reads as removed rather than as an empty value. */
+function vinText(vin: string | null): string {
+  return vin === null ? "not reported" : vin === "" ? "removed" : vin;
+}
+
 function codes(found: readonly string[] | null): string {
   return found === null ? "not read" : found.length === 0 ? "none" : found.join(", ");
 }
@@ -36,7 +41,7 @@ function codes(found: readonly string[] | null): string {
 export function ObdReport({ scan }: { readonly scan: ObdScan }) {
   return (
     <>
-      <Card title="Vehicle" description={`VIN: ${scan.vin ?? "not reported"}`}>
+      <Card title="Vehicle" description={`VIN: ${vinText(scan.vin)}`}>
         {scan.units.map((unit) => (
           <div key={unit.sender}>
             <p>

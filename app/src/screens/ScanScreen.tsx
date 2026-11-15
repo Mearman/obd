@@ -1,4 +1,5 @@
 import {
+  obdReportShareData,
   scanShareFromUnits,
   type ObdScan,
   type ShareEnvelope,
@@ -27,6 +28,16 @@ function shareEnvelope(units: readonly UnitReportData[], scan: ScanDetails): Sha
   const shared = scanShareFromUnits(units, scan);
   if (!shared.ok) throw new Error(shared.error.message);
   return { v: 1, kind: "scan", createdAt: Date.now(), data: shared.value };
+}
+
+/** The link for a generic read carries the structured OBD-II result, which holds more than the per-unit table does (readiness, current-data values, mode 06 results). */
+function obdShareEnvelope(obd: ObdScan, scan: ScanDetails): ShareEnvelope {
+  const shared = obdReportShareData(obd, {
+    takenAt: scan.takenAt,
+    adapterLabel: scan.adapterLabel,
+  });
+  if (!shared.ok) throw new Error(shared.error.message);
+  return { v: 1, kind: "obd-report", createdAt: Date.now(), data: shared.value };
 }
 
 const REASON_ID = "profile-required-reason";
@@ -124,7 +135,11 @@ export function ScanScreen() {
           <ShareDialog
             label="Share scan"
             title="Share this scan"
-            load={() => Promise.resolve(shareEnvelope(units, scanned))}
+            load={() =>
+              Promise.resolve(
+                obd === null ? shareEnvelope(units, scanned) : obdShareEnvelope(obd, scanned),
+              )
+            }
           />
         </div>
       )}
