@@ -16,16 +16,20 @@ The TypeScript implementation of obd-read, which runs in Node and in the browser
 
 Core never imports a platform module. Each platform entry point supplies the transports it can build and registers them with `registerTransport`; `openTransport(url)` then builds the transport an adapter URL names, and fails with a `TransportError` when no entry point serves the scheme.
 
-| Entry point     | Schemes                                                     |
-| --------------- | ----------------------------------------------------------- |
-| `obd-read/node` | `ble`, `serial`, `tcp`; `socketcan` and `slcan` are planned |
-| `obd-read/web`  | `webserial`, `webbluetooth` (`webusb` planned)              |
+| Entry point     | Schemes                                                   |
+| --------------- | --------------------------------------------------------- |
+| `obd-read/node` | `ble`, `serial`, `tcp`, `slcan`, `socketcan` (Linux only) |
+| `obd-read/web`  | `webserial`, `webbluetooth`, `webusb`                     |
 
 In a browser the user picks the device in a prompt opened by a gesture. The target of a `webserial` or `webusb` URL is only a free label that selects nothing; the target of a `webbluetooth` URL is also the device name prefix the picker is limited to (`all=1` lists every device). Raw TCP is not available in a browser.
 
 ## Storage migrations
 
 After changing `src/storage/schema.ts` run `pnpm storage:generate`: it writes the new SQL migration with `drizzle-kit` and regenerates `src/storage/migrations.ts`. A test fails when the embedded module and the migration folder disagree.
+
+## CAN adapters
+
+A raw CAN link is presented to the session as an ELM327 adapter (`RawCanTransport`), so the same session code drives it. `slcan://<serial device>?baud=N` is an SLCAN adapter on a serial port. `socketcan://<interface>` is a Linux SocketCAN interface (`can0`, `vcan0`, or a candleLight adapter running gs_usb firmware) reached through the optional `socketcan` package, a native addon that is Linux-only and is not built during `pnpm install` because install scripts are denied: on Linux run `pnpm rebuild socketcan` once (it needs a C++ toolchain), and set the interface's bit rate outside the program (`ip link set can0 type can bitrate 500000`). `webusb://<label>` drives a candleLight, CANable or other gs_usb adapter directly from a browser over WebUSB, which is also the route on macOS and Windows, where there is no SocketCAN; the picker is limited to the gs_usb vendor and product ids unless `usbVendorId` and `usbProductId` are given, and `channel` selects a channel on a multi-channel adapter. The gs_usb protocol and bit-timing calculation are in `src/core/gsusb.ts` and are checked against a fake adapter, not against hardware.
 
 ## Commands
 
