@@ -2,10 +2,14 @@ import { vanillaExtractPlugin } from "@vanilla-extract/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { basePathFrom } from "./base-path.ts";
 
 /** Theme colours of the manifest: the icon's navy, and the light theme's background. */
 const THEME_COLOUR = "#0b3d5c";
 const BACKGROUND_COLOUR = "#f5f7f9";
+
+/** Where the build is served from: `/` for local use, `/<repository>/` on a GitHub Pages project site. */
+const BASE_PATH = basePathFrom(process.env);
 
 export default defineConfig({
   plugins: [
@@ -22,8 +26,9 @@ export default defineConfig({
         lang: "en-GB",
         display: "standalone",
         orientation: "any",
-        start_url: ".",
-        scope: ".",
+        id: BASE_PATH,
+        start_url: BASE_PATH,
+        scope: BASE_PATH,
         theme_color: THEME_COLOUR,
         background_color: BACKGROUND_COLOUR,
       },
@@ -45,8 +50,8 @@ export default defineConfig({
   // The database and service workers are ES module workers: sqlite-wasm resolves its WebAssembly file with
   // import.meta.url, which the default IIFE worker format cannot express.
   worker: { format: "es" },
-  // Relative URLs let the static build be served from any path.
-  base: "./",
+  // Absolute, so a deep link below the base still resolves its assets; the service worker's scope follows it.
+  base: BASE_PATH,
   build: {
     target: "es2023",
     // The whole bundle is precached for offline use, so one chunk is the cheaper shape here.

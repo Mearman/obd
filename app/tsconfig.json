@@ -15,7 +15,8 @@
       "web-bluetooth",
       "node"
     ],
-    "noEmit": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": ["src", "test", "e2e", "*.config.ts"]
 }
