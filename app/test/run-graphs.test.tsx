@@ -29,7 +29,10 @@ async function collectedRun(): Promise<MemoryStorage> {
   });
   await waitFor(
     async () => {
-      const counts = await service.client.runs.aggregate({ runId: run.id });
+      // The fault code lists are text samples taken when a list changes, so they are few.
+      const counts = (await service.client.runs.aggregate({ runId: run.id })).filter(
+        ({ signal }) => !signal.endsWith("fault codes"),
+      );
       expect(counts.length).toBeGreaterThan(0);
       expect(Math.min(...counts.map(({ count }) => count))).toBeGreaterThan(3);
     },
