@@ -1,16 +1,32 @@
-import type { ObdScan, UnitReportData } from "obd-read";
+import {
+  scanShareFromUnits,
+  type ObdScan,
+  type ShareEnvelope,
+  type UnitReportData,
+} from "obd-read";
 import { useState } from "react";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
-import { Badge, Button, Card, DataTable, TextField, type Column } from "../ui";
+import { Button, Card, TextField, type Column } from "../ui";
 import { PROFILE_REQUIRED_REASON, profileTitle } from "../profiles/generic";
 import { GuardedOperation } from "./GuardedOperation";
 import { ObdReport } from "./ObdReport";
 import { error, muted, page, row, stack } from "./screen.css";
+import { ScanResultsTable } from "./ScanResults";
 import { ScreenHeading } from "./ScreenHeading";
+import { ShareDialog } from "../share/ShareDialog";
 
-function faultCount(unit: UnitReportData): number {
-  return unit.faults?.length ?? 0;
+/** What a link made from a scan names besides its units. */
+interface ScanDetails {
+  readonly profile: string;
+  readonly takenAt: number;
+  readonly adapterLabel: string;
+}
+
+function shareEnvelope(units: readonly UnitReportData[], scan: ScanDetails): ShareEnvelope {
+  const shared = scanShareFromUnits(units, scan);
+  if (!shared.ok) throw new Error(shared.error.message);
+  return { v: 1, kind: "scan", createdAt: Date.now(), data: shared.value };
 }
 
 const REASON_ID = "profile-required-reason";
@@ -21,6 +37,7 @@ export function ScanScreen() {
   const { client } = service;
   const [units, setUnits] = useState<readonly UnitReportData[] | undefined>(undefined);
   const [obd, setObd] = useState<ObdScan | null>(null);
+  const [scanned, setScanned] = useState<ScanDetails | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [scanning, setScanning] = useState(false);
   const [writeUnit, setWriteUnit] = useState("engine");
@@ -41,6 +58,11 @@ export function ScanScreen() {
       const result = await client.scan.run({});
       setUnits(result.units);
       setObd(result.obd);
+      setScanned({
+        profile: result.report.profile,
+        takenAt: result.report.takenAt,
+        adapterLabel: connection?.info.identity ?? "",
+      });
     } catch (caught) {
       setProblem(failureMessage(caught, "The scan failed."));
     } finally {
@@ -51,7 +73,7 @@ export function ScanScreen() {
   const clearColumn: Column<UnitReportData> = {
     header: "Clear",
     render: (unit) =>
-      unit.answered && faultCount(unit) > 0 ? (
+      unit.answered && (unit.faults?.length ?? 0) > 0 ? (
         <GuardedOperation
           label={`Clear ${unit.unit} codes`}
           title={`Clear fault codes from ${unit.description}`}
@@ -65,23 +87,6 @@ export function ScanScreen() {
         "-"
       ),
   };
-
-  const columns: readonly Column<UnitReportData>[] = [
-    { header: "Unit", render: (unit) => unit.description },
-    {
-      header: "Status",
-      render: (unit) =>
-        unit.answered ? (
-          <Badge tone={faultCount(unit) > 0 ? "warning" : "success"}>
-            {faultCount(unit) > 0 ? "Faults stored" : "No faults"}
-          </Badge>
-        ) : (
-          <Badge>No reply</Badge>
-        ),
-    },
-    { header: "Fault codes", render: (unit) => (unit.answered ? String(faultCount(unit)) : "-") },
-    clearColumn,
-  ];
 
   return (
     <div className={page}>
@@ -108,12 +113,20 @@ export function ScanScreen() {
         </p>
       )}
       {units !== undefined && (
-        <DataTable
+        <ScanResultsTable
           label={`Scan of ${connection === undefined ? "the car" : profileTitle(connection.profile)}`}
-          columns={columns}
-          rows={units}
-          rowKey={(unit) => unit.unit}
+          units={units}
+          extraColumns={[clearColumn]}
         />
+      )}
+      {units !== undefined && scanned !== undefined && (
+        <div className={row}>
+          <ShareDialog
+            label="Share scan"
+            title="Share this scan"
+            load={() => Promise.resolve(shareEnvelope(units, scanned))}
+          />
+        </div>
       )}
       {obd !== null && <ObdReport scan={obd} />}
 
