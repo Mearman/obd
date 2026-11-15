@@ -3,6 +3,7 @@
  * Bluetooth LE device, so the data channel to put in an adapter URL can be chosen.
  */
 
+import { pythonRepr } from "../core/format.js";
 import { TransportError } from "../core/transport.js";
 import {
   matchesBleTarget,
@@ -86,7 +87,7 @@ export async function inspectDevice(
   const device = seen.find((candidate) => matchesBleTarget(candidate, target));
   if (device === undefined) {
     throw new TransportError(
-      `no Bluetooth LE device matching ${JSON.stringify(target)} seen in ${(timeoutMs / 1000).toFixed(0)} s`,
+      `no Bluetooth LE device matching ${pythonRepr(target)} seen in ${(timeoutMs / 1000).toFixed(0)} s`,
     );
   }
   const peripheral = central.peripheral(device);

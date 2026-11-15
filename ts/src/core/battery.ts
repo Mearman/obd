@@ -8,7 +8,7 @@
 
 import type { AdapterInfo, Elm } from "./elm.js";
 import { ElmError } from "./elm.js";
-import { formatSignificant } from "./format.js";
+import { formatSignificant, pythonListRepr } from "./format.js";
 import { OptionError } from "./options.js";
 import type { OpenCsvLog } from "./openlog.js";
 import { isoNow, now, sleep } from "./time.js";
@@ -39,7 +39,7 @@ export async function readVoltage(
     const found = VOLTAGE.exec(line);
     if (found?.[1] !== undefined) return Number.parseFloat(found[1]);
   }
-  throw new ElmError(`no voltage in the reply to ${command}: ${JSON.stringify(lines)}`);
+  throw new ElmError(`no voltage in the reply to ${command}: ${pythonListRepr(lines)}`);
 }
 
 /** What the battery command was asked for. */

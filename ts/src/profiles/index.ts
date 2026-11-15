@@ -4,6 +4,7 @@
  * The JSON files are imported rather than read, so a bundler includes them and no file access is needed. A profile from anywhere else (a file the user picks, a document in storage) goes through `parseProfile` in core.
  */
 
+import { pythonRepr } from "../core/format.js";
 import { ProfileError, parseProfile, type Profile } from "../core/profile.js";
 import mercedesW211 from "./mercedes-w211.json" with { type: "json" };
 import vagMqb from "./vag-mqb.json" with { type: "json" };
@@ -26,7 +27,7 @@ export function builtinProfiles(): string[] {
 export function builtinProfileData(name: string): unknown {
   if (!SHIPPED.has(name)) {
     throw new ProfileError([
-      `no profile named ${JSON.stringify(name)}; shipped profiles: ${builtinProfiles().join(", ")}`,
+      `no profile named ${pythonRepr(name)}; shipped profiles: ${builtinProfiles().join(", ")}`,
     ]);
   }
   return SHIPPED.get(name);

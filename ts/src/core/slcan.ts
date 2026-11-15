@@ -15,6 +15,7 @@
 
 import { asciiDecode, asciiEncode, concatBytes, fromHex, hexNumber, toUpperHex } from "./bytes.js";
 import { CanFrame, type CanLink } from "./can.js";
+import { pythonRepr } from "./format.js";
 import { TransportError, type Transport } from "./transport.js";
 
 /** The `S` digit that selects each bit rate. */
@@ -59,7 +60,7 @@ export function decodeFrame(line: Uint8Array): CanFrame | undefined {
   const [, standard, extended, length = "", data = ""] = match;
   const payload = fromHex(data);
   if (payload.length !== Number(length)) {
-    throw new TransportError(`SLCAN frame ${JSON.stringify(text)} declares ${length} data bytes`);
+    throw new TransportError(`SLCAN frame ${pythonRepr(text)} declares ${length} data bytes`);
   }
   if (extended !== undefined) return new CanFrame(Number.parseInt(extended, 16), payload, true);
   return new CanFrame(Number.parseInt(standard ?? "", 16), payload);
@@ -104,7 +105,7 @@ export class SlcanLink implements CanLink {
       const line = await this.nextLine(COMMAND_TIMEOUT_MS);
       if (line.length === 1 && line[0] === BELL) {
         if (allowRefusal) return;
-        throw new TransportError(`the SLCAN adapter refused ${JSON.stringify(text)}`);
+        throw new TransportError(`the SLCAN adapter refused ${pythonRepr(text)}`);
       }
       if (line.length === 0) return;
     }

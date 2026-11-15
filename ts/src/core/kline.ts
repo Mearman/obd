@@ -12,6 +12,7 @@ import { byteAt, fromHex, hexNumber, toUpperHex } from "./bytes.js";
 import { ADAPTER_ERRORS, Elm, ElmError, MAX_SINGLE_FRAME, NOISE, NoResponse } from "./elm.js";
 import type { Permit } from "./guard.js";
 import { KLINE_SCHEMES, type KLineBus, type KLineScheme, type Profile } from "./profile.js";
+import { pythonRepr } from "./format.js";
 
 /** Time the adapter may take to initialise a bus, in milliseconds: a five-baud address alone takes about two seconds. */
 const INIT_TIMEOUT_MS = 20_000;
@@ -38,14 +39,14 @@ export function checksum(data: Uint8Array): number {
 export function parseReplyLine(line: string): [source: number, data: Uint8Array] {
   const compact = line.replaceAll(" ", "").toUpperCase();
   if (compact === "" || !/^[0-9A-F]+$/.test(compact) || compact.length % 2 !== 0) {
-    throw new ElmError(`unreadable reply line: ${JSON.stringify(line)}`);
+    throw new ElmError(`unreadable reply line: ${pythonRepr(line)}`);
   }
   const raw = fromHex(compact);
   if (raw.length < MIN_REPLY_BYTES) {
-    throw new ElmError(`K-line reply too short: ${JSON.stringify(line)}`);
+    throw new ElmError(`K-line reply too short: ${pythonRepr(line)}`);
   }
   if (checksum(raw.subarray(0, -1)) !== byteAt(raw, raw.length - 1)) {
-    throw new ElmError(`K-line reply fails its checksum: ${JSON.stringify(line)}`);
+    throw new ElmError(`K-line reply fails its checksum: ${pythonRepr(line)}`);
   }
   return [byteAt(raw, 2), raw.slice(HEADER_BYTES, -1)];
 }

@@ -18,6 +18,7 @@
  */
 
 import { ElmError, type AdapterInfo } from "./elm.js";
+import { compactJsonText, type JsonValue } from "./ordered-json.js";
 import { sleep as realSleep } from "./time.js";
 import type { LineSink } from "./unit-access.js";
 
@@ -222,39 +223,42 @@ export function buildSensors(columns: readonly SensorColumn[], options: SensorOp
     // object id with no node id.
     const uniqueId = `${deviceId}_${key}`;
     const stateTopic = `${prefix}/${deviceId}/${key}`;
-    const config: Record<string, unknown> = {
-      name: column.label,
-      unique_id: uniqueId,
-      state_topic: stateTopic,
-      availability_topic: availabilityTopic,
+    const config = new Map<string, JsonValue>([
+      ["name", column.label],
+      ["unique_id", uniqueId],
+      ["state_topic", stateTopic],
+      ["availability_topic", availabilityTopic],
       // The device map ties every sensor of one adapter to one device in the registry;
       // identifiers is what makes it the same device across restarts.
-      device: {
-        identifiers: [deviceId],
-        name: `obd-read ${adapter.identity}`,
-        model: adapter.identity,
-      },
-    };
+      [
+        "device",
+        new Map<string, JsonValue>([
+          ["identifiers", [deviceId]],
+          ["name", `obd-read ${adapter.identity}`],
+          ["model", adapter.identity],
+        ]),
+      ],
+    ]);
     if (column.unit !== "") {
-      config.unit_of_measurement = column.unit;
+      config.set("unit_of_measurement", column.unit);
       // A state class marks a quantity worth long-term statistics; a reading with a unit is a
       // measurement, one with none may be text, which a state class would reject.
-      config.state_class = "measurement";
+      config.set("state_class", "measurement");
       const deviceClass = DEVICE_CLASSES.get(column.unit);
-      if (deviceClass !== undefined) config.device_class = deviceClass;
+      if (deviceClass !== undefined) config.set("device_class", deviceClass);
     }
     if (intervalMs > 0) {
       // After this many seconds with no update the state becomes unavailable, so a value the car
       // stopped answering does not stay on screen as current. Three intervals tolerate two missed
       // samples.
-      config.expire_after = Math.ceil((intervalMs * 3) / 1000);
+      config.set("expire_after", Math.ceil((intervalMs * 3) / 1000));
     }
     return {
       column,
       key,
       stateTopic,
       discoveryTopic: `${discoveryPrefix}/sensor/${uniqueId}/config`,
-      config: JSON.stringify(config),
+      config: compactJsonText(config),
     };
   });
 }

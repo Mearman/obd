@@ -10,6 +10,7 @@
 import { bytesEqual, concatBytes, fromHex, toUpperHex, byteAt, hexNumber } from "./bytes.js";
 import { NegativeResponse, type UnitSession } from "./diag.js";
 import { ElmError, type AdapterInfo, type Elm } from "./elm.js";
+import { pythonJsonRepr } from "./format.js";
 import {
   GuardError,
   READ_SERVICE,
@@ -236,7 +237,7 @@ export async function planRestore(
   const expected = unitRecord(unit);
   if (!sameRecord(recorded, expected)) {
     throw new WriteRefused(
-      `${snapshot} was taken from ${JSON.stringify(recorded)}, not ${JSON.stringify(expected)}`,
+      `${snapshot} was taken from ${pythonJsonRepr(recorded)}, not ${pythonJsonRepr(expected)}`,
     );
   }
   if (saved.protocol !== profile.protocol) {

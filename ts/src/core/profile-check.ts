@@ -16,6 +16,7 @@ import {
   valueSchema,
   type ProfileFile,
 } from "./profile.js";
+import { pythonRepr } from "./format.js";
 
 const NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const MAX_CAN_ID = { 11: 0x7ff, 29: 0x1fffffff } as const;
@@ -85,12 +86,10 @@ export function checkProfile(data: unknown, where: string): string[] {
   const problems = unrecognisedKeys(data, profile);
 
   if (!isStatus(profile.status)) {
-    problems.push(`status must be confirmed or unconfirmed, got ${JSON.stringify(profile.status)}`);
+    problems.push(`status must be confirmed or unconfirmed, got ${pythonRepr(profile.status)}`);
   }
   if (!NAME.test(profile.name)) {
-    problems.push(
-      `name ${JSON.stringify(profile.name)} must be lower-case words joined by hyphens`,
-    );
+    problems.push(`name ${pythonRepr(profile.name)} must be lower-case words joined by hyphens`);
   }
   if (profile.description.trim() === "") problems.push("description is blank");
 

@@ -11,6 +11,7 @@
  */
 
 import { z } from "zod";
+import { pythonRepr } from "./format.js";
 
 /** Where the generic code titles came from. */
 export const GENERIC_SOURCE = "OBDex generic code list, CC0 (https://github.com/foerbsnavi/OBDex)";
@@ -47,7 +48,7 @@ export function normaliseCode(code: string): string {
     return parseInt(candidate, 16).toString(16).toUpperCase().padStart(4, "0");
   }
   throw new CodeNameError(
-    `${JSON.stringify(code)} is neither an SAE code such as P0420 nor hexadecimal bytes`,
+    `${pythonRepr(code)} is neither an SAE code such as P0420 nor hexadecimal bytes`,
   );
 }
 

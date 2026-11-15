@@ -18,6 +18,7 @@ import { RawCanTransport } from "./rawcan.js";
 import { now } from "./time.js";
 import { TransportTimeout, type Transport } from "./transport.js";
 import type { LineSink } from "./unit-access.js";
+import { pythonRepr } from "./format.js";
 
 /** Builds the unopened transport an adapter URL names. */
 export type TransportOpener = (url: string) => Transport;
@@ -56,9 +57,7 @@ const ALLOWED_COMMANDS: readonly RegExp[] = [
 export function monitorCommand(text: string): string {
   const compact = text.replaceAll(" ", "").toUpperCase();
   if (!ALLOWED_COMMANDS.some((pattern) => pattern.test(compact))) {
-    throw new GuardError(
-      `monitor command ${JSON.stringify(text)} refused: the monitor only listens`,
-    );
+    throw new GuardError(`monitor command ${pythonRepr(text)} refused: the monitor only listens`);
   }
   return text;
 }

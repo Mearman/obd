@@ -49,3 +49,26 @@ export function pythonRepr(text: string): string {
   }
   return `${quote}${body}${quote}`;
 }
+
+/** Formats a list of strings as Python's `repr` does for a `list[str]`: `['a', 'b']`. */
+export function pythonListRepr(items: readonly string[]): string {
+  return `[${items.map(pythonRepr).join(", ")}]`;
+}
+
+/**
+ * Formats a value parsed from JSON as Python's `repr` does for the same document: dictionaries as
+ * `{'key': value}`, lists as `[a, b]`, `True`, `False` and `None`, strings by {@link pythonRepr}.
+ */
+export function pythonJsonRepr(value: unknown): string {
+  if (value === null || value === undefined) return "None";
+  if (typeof value === "boolean") return value ? "True" : "False";
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return pythonRepr(value);
+  if (Array.isArray(value)) return `[${value.map(pythonJsonRepr).join(", ")}]`;
+  if (typeof value === "object") {
+    return `{${Object.entries(value)
+      .map(([key, member]) => `${pythonRepr(key)}: ${pythonJsonRepr(member)}`)
+      .join(", ")}}`;
+  }
+  throw new TypeError("a value parsed from JSON is never a function, symbol or bigint");
+}

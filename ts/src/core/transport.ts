@@ -5,6 +5,8 @@
  * with {@link registerTransport}, and callers open a link by adapter URL with {@link openTransport}.
  */
 
+import { pythonRepr } from "./format.js";
+
 /** The link to the adapter could not be opened or failed in use. */
 export class TransportError extends Error {
   override name = "TransportError";
@@ -121,7 +123,7 @@ export function parseAdapterUrl(url: string): AdapterAddress {
   const scheme = separator < 0 ? "" : url.slice(0, separator);
   if (!isScheme(scheme)) {
     throw new AdapterUrlError(
-      `adapter URL must start with one of ${SCHEMES.join(", ")}://, got ${JSON.stringify(url)}`,
+      `adapter URL must start with one of ${SCHEMES.join(", ")}://, got ${pythonRepr(url)}`,
     );
   }
   const rest = url.slice(separator + 3);
@@ -130,7 +132,7 @@ export function parseAdapterUrl(url: string): AdapterAddress {
   const query = queryStart < 0 ? "" : rest.slice(queryStart + 1);
   const target = unquote(rawTarget);
   if (target === "") {
-    throw new AdapterUrlError(`adapter URL ${JSON.stringify(url)} names no device`);
+    throw new AdapterUrlError(`adapter URL ${pythonRepr(url)} names no device`);
   }
   return { scheme, target, params: parseQuery(query) };
 }

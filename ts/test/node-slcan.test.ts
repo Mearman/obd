@@ -118,7 +118,7 @@ describe("an SLCAN adapter on a serial device", () => {
     const second = new SlcanLink(new SerialTransport(refusing.path, 115_200, refusing.factory));
     await second.open();
     refusing.port().refuse = new Set(["S6"]);
-    await expect(second.configure(500_000, false)).rejects.toThrow(/refused "S6"/);
+    await expect(second.configure(500_000, false)).rejects.toThrow(/refused 'S6'/);
     await second.close();
   });
 

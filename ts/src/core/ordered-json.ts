@@ -70,3 +70,20 @@ function write(value: JsonValue, depth: number): string {
 export function jsonText(value: JsonValue): string {
   return write(value, 0);
 }
+
+function writeCompact(value: JsonValue): string {
+  if (isObject(value)) {
+    return `{${Array.from(value, ([key, member]) => `${quote(key)}: ${writeCompact(member)}`).join(", ")}}`;
+  }
+  if (isList(value)) return `[${value.map(writeCompact).join(", ")}]`;
+  return write(value, 0);
+}
+
+/**
+ * Writes `value` as a single line the way Python's `json.dumps(value)` does: `, ` between members, `: ` after a key and every character outside printable ASCII escaped.
+ *
+ * @throws RangeError for a number that is not a whole number.
+ */
+export function compactJsonText(value: JsonValue): string {
+  return writeCompact(value);
+}
