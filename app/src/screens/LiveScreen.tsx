@@ -1,5 +1,6 @@
 import type { Sample } from "obd-read";
 import { useState } from "react";
+import { LineChart, appendRolling, type RollingHistory } from "../charts";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { Badge, Button, Card, DataTable, type Column } from "../ui";
@@ -7,11 +8,8 @@ import { COLLECTION_LIMIT } from "./limits";
 import { error, muted, page } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
 
-const COLUMNS: readonly Column<Sample>[] = [
-  { header: "Value", render: (row) => row.signal },
-  { header: "Reading", render: (row) => String(row.value) },
-  { header: "Unit", render: (row) => row.unit },
-];
+/** How many readings of each value the trend keeps. */
+const TREND_READINGS = 120;
 
 const STATE_LABEL = {
   collecting: "Collecting",
@@ -25,6 +23,43 @@ export function LiveScreen() {
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const running = collection.run !== undefined;
+  const runId = collection.run?.id;
+  // Adjusted while rendering, as React advises for state derived from a changing input: a new run
+  // starts an empty history, and each new set of latest readings is folded into the one kept.
+  const [tracked, setTracked] = useState<{
+    readonly runId: string | undefined;
+    readonly latest: readonly Sample[];
+    readonly history: RollingHistory;
+  }>({ runId, latest: [], history: new Map() });
+  if (tracked.runId !== runId || tracked.latest !== collection.latest) {
+    setTracked({
+      runId,
+      latest: collection.latest,
+      history: appendRolling(
+        tracked.runId === runId ? tracked.history : new Map(),
+        collection.latest,
+        TREND_READINGS,
+      ),
+    });
+  }
+  const { history } = tracked;
+
+  const columns: readonly Column<Sample>[] = [
+    { header: "Value", render: (row) => row.signal },
+    { header: "Reading", render: (row) => String(row.value) },
+    { header: "Unit", render: (row) => row.unit },
+    {
+      header: "Trend",
+      render: (row) => (
+        <LineChart
+          variant="compact"
+          name={row.signal}
+          unit={row.unit}
+          points={history.get(row.signal) ?? []}
+        />
+      ),
+    },
+  ];
 
   async function toggle(): Promise<void> {
     setBusy(true);
@@ -85,7 +120,7 @@ export function LiveScreen() {
       ) : (
         <DataTable
           label="Live values"
-          columns={COLUMNS}
+          columns={columns}
           rows={collection.latest}
           rowKey={(row) => row.signal}
         />
