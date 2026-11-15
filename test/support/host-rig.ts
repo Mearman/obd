@@ -17,6 +17,7 @@ import {
   type Transport,
   type TransportHost,
 } from "../../src/core/index.js";
+import { shippedPlans } from "../../src/plans/index.js";
 import { builtinProfileData, loadBuiltinProfile } from "../../src/profiles/index.js";
 
 /** The simulated adapter of the Mercedes profile. */
@@ -126,6 +127,15 @@ export function newSimulatedService(
   const loadProfile = profileLoader(storage, builtinProfileData);
   const service = createDiagnosticsService({
     toolVersion: "test",
+    plans: shippedPlans,
+    // Plans run on the test's clock: each wait moves it on by what it waits, and yields, so a plan of minutes runs at once.
+    planClock: {
+      now: () => clock.time,
+      sleep: async (milliseconds) => {
+        clock.time += Math.max(1, milliseconds);
+        await turn();
+      },
+    },
     storage,
     loadProfile,
     transports: options.transports ?? composeTransportHosts(simulatorTransportHost(loadProfile)),

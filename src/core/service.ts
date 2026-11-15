@@ -12,6 +12,8 @@ import { asyncIteratorObject, oc } from "@orpc/contract";
 import { z } from "zod";
 import { captureStatusSchema, startCaptureInputSchema } from "./capture-jobs.js";
 import { obdScanSchema } from "./obd-scan.js";
+import { planSchema } from "./plan.js";
+import { planEventSchema, planStatusSchema } from "./plan-jobs.js";
 import { TABLE_FORMATS } from "./tabular.js";
 import { SCHEMES } from "./transport.js";
 import {
@@ -268,6 +270,23 @@ export const importedCaptureSchema = z.object({
   unrecovered: z.array(z.string()),
 });
 
+/** Which plan to start: a shipped one by name, or the text of a plan file the user chose. */
+export const startPlanInputSchema = z.object({
+  plan: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("shipped"), name: nameSchema }),
+    z.object({
+      kind: z.literal("file"),
+      /** The file's JSON text. */
+      text: z.string(),
+      /** The file's name, for messages. */
+      name: nameSchema,
+    }),
+  ]),
+});
+
+/** What a caller gives to start a plan. */
+export type StartPlanInput = z.output<typeof startPlanInputSchema>;
+
 /** The operations of the service. */
 export const diagnosticsContract = {
   adapters: {
@@ -383,7 +402,7 @@ export const diagnosticsContract = {
   runs: {
     /** Opens a run and starts collecting; the run is returned open. A run with no profile is stored under the name `generic-obd2` and collects the legislated values; naming a `unit` without a profile rejects with `PROFILE_REQUIRED`. */
     start: oc.input(startRunInputSchema).output(runSchema),
-    /** Collects again for a run that is open and not being collected, as after a reload; it keeps what the run was started with. Rejects with `CONFLICT` for a run that is not `local`, since a shared or imported run was not read here. */
+    /** Collects again for a run that is open and not being collected, as after a reload; it keeps what the run was started with. Rejects with `CONFLICT` for a run that is not `local`, since a shared or imported run was not read here, and for a run a recording plan recorded, since a plan does not resume. */
     resume: oc.input(runIdInput).output(runSchema),
     /** Stops collecting for a run and closes it. */
     stop: oc.input(runIdInput).output(runSchema),
@@ -444,6 +463,28 @@ export const diagnosticsContract = {
         }),
       )
       .output(decodedCaptureSchema),
+  },
+  plans: {
+    /** The shipped recording plans, sorted by name. */
+    list: oc.output(z.array(planSchema)),
+    /**
+     * Validates a plan and starts it on the open connection, and returns once its run exists; the run is stored as it goes and stopped when the plan ends, however it ends. Plans read the car through the read-only legislated services only. Rejects with `BAD_REQUEST` for an invalid plan, listing every problem and, for an unknown value name, the valid names, or for a value the car does not report; `PRECONDITION_FAILED` with no connection; `CONFLICT` while a plan, a collection run, a capture or a confirmation holds the adapter.
+     */
+    start: oc.input(startPlanInputSchema).output(planStatusSchema),
+    /** A plan's status, or `null` for a run no plan runs or ran here (as after a reload). */
+    status: oc.input(runIdInput).output(planStatusSchema.nullable()),
+    /** The plan's events so far (of samples and progress only the latest of the phase), then each new one, ending after `finished`. Ends at once for a run no plan runs here. */
+    events: oc.input(runIdInput).output(asyncIteratorObject(planEventSchema)),
+    /** Answers the confirmation the current wait asks for; does nothing when none is asked. Rejects with `NOT_FOUND` for a run no plan ran here. */
+    confirm: oc.input(runIdInput).output(planStatusSchema),
+    /** Ends the current phase as skipped, after its end reads, and goes on to the next. */
+    skip: oc.input(runIdInput).output(planStatusSchema),
+    /** Ends the plan at its next step; the run is kept and stopped. */
+    abort: oc.input(runIdInput).output(planStatusSchema),
+    /**
+     * Of `runIds`, stops every open run a plan recorded that no plan runs here, as after a reload, at its last reading: a plan never resumes, because its phases depend on what the person was doing. The caller names the runs, so a page leaves alone a run another page is still recording into. Returns the runs it stopped, so a page can say so; an unknown id is skipped.
+     */
+    recover: oc.input(z.object({ runIds: z.array(nameSchema) })).output(z.array(runSchema)),
   },
   profiles: {
     /** Validates a profile file and keeps it, replacing an imported profile of the same name. */

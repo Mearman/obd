@@ -22,6 +22,7 @@ import {
 } from "../core/service-compose.js";
 import { simulatorTransportHost } from "../core/simulator-host.js";
 import type { Storage } from "../core/storage.js";
+import { shippedPlans } from "../plans/index.js";
 import { builtinProfileData } from "../profiles/index.js";
 import { serveDiagnostics, type SupportedMessagePort } from "../service/message-port.js";
 import { remoteTransportHost } from "../service/transport-link.js";
@@ -73,6 +74,7 @@ export function startDiagnosticsWorker(options: DiagnosticsWorkerOptions): Diagn
     loadProfile,
     grants,
     toolVersion: options.toolVersion,
+    plans: shippedPlans,
     transports: composeTransportHosts(
       simulatorTransportHost(loadProfile),
       workerTransportHost(grants),

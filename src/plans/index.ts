@@ -6,6 +6,7 @@
 
 import { pythonRepr } from "../core/format.js";
 import { PlanError, parsePlan, type Plan } from "../core/plan.js";
+import type { PlanCatalogue } from "../core/service-impl.js";
 import coldStartWarmUp from "./cold-start-warm-up.obdplan.json" with { type: "json" };
 import driveCycleWatch from "./drive-cycle-watch.obdplan.json" with { type: "json" };
 import idleThenRev from "./idle-then-rev.obdplan.json" with { type: "json" };
@@ -47,3 +48,6 @@ export function builtinPlanData(name: string): unknown {
 export function loadBuiltinPlan(name: string): Plan {
   return parsePlan(builtinPlanData(name), name);
 }
+
+/** The shipped plans as a diagnostics service takes them. */
+export const shippedPlans: PlanCatalogue = { names: builtinPlans, load: loadBuiltinPlan };

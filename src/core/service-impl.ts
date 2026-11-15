@@ -67,7 +67,16 @@ import {
   importRunTable,
 } from "./run-export.js";
 import { FORMAT_FILES, TabularError } from "./tabular.js";
-import { readSelection, userNotes, withSelection } from "./run-selection.js";
+import {
+  readSelection,
+  recordedPlan,
+  userNotes,
+  withPlan,
+  withSelection,
+} from "./run-selection.js";
+import { PlanError, parsePlanText, type Plan } from "./plan.js";
+import { PlanBusy, PlanJobs } from "./plan-jobs.js";
+import { planRunNotes, systemClock, type PlanClock } from "./plan-runner.js";
 import { isSimulatorUrl } from "./simulator-host.js";
 import { StorageSnapshotStore } from "./snapshot-store.js";
 import { isoNowSeconds, now as clockNow, randomSuffix, sleep as realSleep } from "./time.js";
@@ -104,6 +113,24 @@ export interface DiagnosticsDependencies {
   readonly loadProfile: (name: string) => Promise<Profile>;
   /** The program's version, as captures record it. */
   readonly toolVersion: string;
+  /** The shipped recording plans. */
+  readonly plans: PlanCatalogue;
+  /** Time and waiting for recording plans; defaults to the real clock. */
+  readonly planClock?: PlanClock;
+  /** The gap between reads of the fault code lists while a plan's phase watches them; defaults to the runner's. */
+  readonly planCodesIntervalMs?: number;
+}
+
+/** The recording plans an edge ships, as `obd-read/plans` gives them. */
+export interface PlanCatalogue {
+  /** The shipped plans' names. */
+  readonly names: () => readonly string[];
+  /**
+   * A shipped plan by name.
+   *
+   * @throws PlanError when there is no such plan, naming the shipped ones.
+   */
+  readonly load: (name: string) => Plan;
 }
 
 /** How long a guarded request waits for its confirmation unless the edge says otherwise, in milliseconds. */
@@ -249,7 +276,8 @@ function callerError(error: unknown): ORPCError<string, undefined> | undefined {
     error instanceof CaptureError ||
     error instanceof ImportError ||
     error instanceof RunImportError ||
-    error instanceof TabularError
+    error instanceof TabularError ||
+    error instanceof PlanError
   ) {
     return new ORPCError("BAD_REQUEST", { message: error.message });
   }
@@ -259,7 +287,8 @@ function callerError(error: unknown): ORPCError<string, undefined> | undefined {
     error instanceof WriteRefused ||
     error instanceof LinkBusy ||
     error instanceof ConfirmationPending ||
-    error instanceof CaptureBusy
+    error instanceof CaptureBusy ||
+    error instanceof PlanBusy
   ) {
     return new ORPCError("CONFLICT", { message: error.message });
   }
@@ -394,6 +423,14 @@ function presented(run: Run): Run {
   return { ...run, notes: userNotes(run.notes) };
 }
 
+/** The status a plan command returns, or a `not-found` failure for a run no plan ran here. */
+function planCommand<T>(status: T | undefined, runId: string): Promise<T> {
+  if (status === undefined) {
+    return Promise.reject(new StorageError("not-found", `no plan ran for run ${runId} here`));
+  }
+  return Promise.resolve(status);
+}
+
 /** The service's router: the contract's operations implemented over the dependencies. */
 function buildRouter(dependencies: DiagnosticsDependencies) {
   const { storage, collector, link, transports, grants, loadProfile } = dependencies;
@@ -406,6 +443,14 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
     now,
     sleep,
     suffix: randomSuffix,
+  });
+  const planJobs = new PlanJobs({
+    link,
+    storage,
+    clock: dependencies.planClock ?? systemClock,
+    ...(dependencies.planCodesIntervalMs === undefined
+      ? {}
+      : { codesIntervalMs: dependencies.planCodesIntervalMs }),
   });
   const hub = new LiveHub();
   const confirmations = new PendingConfirmations(
@@ -428,9 +473,19 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
     }
   };
 
+  /** Refuses work that would share the adapter with a running recording plan. */
+  const requireNoPlan = (): void => {
+    if (planJobs.busy) {
+      throw new ORPCError("CONFLICT", {
+        message: "a recording plan holds the adapter; abort it or wait for it to end",
+      });
+    }
+  };
+
   /** Refuses work on the adapter while something else holds it. */
   const requireFree = (): void => {
     requirePassive();
+    requireNoPlan();
     if (collector.active().length > 0) {
       throw new ORPCError("CONFLICT", {
         message: "a collection run holds the adapter; stop it first",
@@ -767,6 +822,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       start: os.runs.start.handler(({ input }) =>
         translated(async () => {
           requirePassive();
+          requireNoPlan();
           if (input.profile === undefined && input.unit !== undefined) {
             throw new ProfileRequired("collecting one unit's values");
           }
@@ -798,8 +854,16 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       resume: os.runs.resume.handler(({ input }) =>
         translated(async () => {
           requirePassive();
+          requireNoPlan();
           const run = await storage.getRun(input.runId);
           if (run === undefined) throw new StorageError("not-found", `no run ${input.runId}`);
+          const plan = recordedPlan(run.notes);
+          if (plan !== undefined) {
+            throw new StorageError(
+              "conflict",
+              `run ${run.id} was recorded by the plan ${plan}, and a plan does not resume`,
+            );
+          }
           if (!allowsWrites(run.origin)) {
             throw new StorageError(
               "conflict",
@@ -923,6 +987,64 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
               ? await decodeCapture(capture, target)
               : await decodeAsOf(capture, target, input.exchanges);
           return decodedCaptureData(decoded);
+        }),
+      ),
+    },
+    plans: {
+      list: os.plans.list.handler(() =>
+        [...dependencies.plans.names()].sort().map((name) => dependencies.plans.load(name)),
+      ),
+      start: os.plans.start.handler(({ input }) =>
+        translated(async () => {
+          const plan =
+            input.plan.kind === "shipped"
+              ? dependencies.plans.load(input.plan.name)
+              : parsePlanText(input.plan.text, input.plan.name);
+          requireFree();
+          const session = link.session;
+          if (session === undefined) throw new NotConnected("connect an adapter first");
+          const bus = sessionBus(session.profile);
+          return planJobs.start(plan, {
+            adapter: session.adapterUrl,
+            ...(session.profile === undefined ? {} : { profile: session.profile.name }),
+            idBits: bus.idBits,
+            bitrate: bus.bitrate,
+            notes: withPlan(planRunNotes(plan), plan.name),
+          });
+        }),
+      ),
+      status: os.plans.status.handler(({ input }) => planJobs.status(input.runId) ?? null),
+      events: os.plans.events.handler(({ input, signal }) => planJobs.events(input.runId, signal)),
+      confirm: os.plans.confirm.handler(({ input }) =>
+        translated(() => planCommand(planJobs.confirm(input.runId), input.runId)),
+      ),
+      skip: os.plans.skip.handler(({ input }) =>
+        translated(() => planCommand(planJobs.skipPhase(input.runId), input.runId)),
+      ),
+      abort: os.plans.abort.handler(({ input }) =>
+        translated(() => planCommand(planJobs.abort(input.runId), input.runId)),
+      ),
+      recover: os.plans.recover.handler(({ input }) =>
+        translated(async () => {
+          const stopped: Run[] = [];
+          for (const runId of input.runIds) {
+            const run = await storage.getRun(runId);
+            if (
+              // An unknown run has no `stoppedAt` and is skipped with the stopped ones.
+              run?.stoppedAt !== null ||
+              recordedPlan(run.notes) === undefined ||
+              planJobs.isRunning(run.id)
+            ) {
+              continue;
+            }
+            // Stopped at its last reading, not now, so the run does not span the time the page was away.
+            const last = Math.max(
+              run.startedAt,
+              ...(await storage.aggregate({ runId: run.id })).map((signal) => signal.lastAt),
+            );
+            stopped.push(presented(await storage.stopRun(run.id, last)));
+          }
+          return stopped;
         }),
       ),
     },
