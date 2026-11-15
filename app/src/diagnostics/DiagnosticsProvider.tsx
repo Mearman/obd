@@ -24,6 +24,14 @@ export interface CollectionView {
   readonly lastError: string | null;
   /** The newest reading of each signal, ordered by name. */
   readonly latest: readonly Sample[];
+  /** The value the collector is requesting now, or null before its first request. */
+  readonly progress: {
+    readonly position: number;
+    readonly total: number;
+    readonly label: string;
+  } | null;
+  /** True from the click on Stop until the run has ended, which waits for the request in flight. */
+  readonly stopping: boolean;
 }
 
 /** The recording plan the Guide screen started, which outlives the screen while the person looks elsewhere. */
@@ -46,8 +54,8 @@ export interface DiagnosticsContextValue {
   /** Stops any collection run, then closes the connection. */
   readonly disconnect: () => Promise<void>;
   readonly collection: CollectionView;
-  /** Starts a run on the open connection. */
-  readonly startCollection: () => Promise<void>;
+  /** Starts a run on the open connection, collecting the named values (by their `runs.values` names) or every supported value when none are given. */
+  readonly startCollection: (signals?: readonly string[]) => Promise<void>;
   /** Stops the run being collected. */
   readonly stopCollection: () => Promise<void>;
   /** Collects again for an open run, from a click. */
@@ -66,7 +74,14 @@ export interface DiagnosticsContextValue {
 
 const DiagnosticsContext = createContext<DiagnosticsContextValue | undefined>(undefined);
 
-const IDLE: CollectionView = { run: undefined, state: undefined, lastError: null, latest: [] };
+const IDLE: CollectionView = {
+  run: undefined,
+  state: undefined,
+  lastError: null,
+  latest: [],
+  progress: null,
+  stopping: false,
+};
 
 const STATUS_POLL_MS = 1000;
 
@@ -138,7 +153,7 @@ export function DiagnosticsProvider({
   }, [claims, runId, guidedRunning]);
 
   const track = useCallback((run: Run) => {
-    setCollection({ run, state: "collecting", lastError: null, latest: [] });
+    setCollection({ ...IDLE, run, state: "collecting" });
     setRunsVersion((version) => version + 1);
   }, []);
 
@@ -216,7 +231,12 @@ export function DiagnosticsProvider({
     const timer = setInterval(() => {
       void client.runs.status({ runId }).then((status) => {
         if (!live.active || status === null) return;
-        setCollection((view) => ({ ...view, state: status.state, lastError: status.lastError }));
+        setCollection((view) => ({
+          ...view,
+          state: status.state,
+          lastError: status.lastError,
+          progress: status.progress,
+        }));
       });
     }, STATUS_POLL_MS);
     return () => {
@@ -241,7 +261,14 @@ export function DiagnosticsProvider({
 
   const stopCollection = useCallback(async () => {
     if (runId === undefined) return;
-    await client.runs.stop({ runId });
+    // Said at once: the run ends after the request in flight, which an adapter can take a second to answer.
+    setCollection((view) => ({ ...view, stopping: true }));
+    try {
+      await client.runs.stop({ runId });
+    } catch (error) {
+      setCollection((view) => ({ ...view, stopping: false }));
+      throw error;
+    }
     setCollection(IDLE);
     setRunsVersion((version) => version + 1);
   }, [client, runId]);
@@ -252,15 +279,19 @@ export function DiagnosticsProvider({
     setConnection(undefined);
   }, [client, stopCollection]);
 
-  const startCollection = useCallback(async () => {
-    if (connection === undefined) throw new DiagnosticsError("Connect an adapter first.");
-    track(
-      await client.runs.start({
-        ...(connection.profile === null ? {} : { profile: connection.profile }),
-        adapter: connection.adapter,
-      }),
-    );
-  }, [client, connection, track]);
+  const startCollection = useCallback(
+    async (signals?: readonly string[]) => {
+      if (connection === undefined) throw new DiagnosticsError("Connect an adapter first.");
+      track(
+        await client.runs.start({
+          ...(connection.profile === null ? {} : { profile: connection.profile }),
+          adapter: connection.adapter,
+          ...(signals === undefined || signals.length === 0 ? {} : { signals: [...signals] }),
+        }),
+      );
+    },
+    [client, connection, track],
+  );
 
   const resumeCollection = useCallback(
     async (run: Run) => {

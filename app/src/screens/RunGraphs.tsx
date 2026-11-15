@@ -1,6 +1,7 @@
 import type { Run } from "obd-read";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { LineChart, formatElapsed, formatValue, valueAt, type Series } from "../charts";
+import { LineChart, formatElapsed, valueAt, type Series } from "../charts";
+import { formatReadingWithUnit } from "../format/reading";
 import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { Button, Card, DataTable } from "../ui";
 import { charts, clock, controls, scrubber, speeds, transport } from "./RunGraphs.css";
@@ -25,7 +26,7 @@ export interface RunGraphsProps {
 
 function withUnit(value: number | undefined, unit: string): string {
   if (value === undefined) return "-";
-  return unit === "" ? formatValue(value) : `${formatValue(value)} ${unit}`;
+  return formatReadingWithUnit(value, unit);
 }
 
 /** Moves a cursor across `[0, end]` at `speed` times real time while `playing`, and stops at the end. */

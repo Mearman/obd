@@ -1,4 +1,7 @@
-/** One numeric reading: `t` is a time on the chart's axis (milliseconds from the run's start) and `v` its value. */
+import { formatReadingWithUnit } from "../format/reading";
+
+/** One numeric reading
+: `t` is a time on the chart's axis (milliseconds from the run's start) and `v` its value. */
 export interface Point {
   readonly t: number;
   readonly v: number;
@@ -138,11 +141,6 @@ export function formatElapsed(milliseconds: number): string {
     : `${String(minutes)}:${tail}`;
 }
 
-/** Formats a reading with up to three significant decimals and no trailing zeros. */
-export function formatValue(value: number): string {
-  return String(Number(value.toFixed(Math.abs(value) >= 100 ? 1 : 3)));
-}
-
 /** A signal's readings, ready to draw. */
 export interface Series {
   /** Names the series within a run: the signal and its unit. */
@@ -167,8 +165,7 @@ export function describeSeries(
   if (extent === undefined || first === undefined || last === undefined) {
     return `${name}: no readings.`;
   }
-  const withUnit = (value: number): string =>
-    unit === "" ? formatValue(value) : `${formatValue(value)} ${unit}`;
+  const withUnit = (value: number): string => formatReadingWithUnit(value, unit);
   return `${name}: ${String(points.length)} readings from ${elapsed(first.t)} to ${elapsed(last.t)}, lowest ${withUnit(extent.min)}, highest ${withUnit(extent.max)}, starting at ${withUnit(first.v)} and ending at ${withUnit(last.v)}.`;
 }
 

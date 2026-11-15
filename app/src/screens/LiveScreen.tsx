@@ -1,13 +1,23 @@
 import type { Sample } from "obd-read";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { LineChart, appendRolling, type RollingHistory } from "../charts";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { FaultHistory } from "../faults/FaultHistory";
-import { Badge, Button, Card, DataTable, type Column } from "../ui";
+import { formatReading } from "../format/reading";
+import { SATURATED_NOTE, isSaturated } from "../format/saturation";
+import { Badge, Button, Card, DataTable, TextField, type Column } from "../ui";
+import { groupRows } from "./live/groups";
+import { groupHeading, groups, note } from "./live/live.css";
+import { initialSelection, sameSelection } from "./live/presets";
+import { readPins, readSelection, writePins, writeSelection } from "./live/remembered";
+import { useSupportedValues } from "./live/useSupportedValues";
+import { ValuePicker } from "./live/ValuePicker";
 import { COLLECTION_LIMIT } from "./limits";
 import { error, muted, page } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
+
+const PINNED = "Pinned";
 
 /** How many readings of each value the trend keeps. */
 const TREND_READINGS = 120;
@@ -24,6 +34,21 @@ export function LiveScreen() {
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const running = collection.run !== undefined;
+  const stopping = collection.stopping;
+  const supportedState = useSupportedValues(connection, !running);
+  const supported = supportedState.status === "ready" ? supportedState.supported : undefined;
+  const supportedNames = useMemo(
+    () => supported?.values.map((value) => value.name) ?? [],
+    [supported],
+  );
+  // The person's own choice once made; until then what was remembered, else the Engine preset.
+  const [chosen, setChosen] = useState<readonly string[] | undefined>(undefined);
+  const selected = useMemo(
+    () => chosen ?? initialSelection(readSelection(), supportedNames),
+    [chosen, supportedNames],
+  );
+  const [query, setQuery] = useState("");
+  const [pins, setPins] = useState<readonly string[]>(readPins);
   const runId = collection.run?.id;
   // Adjusted while rendering, as React advises for state derived from a changing input: a new run
   // starts an empty history, and each new set of latest readings is folded into the one kept.
@@ -47,7 +72,15 @@ export function LiveScreen() {
 
   const columns: readonly Column<Sample>[] = [
     { header: "Value", render: (row) => row.signal },
-    { header: "Reading", render: (row) => String(row.value) },
+    {
+      header: "Reading",
+      render: (row) => (
+        <>
+          {formatReading(row.value, row.unit)}
+          {isSaturated(row.signal, row.value) && <span className={note}>{SATURATED_NOTE}</span>}
+        </>
+      ),
+    },
     { header: "Unit", render: (row) => row.unit },
     {
       header: "Trend",
@@ -60,14 +93,57 @@ export function LiveScreen() {
         />
       ),
     },
+    {
+      header: "Pin",
+      render: (row) => {
+        const pinned = pins.includes(row.signal);
+        return (
+          <Button
+            variant={pinned ? "primary" : "secondary"}
+            aria-pressed={pinned}
+            aria-label={`${pinned ? "Unpin" : "Pin"} ${row.signal}`}
+            onClick={() => {
+              const next = pinned
+                ? pins.filter((label) => label !== row.signal)
+                : [...pins, row.signal];
+              setPins(next);
+              writePins(next);
+            }}
+          >
+            {pinned ? "Pinned" : "Pin"}
+          </Button>
+        );
+      },
+    },
   ];
+
+  const shown = collection.latest.filter((sample) =>
+    sample.signal.toLowerCase().includes(query.trim().toLowerCase()),
+  );
+  const pinnedRows = shown.filter((sample) => pins.includes(sample.signal));
+  const sections = [
+    ...(pinnedRows.length > 0 ? [{ title: PINNED, rows: pinnedRows }] : []),
+    ...groupRows(
+      shown.filter((sample) => !pins.includes(sample.signal)),
+      (sample) => sample.signal,
+    ).map(({ group, rows }) => ({ title: group, rows })),
+  ];
+
+  function choose(names: readonly string[]): void {
+    setChosen(names);
+    writeSelection(names);
+  }
 
   async function toggle(): Promise<void> {
     setBusy(true);
     setProblem(undefined);
     try {
       if (running) await stopCollection();
-      else await startCollection();
+      else {
+        // Everything the car supports is a run of no named values, which also reads the fault codes.
+        const everything = sameSelection(selected, supportedNames);
+        await startCollection(everything ? undefined : selected);
+      }
     } catch (caught) {
       setProblem(failureMessage(caught, running ? "Could not stop the run." : "Could not start."));
     } finally {
@@ -85,17 +161,33 @@ export function LiveScreen() {
         <div>
           {collection.state !== undefined && (
             <Badge tone={collection.state === "failed" ? "warning" : "success"}>
-              {STATE_LABEL[collection.state]}
+              {stopping ? "Stopping…" : STATE_LABEL[collection.state]}
             </Badge>
           )}
         </div>
+        {!running && supported !== undefined && (
+          <ValuePicker supported={supported} selected={selected} onSelectedChange={choose} />
+        )}
+        {!running && supportedState.status === "loading" && (
+          <p className={muted}>Reading which values the car supports…</p>
+        )}
+        {!running && supportedState.status === "failed" && (
+          <p role="alert" className={error}>
+            {supportedState.message}
+          </p>
+        )}
         <Button
           variant="primary"
           block
-          disabled={connection === undefined || busy}
+          disabled={
+            connection === undefined ||
+            busy ||
+            stopping ||
+            (!running && (supported === undefined || selected.length === 0))
+          }
           onClick={() => void toggle()}
         >
-          {running ? "Stop collecting" : "Start collecting"}
+          {stopping ? "Stopping…" : running ? "Stop collecting" : "Start collecting"}
         </Button>
         {connection === undefined && <p className={muted}>Connect an adapter first.</p>}
         {collection.lastError !== null && collection.state !== "collecting" && (
@@ -130,16 +222,31 @@ export function LiveScreen() {
         </Card>
       )}
       {collection.latest.length === 0 ? (
-        <p className={muted}>
-          {running ? "Waiting for the first reading…" : "Start collecting to see live values."}
+        <p className={muted} role="status">
+          {!running
+            ? "Start collecting to see live values."
+            : collection.progress === null
+              ? "Waiting for the first reading…"
+              : `Reading value ${String(collection.progress.position)} of ${String(collection.progress.total)}: ${collection.progress.label}`}
         </p>
       ) : (
-        <DataTable
-          label="Live values"
-          columns={columns}
-          rows={collection.latest}
-          rowKey={(row) => row.signal}
-        />
+        <>
+          <TextField label="Search values" value={query} onValueChange={setQuery} />
+          {sections.length === 0 && <p className={muted}>No value matches the search.</p>}
+          <div className={groups}>
+            {sections.map(({ title, rows }) => (
+              <section key={title} aria-label={title}>
+                <h2 className={groupHeading}>{title}</h2>
+                <DataTable
+                  label={`Live values: ${title}`}
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(row) => row.signal}
+                />
+              </section>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
