@@ -1,0 +1,118 @@
+{
+  "notes": "Mercedes-Benz C-Class W203 (saloon, estate and sports coupe) and CLK W209 (C209 coupe, A209 cabriolet), the CAN-C (powertrain and chassis) units.\n\nThe address table is the W203 and W209 CAN-C database decoded from an XS Monitor file in rnd-ash/W203-canbus (MIT): every unit here is a D_RQ and D_RS frame pair the file labels KWP2000 Diagnose-Request and Diagnose-Response. The same repository's W211 and W219 CAN-C table carries every one of these pairs unchanged, so this profile shares the mercedes-w211 profile's addressing; the W211 profile lacks four of them (ehb-2, art, ism, up28) and this profile lacks the W211 table's AFS units, which the W203 table does not list. Neither file states a model year or a bit rate. The 500 kbit/s bit rate and the 0x92 session are the ones the mercedes-w211 profile uses, not read from the W203 file.\n\nThe CAN-B (interior) units in the W203 CAN-B table (EZS, SAM, KOMBI and others) are left out: they sit behind the gateway, and whether their identifiers are what reaches them from the diagnostic socket is the open question of https://github.com/Mearman/obd/issues/2 for the W211. Units are named as the source names them; a name the source does not expand is kept as written.\n\nR171 SLK and other cars said to share the W203's electronics are not covered by this table. Treat every row as unconfirmed on a given car until obd-read probe shows the unit answering.",
+  "name": "mercedes-w203-w209",
+  "description": "Mercedes-Benz C-Class W203 and CLK W209, CAN-C units",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "kwp2000",
+    "session": 146
+  },
+  "units": {
+    "engine": {
+      "description": "Engine control unit (MS)",
+      "request": 2016,
+      "response": 2024,
+      "source": "D_RQ_MS 0x7E0 and D_RS_MS 0x7E8, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "gearbox": {
+      "description": "Transmission control unit (GS)",
+      "request": 2017,
+      "response": 2025,
+      "source": "D_RQ_GS 0x7E1 and D_RS_GS 0x7E9, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "esp": {
+      "description": "Brake control, ESP (BS)",
+      "request": 1924,
+      "response": 1925,
+      "source": "D_RQ_BS 0x784 and D_RS_BS 0x785, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "ewm": {
+      "description": "Electronic selector lever module (EWM)",
+      "request": 1928,
+      "response": 1929,
+      "source": "D_RQ_EWM 0x788 and D_RS_EWM 0x789, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "fscm": {
+      "description": "FSCM, as named in the source",
+      "request": 1912,
+      "response": 1913,
+      "source": "D_RQ_FSCM 0x778 and D_RS_FSCM 0x779, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "cas": {
+      "description": "CAS, as named in the source",
+      "request": 1914,
+      "response": 1915,
+      "source": "D_RQ_CAS 0x77A and D_RS_CAS 0x77B, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "ehb": {
+      "description": "Electrohydraulic brake (EHB)",
+      "request": 1946,
+      "response": 1947,
+      "source": "D_RQ_EHB 0x79A and D_RS_EHB 0x79B, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "ehb-2": {
+      "description": "Electrohydraulic brake, second address pair (EHB2)",
+      "request": 1968,
+      "response": 1969,
+      "source": "D_RQ_EHB2 0x7B0 and D_RS_EHB2 0x7B1, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211/W219 table has the same pair, the W211 profile does not (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "dtr": {
+      "description": "Distronic (DTR)",
+      "request": 1794,
+      "response": 1184,
+      "source": "D_RQ_DTR 0x702 and D_RS_DTR 0x4A0, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "kombi": {
+      "description": "Instrument cluster on CAN-C (KOMBI_C)",
+      "request": 1942,
+      "response": 1943,
+      "source": "D_RQ_KOMBI_C 0x796 and D_RS_KOMBI_C 0x797, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "lwr": {
+      "description": "Headlamp range control (LWR)",
+      "request": 1940,
+      "response": 1941,
+      "source": "D_RQ_LWR 0x794 and D_RS_LWR 0x795, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "fs": {
+      "description": "FS, as named in the source",
+      "request": 1932,
+      "response": 1933,
+      "source": "D_RQ_FS 0x78C and D_RS_FS 0x78D, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "rgs-l": {
+      "description": "RGS, left, as named in the source",
+      "request": 1970,
+      "response": 1971,
+      "source": "D_RQ_RGS_L 0x7B2 and D_RS_RGS_L 0x7B3, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair as rgs-1 (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "rgs-r": {
+      "description": "RGS, right, as named in the source",
+      "request": 1972,
+      "response": 1973,
+      "source": "D_RQ_RGS_R 0x7B4 and D_RS_RGS_R 0x7B5, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211 profile has the same pair as rgs-2 (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "art": {
+      "description": "ART, as named in the source",
+      "request": 1934,
+      "response": 1935,
+      "source": "D_RQ_ART 0x78E and D_RS_ART 0x78F, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211/W219 table has the same pair, the W211 profile does not (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "ism": {
+      "description": "ISM, as named in the source",
+      "request": 1770,
+      "response": 1181,
+      "source": "D_RQ_ISM 0x6EA and D_RS_ISM 0x49D, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211/W219 table has the same pair, the W211 profile does not (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    },
+    "up28": {
+      "description": "UP28, as named in the source",
+      "request": 1954,
+      "response": 1955,
+      "source": "D_RQ_UP28 0x7A2 and D_RS_UP28 0x7A3, both labelled KWP2000, in w203_w209 CAN C ENGLISH.txt (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w203_w209%20CAN%20C%20ENGLISH.txt); the W211/W219 table has the same pair, the W211 profile does not (https://github.com/rnd-ash/W203-canbus/blob/master/DAT_TRANSLATOR/DECODED/w211_w219%20CAN%20C%20ENGLISH.txt). Not read from a car."
+    }
+  }
+}
