@@ -10,7 +10,7 @@ const PORT = 4173;
 const executablePath = process.env.OBD_READ_CHROMIUM;
 
 /**
- * Builds the app, serves the production build with `vite preview` on localhost (a secure context,
+ * Builds the app (with the `window.obdE2e` database hook, which the shipped build lacks), serves the production build with `vite preview` on localhost (a secure context,
  * which service workers need) and runs the checks in `e2e/`. No hardware and no outside network.
  */
 export default defineConfig({
@@ -23,7 +23,7 @@ export default defineConfig({
     ...(executablePath === undefined ? {} : { launchOptions: { executablePath } }),
   },
   webServer: {
-    command: "pnpm exec vite build && pnpm preview",
+    command: "VITE_OBD_E2E=1 pnpm exec vite build && pnpm preview",
     url: `http://127.0.0.1:${String(PORT)}`,
     reuseExistingServer: false,
     timeout: 120_000,
