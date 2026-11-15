@@ -44,6 +44,15 @@ The tool should therefore never infer the protocol from make and year: probe wit
 - **HDS.** Honda's diagnostic function list shows ABS and SRS as separate functions ([HONDA diagnostic function list](https://cdn.shopify.com/s/files/1/0085/7699/1298/files/HONDA_V01.20_Diagnostic_Function_List_FULL.pdf)). I found no open documentation of HDS's K-line framing, so a read-only tool should treat anything beyond standard emissions as unavailable on K-line Hondas.
 - **Hybrids.** I found no Honda hybrid battery PID source I could open; unconfirmed.
 
+### Shipped profile: `honda-acura-29bit`
+
+The profile [`src/profiles/honda-acura-29bit.json`](../../src/profiles/honda-acura-29bit.json) ships 18 unconfirmed address pairs on 29-bit CAN at 500 kbit/s (ELM327 protocol 7, `ATCP18` then `ATSH` with the low three bytes), service 22 in the default session. A unit's request is `18DAxxF1` and its reply comes from `18DAF1xx`. It carries addresses only: OBDb and opendbc are open projects whose signal definitions are not copied, so no data identifier is shipped.
+
+- **OBDb** ([Honda Civic signal set](https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), [archived](https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json); [Honda CR-V](https://github.com/OBDb/Honda-CR-V/blob/main/signalsets/v3/default.json), [archived](https://web.archive.org/web/20261115134522/https://github.com/OBDb/Honda-CR-V/blob/main/signalsets/v3/default.json); CC-BY-SA-4.0) lists headers `DA01`, `DA0E`, `DA10`, `DA11`, `DA1D`, `DA1E`, `DA26`, `DA28`, `DA2A`, `DA30`, `DA53` and `DA60` with replies from the matching last byte. The other Honda and Acura repositories read (Accord, Accord Hybrid, Clarity, Fit, Insight, Pilot, Ridgeline, ZR-V, Acura Integra, RDX and TLX) were not archived. Its schema never says `DAxx` means `18DAxxF1`.
+- **opendbc** ([Honda fingerprints](https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), [archived](https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py); [values](https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py), [archived](https://web.archive.org/web/20261115135151/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py); MIT) uses the full `0x18daxxf1` form with service 22 for steering `30`, SRS `53`, VSA `28`, transmission `1E`, shift-by-wire `0B`, electric brake booster `2B`, head-up display `61`, gateway `EF`, forward radar `B0` and forward camera `B5`, and probes the engine `10` and combination meter `60` as extra units. That is what settles the OBDb header form.
+- **Where they disagree.** OBDb types `DA28` and `DA2A` as ABS where opendbc has only `28` (as VSA); OBDb has `0E`, `11`, `1D`, `26`, `2A` and `01` that opendbc does not; opendbc has `0B`, `2B`, `61`, `EF`, `B0` and `B5` that OBDb does not. Both appear in the profile with the source that has them. Left out: OBDb `DBEF` rows (no reply identifier) and `DA15` and `DA16` (one Clarity repository).
+- **European fitment.** Both projects describe mostly North American and Japanese cars. opendbc also lists a European CR-V and a diesel Civic, but a UK Honda may place units differently or behind a gateway that does not pass the 29-bit scheme to the OBD-II socket. opendbc queries from a device wired into the car, not the socket, and its own comments say the forward camera cannot be queried in parallel and `18DAB0F1` often fails to answer. Every row stays unconfirmed until `obd-read probe` shows it answering on a car.
+
 ## Nissan and Infiniti
 
 - **Consult generations.** Roughly 1989 to 2001 cars use Consult I (DDL1, separate Tx and Rx lines, often a 14-pin round connector), roughly 2002 to 2008 use Consult II (DDL2, K-line) and 2009 onwards use Consult III (CAN); exceptions exist, and one vehicle can mix protocols across ECUs, for example a 2007 350Z with CAN to the engine ECU and body module but K-line to the rest ([NisScan](https://nisscan.com/which-nds-software/)).
@@ -58,6 +67,14 @@ The tool should therefore never infer the protocol from make and year: probe wit
 - **Mode 22 PIDs.** For the MX-5 NC, custom mode 22 PIDs on header 7E0 (brake pressure switch, accelerator pedal position, steering angle) are reported on a RaceChrono forum thread that credits miata.net ([RaceChrono](https://racechrono.com/forum/discussion/comment/11271)). TPMS on the ND is reported on header 720 with PIDs 2A05 to 2A08 (pressure) and 2A0A to 2A0D (temperature), with one user unable to get it working and another recommending an OBDLink MX or MX+ ([mx5-nd-forum.de](https://mx5-nd-forum.de/forum/thread/7187-tpms-data-through-obd-ecu)); a Torque preset uses header 726 for left-front tyre pressure (same thread). All are single-source and unconfirmed per car.
 - **Mazda3 and others.** I found no verified Mazda3 PID list; a gist lists mode 22 PIDs on 7E0 without naming a car ([gist](https://gist.github.com/agronick/4d01cfe7f94dd41eeeb46f5e5dd204b8)), so it cannot be applied safely. Mazda's body modules sit partly on a slower bus (MS-CAN) that a plain ELM327 cannot reach; I found no source I could open, so this is unconfirmed.
 - Treat 7E0 as a starting guess to test, not a confirmed Mazda value.
+
+### Shipped profile: `mazda-skyactiv`
+
+The profile [`src/profiles/mazda-skyactiv.json`](../../src/profiles/mazda-skyactiv.json) ships 16 unconfirmed address pairs on 11-bit CAN at 500 kbit/s, service 22 in the default session, addresses only.
+
+- **OBDb** ([Mazda 3](https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), [archived](https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json); [CX-5](https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json), [archived](https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json); CC-BY-SA-4.0) gives header and reply pairs `7E0`/`7E8` (engine), `7E1`/`7E9` (transmission), `700`/`708`, `720`/`728`, `726`/`72E`, `750`/`758`, `760`/`768`, `761`/`769`, `793`/`79B`, `7B0`/`7B8`, `7B3`/`7BB`, `7C0`/`7C8` and `7D0`/`7DA`, typing only the engine and transmission. The CX-30, CX-50, CX-60 and MX-5 repositories were read but not archived.
+- **opendbc** ([Mazda fingerprints](https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), [archived](https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py); MIT) names steering `730`, engine `7E0`, forward radar `764`, ABS `760`, forward camera `706` and transmission `7E1` for the CX-5, CX-9, Mazda3 and Mazda6, with the reply at the request plus 8.
+- **Where they disagree.** The archived OBDb files have no `730`, `764` or `706`, so the steering unit, radar and camera rest on opendbc alone with the reply inferred as request plus 8 (OBDb's CX-60 repository gives `730`/`738`). OBDb's `7D0` replies from `7DA`, not `7D8`, and OBDb also lists `7D2` replying from the same `7DA`, which one profile cannot hold twice, so `7D2` is left out with the other rows seen only in the CX-30, CX-50 and CX-60 repositories. Neither source names the Mazda2 or CX-3. Mazda's body modules may sit on a slower bus a plain adapter on the socket does not reach, so some rows may stay silent.
 
 ## Subaru
 
@@ -87,7 +104,7 @@ The tool should therefore never infer the protocol from make and year: probe wit
 
 ## Cross-make resources
 
-- [OBDb](https://github.com/OBDb) is an open community project documenting diagnostic parameters and DTCs, organised as a repository per make and model, with [SAEJ1979](https://github.com/OBDb/SAEJ1979) for the standard PIDs. Its repository listing, read directly, showed Toyota (RAV4 Prime), Honda (Accord) and Kia (Optima) repositories among the entries visible, with none visible for Hyundai, Nissan, Mazda or Subaru, but the page showed only a sample, so coverage beyond those is unconfirmed.
+- [OBDb](https://github.com/OBDb) is an open community project documenting diagnostic parameters and DTCs, organised as a repository per make and model, with [SAEJ1979](https://github.com/OBDb/SAEJ1979) for the standard PIDs. Its repository listing, read directly, showed Toyota (RAV4 Prime), Honda (Accord) and Kia (Optima) repositories among the entries visible, with none visible for Hyundai, Nissan, Mazda or Subaru, but the page showed only a sample, so coverage beyond those is unconfirmed. A later listing through `gh repo list OBDb` showed repositories for Mazda (3, CX-5, CX-30, CX-50, CX-60, MX-5) and for several Honda and Acura models, which the shipped Mazda and Honda profiles below draw on.
 - [opendbc](https://github.com/commaai/opendbc) (MIT) provides DBC files for the broadcast CAN signals of many cars, built for openpilot. It is about passively decoding broadcast frames, not OBD-II request/response; that distinction is my inference from its description, and the make list is on its own `docs/CARS.md`, which I did not open.
 - [awesome-canbus](https://github.com/iDoka/awesome-canbus) is a curated index; its OBD-II section lists tools such as [freediag](https://github.com/fenugrec/freediag) (free diagnostic software for OBD-II, relevant to K-line), [ELM327-emulator](https://github.com/Ircama/ELM327-emulator) (useful for testing a tool without a car) and [ecu-simulator](https://github.com/lbenthins/ecu-simulator). It links [awesome-automotive-can-id](https://github.com/iDoka/awesome-automotive-can-id); I did not open that list.
 - [python-obd](https://python-obd.readthedocs.io/en/latest/Command%20Tables/) documents mode 01 and related command tables, and is the usual Python reference for ELM327 handling.
@@ -96,16 +113,16 @@ The tool should therefore never infer the protocol from make and year: probe wit
 
 ## Per-make summary for implementation
 
-| Make                | Standard J1979 via ELM327 | Enhanced data via ELM327                                  | Native protocol needing other hardware                    |
-| ------------------- | ------------------------- | --------------------------------------------------------- | --------------------------------------------------------- |
-| Toyota/Lexus        | Yes, K-line or CAN        | CAN hybrids: mode 21/22 with module header, car-specific  | Techstream-style K-line enhanced data (undocumented here) |
-| Honda/Acura         | Yes                       | Engine data only in most reports; beyond that unconfirmed | HDS-style K-line modules and the gateway                  |
-| Nissan/Infiniti     | Yes                       | Leaf via Car-CAN frames and 79B/7BB                       | Consult I and II (cable)                                  |
-| Mazda               | Yes                       | Mode 22, 7E0 and other headers, per car                   | MS-CAN modules (unconfirmed)                              |
-| Subaru              | Yes (mode 01, ECU ID)     | SSM-CAN A8 reads not shown to work on stock ELM327        | SSM1 and SSM2 K-line (reflashed or K-line cable)          |
-| Mitsubishi          | Yes                       | Not documented in sources opened                          | MUT-II, MUT-III (libmut with OpenPort)                    |
-| Suzuki              | Yes (expected)            | None found                                                | None found                                                |
-| Hyundai/Kia/Genesis | Yes                       | EV and hybrid battery: 7E4, 7E2 and others with 21/22     | GDS, Hi-Scan (undocumented here)                          |
+| Make                | Standard J1979 via ELM327 | Enhanced data via ELM327                                                              | Native protocol needing other hardware                    |
+| ------------------- | ------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Toyota/Lexus        | Yes, K-line or CAN        | CAN hybrids: mode 21/22 with module header, car-specific                              | Techstream-style K-line enhanced data (undocumented here) |
+| Honda/Acura         | Yes                       | Engine data in most reports; 29-bit unit addresses (`honda-acura-29bit`, unconfirmed) | HDS-style K-line modules and the gateway                  |
+| Nissan/Infiniti     | Yes                       | Leaf via Car-CAN frames and 79B/7BB                                                   | Consult I and II (cable)                                  |
+| Mazda               | Yes                       | Mode 22 on 7E0 and other headers (`mazda-skyactiv`, unconfirmed)                      | MS-CAN modules (unconfirmed)                              |
+| Subaru              | Yes (mode 01, ECU ID)     | SSM-CAN A8 reads not shown to work on stock ELM327                                    | SSM1 and SSM2 K-line (reflashed or K-line cable)          |
+| Mitsubishi          | Yes                       | Not documented in sources opened                                                      | MUT-II, MUT-III (libmut with OpenPort)                    |
+| Suzuki              | Yes (expected)            | None found                                                                            | None found                                                |
+| Hyundai/Kia/Genesis | Yes                       | EV and hybrid battery: 7E4, 7E2 and others with 21/22                                 | GDS, Hi-Scan (undocumented here)                          |
 
 ## Design implications for obd-read
 
@@ -193,6 +210,13 @@ No snapshot found:
 - https://relatedrepos.com/gh/fridlington/K11Consult
 - https://www.hackster.io/jvarner4/obd-ii-information-logger-and-diagnostics-reader-952dd9
 - https://www.hpacademy.com/es/foro/ajuste-de-inyeccion-electronica-de-combustible/show/setting-up-rom-raider/
+- https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Honda-CR-V/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134522/https://github.com/OBDb/Honda-CR-V/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json)
+- https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py (https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py)
+- https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py (https://web.archive.org/web/20261115135151/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py)
+- https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py (https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py)
 - https://www.manualslib.com/manual/1602765/Mitsubishi-Mut-Ii.html
 - https://www.priuschat.com/goto/post?id=1754304
 - https://www.priuschat.com/goto/post?id=2241649
