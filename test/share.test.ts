@@ -386,6 +386,15 @@ describe.each(codecs)("the %s codec", (_name, codec) => {
     }
   });
 
+  it("writes the packed form and still opens a link of the JSON form", async () => {
+    for (const envelope of [scanEnvelope(), obdEnvelope(), runEnvelope()]) {
+      expect(await encoded(envelope, codec)).toMatch(/^share=2\./);
+      const old = forged(canonicalJson(envelope));
+      expect(old).toMatch(/^share=1\./);
+      expect(await decodeShare(old, codec)).toEqual({ ok: true, value: envelope });
+    }
+  });
+
   it("writes the same link for the same envelope however the keys were ordered", async () => {
     const one = scanEnvelope();
     const reordered: ShareEnvelope = {
@@ -413,7 +422,7 @@ describe.each(codecs)("the %s codec", (_name, codec) => {
       ["empty", "", "malformed"],
       ["not a share", "other=1.abc", "malformed"],
       ["no version", "share=abc", "malformed"],
-      ["future version", `share=2.${payload(good)}`, "unsupported-version"],
+      ["future version", `share=3.${payload(good)}`, "unsupported-version"],
       ["bad base64", "share=1.!!!!", "malformed"],
       ["impossible base64 length", "share=1.A", "malformed"],
       ["truncated", good.slice(0, Math.floor(good.length / 2)), "malformed"],

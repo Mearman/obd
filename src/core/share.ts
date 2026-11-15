@@ -1,7 +1,7 @@
 /**
  * Sharing results as a link: a scan, a generic OBD-II report, a run summary or a raw capture packed into the URL fragment.
  *
- * A link is `<app address>#share=1.<payload>`. The payload is a versioned envelope `{v, kind, createdAt, data}` written as canonical JSON (keys sorted, ASCII only), compressed with raw deflate and written as unpadded base64url. The data sits in the fragment, which a browser never sends to a server, so only whoever holds the link can read it.
+ * A link is `<app address>#share=2.<payload>`. Its content is a versioned envelope `{v, kind, createdAt, data}`. The payload is a head written as canonical JSON (keys sorted, ASCII only), for a capture followed by its exchanges packed into columns of bytes (`capture-pack.ts`): a capture's head holds its other fields by position with no field names, any other kind's holds the whole envelope. A raw capture so costs a fraction of its JSON size. The whole is compressed with raw deflate and written as unpadded base64url. A link of the first form, `#share=1.<payload>`, is the whole envelope's canonical JSON compressed the same way; it is still read. Both forms decode to exactly the envelope that was encoded. The data sits in the fragment, which a browser never sends to a server, so only whoever holds the link can read it.
  *
  * This module is platform-free. Compression goes through a {@link ShareCodec}, which each platform supplies (`CompressionStream` in the browser, `node:zlib` in Node). Decoding never throws: every failure, hostile input included, is a typed {@link ShareError}, and inflation stops as soon as the output passes {@link MAX_DECODED_BYTES}, so a small payload cannot expand without bound.
  *
@@ -16,7 +16,16 @@ import {
   redactCaptureShare,
   type CaptureShareData,
 } from "./capture-share.js";
-import { addressKey } from "./exchange.js";
+import { CAPTURE_FORMAT, CAPTURE_VERSION, MAX_NOTES, MAX_SESSIONS } from "./capture.js";
+import { packExchanges, unpackExchanges, type PackTables } from "./capture-pack.js";
+import { DIAG_PROTOCOLS } from "./guard.js";
+import {
+  MAX_ERROR_TEXT,
+  addressKey,
+  exchangeBusSchema,
+  type Exchange,
+  type ExchangeBus,
+} from "./exchange.js";
 import type { ObdScan } from "./obd-scan.js";
 import { runExportSchema } from "./run-export.js";
 import type { UnitReportData } from "./service.js";
@@ -35,10 +44,16 @@ export {
 /** The envelope version this module writes and reads. */
 export const SHARE_VERSION = 1;
 
-/** The most bytes the canonical JSON of an envelope may have, before and after compression. */
+/** The link form this module writes: `share=2.`, the envelope with a capture's exchanges packed into columns. */
+export const LINK_VERSION = 2;
+
+/** The link form of the whole envelope as canonical JSON, which this module still reads. */
+export const JSON_LINK_VERSION = 1;
+
+/** The most bytes the canonical JSON of an envelope may have, before and after compression; a packed link is held to the same limit on the envelope it decodes to. */
 export const MAX_DECODED_BYTES = 256 * 1024;
 
-/** The most characters a fragment (`share=1.<payload>`) may have; a longer link is refused unread. */
+/** The most characters a fragment (`share=2.<payload>`) may have; a longer link is refused unread. */
 export const MAX_ENCODED_LENGTH = 32_000;
 
 /** The link length that survives every browser, messenger and mail client; beyond it some of them truncate or break the link. */
@@ -496,16 +511,147 @@ export function fromBase64Url(text: string): Uint8Array | undefined {
 
 /** What {@link encodeShare} wrote. */
 export interface EncodedShare {
-  /** The fragment without its `#`: `share=1.<payload>`. */
+  /** The fragment without its `#`: `share=2.<payload>`. */
   readonly fragment: string;
-  /** The envelope's canonical JSON size in bytes, before compression. */
+  /** The envelope's canonical JSON size in bytes, which a decoder rebuilds and holds to {@link MAX_DECODED_BYTES}. */
   readonly decodedBytes: number;
+  /** The payload's size in bytes before compression: the envelope with a capture's exchanges packed. */
+  readonly packedBytes: number;
 }
 
 /** Options of {@link encodeShare}. */
 export interface EncodeOptions {
   /** Blank the VIN and serial numbers of a scan, the VIN and calibration identifiers of a generic OBD-II report, or all three in a capture's raw bytes, first. */
   readonly redactVin?: boolean;
+}
+
+/** The longest head a packed payload may declare: no more than the envelope it is part of. */
+const MAX_HEAD_BYTES = MAX_DECODED_BYTES;
+
+const shortText = z.string().max(1000);
+const nullableShort = shortText.nullable();
+
+/** A bus in a packed head: `null`, `["can", idBits, bitrate]` or `["kline", scheme, tester, headerFormat]`. */
+const packedBusSchema = z.union([
+  z.null(),
+  z.tuple([z.literal("can"), z.number(), z.number().nullable()]),
+  z.tuple([z.literal("kline"), z.string().max(40), z.number(), z.number()]),
+]);
+
+/**
+ * A packed capture's head, every field by position instead of by name: the kind, when the link was made (from the capture's start), whether it was redacted, the capture's id, start and length, its origin, each session (the adapter's fields but its address, which a shared capture never has, then the tool's), its notes, and the tables its packed exchanges refer to. The capture's `format` and `version` and the envelope's `v` are the only values their schemas allow, so they are not written.
+ */
+const packedCaptureHeadSchema = z.tuple([
+  z.literal("capture"),
+  z.number(),
+  z.boolean(),
+  shortText,
+  z.number(),
+  z.number(),
+  z.tuple([z.string().max(40), z.string().max(200).nullable(), z.boolean(), shortText]),
+  z
+    .array(
+      z.tuple([
+        shortText,
+        nullableShort,
+        nullableShort,
+        nullableShort,
+        z.boolean().nullable(),
+        shortText,
+        shortText,
+      ]),
+    )
+    .max(MAX_SESSIONS),
+  z.array(shortText).max(MAX_NOTES),
+  z.array(packedBusSchema).max(MAX_DECODED_BYTES),
+  z.array(z.enum(DIAG_PROTOCOLS).nullable()).max(DIAG_PROTOCOLS.length + 1),
+  z.array(z.string().max(MAX_ERROR_TEXT)).max(MAX_DECODED_BYTES),
+]);
+
+/** Any other kind's packed head: the kind and the whole envelope. */
+const packedOtherHeadSchema = z.tuple([z.enum(SHARE_KINDS), z.unknown()]);
+
+/** `value` as an unsigned variable-length integer, seven bits a byte, low bits first. */
+function lengthBytes(value: number): number[] {
+  const out: number[] = [];
+  let rest = value;
+  while (rest >= 0x80) {
+    out.push((rest % 0x80) | 0x80);
+    rest = Math.floor(rest / 0x80);
+  }
+  out.push(rest);
+  return out;
+}
+
+function packedBus(bus: ExchangeBus): Json {
+  if (bus === null) return null;
+  return bus.kind === "can"
+    ? ["can", bus.idBits, bus.bitrate]
+    : ["kline", bus.scheme, bus.tester, bus.headerFormat];
+}
+
+function unpackedBus(bus: z.output<typeof packedBusSchema>): unknown {
+  if (bus === null) return null;
+  return bus[0] === "can"
+    ? { kind: "can", idBits: bus[1], bitrate: bus[2] }
+    : { kind: "kline", scheme: bus[1], tester: bus[2], headerFormat: bus[3] };
+}
+
+/** The head of a packed capture ({@link packedCaptureHeadSchema}). */
+function captureHead(
+  envelope: Extract<ShareEnvelope, { kind: "capture" }>,
+  tables: PackTables,
+): Json {
+  const { capture, redacted } = envelope.data;
+  return [
+    "capture",
+    envelope.createdAt - capture.startedAt,
+    redacted,
+    capture.id,
+    capture.startedAt,
+    capture.endedAt - capture.startedAt,
+    [
+      capture.origin.kind,
+      capture.origin.profile,
+      capture.origin.complete,
+      capture.origin.description,
+    ],
+    capture.sessions.map(({ adapter, tool }) => [
+      adapter.identity,
+      adapter.description,
+      adapter.stnIdentity,
+      adapter.voltage,
+      adapter.hasStnExtensions,
+      tool.name,
+      tool.version,
+    ]),
+    capture.notes,
+    tables.buses.map(packedBus),
+    [...tables.protocols],
+    [...tables.texts],
+  ];
+}
+
+/**
+ * The bytes a `share=2.` link compresses, for an envelope that already matches its schema (and is redacted when it is to be): the head's length, the head as canonical JSON and, for a capture, its exchanges packed. A capture's head is {@link packedCaptureHeadSchema}; any other kind's is the kind and the whole envelope.
+ */
+export function packedSharePayload(envelope: ShareEnvelope): Uint8Array {
+  let head: Uint8Array;
+  let body: Uint8Array = new Uint8Array(0);
+  if (envelope.kind === "capture") {
+    const { capture } = envelope.data;
+    const packed = packExchanges(capture.exchanges, capture.startedAt);
+    head = asciiBytes(canonicalJson(captureHead(envelope, packed.tables)));
+    body = packed.bytes;
+  } else {
+    head = asciiBytes(canonicalJson([envelope.kind, envelope]));
+  }
+  const prefix = lengthBytes(head.length);
+  const out = new Uint8Array(prefix.length + head.length + body.length);
+  out.set(prefix, 0);
+  out.set(head, prefix.length);
+  out.set(body, prefix.length + head.length);
+  return out;
 }
 
 /**
@@ -524,14 +670,15 @@ export async function encodeShare(
   if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
   const checked = parsed.data;
   const chosen: ShareEnvelope = options.redactVin === true ? redactEnvelope(checked) : checked;
-  const bytes = asciiBytes(canonicalJson(chosen));
-  if (bytes.length > MAX_DECODED_BYTES)
-    return tooLarge("decoded", bytes.length, true, MAX_DECODED_BYTES);
-  const fragment = `${PREFIX}${String(SHARE_VERSION)}.${toBase64Url(await codec.deflate(bytes))}`;
+  const decodedBytes = canonicalJson(chosen).length;
+  if (decodedBytes > MAX_DECODED_BYTES)
+    return tooLarge("decoded", decodedBytes, true, MAX_DECODED_BYTES);
+  const payload = packedSharePayload(chosen);
+  const fragment = `${PREFIX}${String(LINK_VERSION)}.${toBase64Url(await codec.deflate(payload))}`;
   if (fragment.length > MAX_ENCODED_LENGTH) {
     return tooLarge("encoded", fragment.length, true, MAX_ENCODED_LENGTH);
   }
-  return { ok: true, value: { fragment, decodedBytes: bytes.length } };
+  return { ok: true, value: { fragment, decodedBytes, packedBytes: payload.length } };
 }
 
 function describeIssue(error: z.ZodError): string {
@@ -545,10 +692,183 @@ function isKind(kind: unknown): boolean {
   return SHARE_KINDS.some((known) => known === kind);
 }
 
+/** Whether every byte is printable ASCII, as canonical JSON is. */
+function printable(bytes: Uint8Array): boolean {
+  return bytes.every((byte) => byte >= 0x20 && byte <= 0x7e);
+}
+
+/** Parses canonical JSON text that must be an object. */
+function jsonObject(bytes: Uint8Array): ShareResult<object> {
+  if (!printable(bytes)) return failure("malformed", "the link payload is not canonical JSON");
+  let value: unknown;
+  try {
+    value = JSON.parse(asciiText(bytes));
+  } catch {
+    return failure("malformed", "the link payload is not JSON");
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return failure("invalid", "the link payload is not an envelope");
+  }
+  const forbidden = forbiddenKey(value);
+  if (forbidden !== undefined) return failure("invalid", `the key ${forbidden} is not allowed`);
+  return { ok: true, value };
+}
+
+/** Checks a candidate envelope's version, kind and schema. */
+function checkedEnvelope(value: unknown): ShareResult<ShareEnvelope> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return failure("invalid", "the link payload is not an envelope");
+  }
+  const versionField: unknown = Reflect.get(value, "v");
+  if (versionField !== SHARE_VERSION) {
+    return failure("unsupported-version", "the envelope version is not supported");
+  }
+  const kind: unknown = Reflect.get(value, "kind");
+  if (!isKind(kind)) {
+    return failure("unsupported-kind", "the envelope kind is not supported");
+  }
+  const parsed = shareEnvelopeSchema.safeParse(value);
+  if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
+  return { ok: true, value: parsed.data };
+}
+
+/** The head length a packed payload starts with, and where the head starts, or undefined when the length is not a shortest variable-length integer within {@link MAX_HEAD_BYTES}. */
+function headLength(
+  bytes: Uint8Array,
+): { readonly length: number; readonly start: number } | undefined {
+  let length = 0;
+  let scale = 1;
+  for (let index = 0; index < 4; index++) {
+    const byte = bytes[index];
+    if (byte === undefined) return undefined;
+    length += (byte & 0x7f) * scale;
+    if ((byte & 0x80) === 0) {
+      if (byte === 0 && index > 0) return undefined;
+      return length > MAX_HEAD_BYTES ? undefined : { length, start: index + 1 };
+    }
+    scale *= 0x80;
+  }
+  return undefined;
+}
+
+/** Parses canonical JSON text. */
+function jsonValue(bytes: Uint8Array): ShareResult<unknown> {
+  if (!printable(bytes)) return failure("malformed", "the link payload is not canonical JSON");
+  let value: unknown;
+  try {
+    value = JSON.parse(asciiText(bytes));
+  } catch {
+    return failure("malformed", "the link payload is not JSON");
+  }
+  const forbidden = forbiddenKey(value);
+  if (forbidden !== undefined) return failure("invalid", `the key ${forbidden} is not allowed`);
+  return { ok: true, value };
+}
+
+function withinLimit(envelope: ShareEnvelope): ShareResult<ShareEnvelope> {
+  const size = canonicalJson(envelope).length;
+  return size > MAX_DECODED_BYTES
+    ? tooLarge("decoded", size, true, MAX_DECODED_BYTES)
+    : { ok: true, value: envelope };
+}
+
+/** The envelope a packed payload holds, rebuilt and checked against the envelope schema and {@link MAX_DECODED_BYTES}. */
+function unpackedEnvelope(bytes: Uint8Array): ShareResult<ShareEnvelope> {
+  const framing = headLength(bytes);
+  if (framing === undefined || framing.start + framing.length > bytes.length) {
+    return failure("malformed", "the link payload has no head");
+  }
+  const head = jsonValue(bytes.subarray(framing.start, framing.start + framing.length));
+  if (!head.ok) return head;
+  const rest = bytes.subarray(framing.start + framing.length);
+  const kind: unknown = Array.isArray(head.value) ? head.value[0] : undefined;
+  if (!isKind(kind)) return failure("unsupported-kind", "the envelope kind is not supported");
+  if (kind !== "capture") {
+    const other = packedOtherHeadSchema.safeParse(head.value);
+    if (!other.success) return failure("invalid", describeIssue(other.error));
+    if (rest.length > 0) return failure("malformed", "only a capture carries packed exchanges");
+    const checked = checkedEnvelope(other.data[1]);
+    if (!checked.ok) return checked;
+    if (checked.value.kind !== other.data[0]) {
+      return failure("malformed", "the head names another kind than its envelope");
+    }
+    return withinLimit(checked.value);
+  }
+  const parsed = packedCaptureHeadSchema.safeParse(head.value);
+  if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
+  const [
+    ,
+    created,
+    redacted,
+    id,
+    startedAt,
+    length,
+    origin,
+    sessions,
+    notes,
+    buses,
+    protocols,
+    texts,
+  ] = parsed.data;
+  const busTable = z.array(exchangeBusSchema).safeParse(buses.map(unpackedBus));
+  if (!busTable.success) return failure("invalid", describeIssue(busTable.error));
+  const shell = checkedEnvelope({
+    v: SHARE_VERSION,
+    kind: "capture",
+    createdAt: startedAt + created,
+    data: {
+      redacted,
+      capture: {
+        format: CAPTURE_FORMAT,
+        version: CAPTURE_VERSION,
+        id,
+        startedAt,
+        endedAt: startedAt + length,
+        origin: {
+          kind: origin[0],
+          profile: origin[1],
+          complete: origin[2],
+          description: origin[3],
+        },
+        sessions: sessions.map(
+          ([identity, description, stnIdentity, voltage, hasStnExtensions, name, version]) => ({
+            adapter: { url: null, identity, description, stnIdentity, voltage, hasStnExtensions },
+            tool: { name, version },
+          }),
+        ),
+        exchanges: [],
+        notes,
+      },
+    },
+  });
+  if (!shell.ok) return shell;
+  if (shell.value.kind !== "capture") return failure("invalid", "not a capture");
+  const envelope = shell.value;
+  const { capture } = envelope.data;
+  // Each exchange adds its canonical JSON and a comma to the empty list the head stands for; the first adds no comma.
+  const budget = MAX_DECODED_BYTES - canonicalJson(envelope).length + 1;
+  const unpacked = unpackExchanges(
+    rest,
+    { buses: busTable.data, protocols, texts },
+    capture.startedAt,
+    budget,
+    (exchange: Exchange) => canonicalJson(exchange).length,
+  );
+  if (unpacked === undefined) return failure("malformed", "the packed exchanges are not valid");
+  if ("tooLarge" in unpacked) {
+    return tooLarge("decoded", MAX_DECODED_BYTES + 1, false, MAX_DECODED_BYTES);
+  }
+  const rebuilt = checkedEnvelope({
+    ...envelope,
+    data: { ...envelope.data, capture: { ...capture, exchanges: unpacked.exchanges } },
+  });
+  return rebuilt.ok ? withinLimit(rebuilt.value) : rebuilt;
+}
+
 /**
- * Reads a link's fragment (with or without its `#`) back into an envelope.
+ * Reads a link's fragment (with or without its `#`) back into an envelope: the packed form `share=2.` or the JSON form `share=1.`.
  *
- * Never throws. A fragment over {@link MAX_ENCODED_LENGTH} is refused before it is decoded, inflation stops past {@link MAX_DECODED_BYTES}, and the envelope must match its kind's strict schema: an unknown version, kind or field, or a key such as `__proto__`, is an error and nothing is partly read.
+ * Never throws. A fragment over {@link MAX_ENCODED_LENGTH} is refused before it is decoded, inflation stops past {@link MAX_DECODED_BYTES}, a packed capture stops being rebuilt once its canonical JSON would pass that limit, and the envelope must match its kind's strict schema: an unknown version, kind or field, or a key such as `__proto__`, is an error and nothing is partly read.
  */
 export async function decodeShare(
   fragment: string,
@@ -564,7 +884,7 @@ export async function decodeShare(
     const dot = token.indexOf(".");
     if (dot < 0) return failure("malformed", "the link has no version");
     const version = token.slice(0, dot);
-    if (version !== String(SHARE_VERSION)) {
+    if (version !== String(LINK_VERSION) && version !== String(JSON_LINK_VERSION)) {
       return failure(
         "unsupported-version",
         `link version ${version.slice(0, 20)} is not supported`,
@@ -578,31 +898,10 @@ export async function decodeShare(
         ? tooLarge("decoded", MAX_DECODED_BYTES + 1, false, MAX_DECODED_BYTES)
         : failure("malformed", "the link payload is not valid compressed data");
     }
-    if (inflated.bytes.some((byte) => byte < 0x20 || byte > 0x7e)) {
-      return failure("malformed", "the link payload is not canonical JSON");
-    }
-    let value: unknown;
-    try {
-      value = JSON.parse(asciiText(inflated.bytes));
-    } catch {
-      return failure("malformed", "the link payload is not JSON");
-    }
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-      return failure("invalid", "the link payload is not an envelope");
-    }
-    const forbidden = forbiddenKey(value);
-    if (forbidden !== undefined) return failure("invalid", `the key ${forbidden} is not allowed`);
-    const versionField: unknown = Reflect.get(value, "v");
-    if (versionField !== SHARE_VERSION) {
-      return failure("unsupported-version", "the envelope version is not supported");
-    }
-    const kind: unknown = Reflect.get(value, "kind");
-    if (!isKind(kind)) {
-      return failure("unsupported-kind", "the envelope kind is not supported");
-    }
-    const parsed = shareEnvelopeSchema.safeParse(value);
-    if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
-    return { ok: true, value: parsed.data };
+    if (version === String(LINK_VERSION)) return unpackedEnvelope(inflated.bytes);
+    const value = jsonObject(inflated.bytes);
+    if (!value.ok) return value;
+    return checkedEnvelope(value.value);
   } catch {
     return failure("malformed", "the link could not be read");
   }
@@ -612,6 +911,13 @@ function asciiText(bytes: Uint8Array): string {
   let text = "";
   for (const byte of bytes) text += String.fromCharCode(byte);
   return text;
+}
+
+/** One line on a link's length against {@link PRACTICAL_LINK_LENGTH}: whether chat apps and mail clients keep it whole. */
+export function describeLinkLength(length: number): string {
+  return length > PRACTICAL_LINK_LENGTH
+    ? `the link is ${String(length)} characters, over the ${String(PRACTICAL_LINK_LENGTH)} that chat apps and some mail clients keep whole: they may cut it, so send the file instead or check the link arrives in full`
+    : `the link is ${String(length)} characters, within the ${String(PRACTICAL_LINK_LENGTH)} that chat apps and mail clients keep whole`;
 }
 
 /** The fragment of a link in a page's address: `#share=...` as `location.hash` gives it, or undefined when the address carries no share. */
