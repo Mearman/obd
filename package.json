@@ -1,6 +1,6 @@
 {
   "name": "obd-read",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Read cars through ELM327-style adapters, in Node and in the browser.",
   "type": "module",
