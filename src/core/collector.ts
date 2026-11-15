@@ -6,7 +6,7 @@
 
 import { ElmError } from "./elm.js";
 import { buildSource, type Source } from "./live.js";
-import { canBus } from "./profile.js";
+import { GENERIC_PROFILE, profileLabel, sessionBus } from "./generic.js";
 import type { DeviceLink, LinkSession } from "./device-link.js";
 import { now as clockNow, sleep as realSleep } from "./time.js";
 import { TransportError } from "./transport.js";
@@ -14,7 +14,7 @@ import { StorageError, type Run, type Sample } from "./storage.js";
 import type { z } from "zod";
 import type { collectionRequestSchema } from "./service.js";
 
-/** What a run collects. */
+/** What a run collects. A run with no profile collects the legislated values only. */
 export type CollectionRequest = z.output<typeof collectionRequestSchema>;
 
 /** Where a {@link Collector} sends the samples it reads. */
@@ -147,12 +147,14 @@ export class LiveCollector implements Collector {
     const { link } = this.dependencies;
     const connected = link.session;
     const ownsLink = connected === undefined;
-    const session = connected ?? (await link.connect(run.profile, run.adapter));
+    const session =
+      connected ??
+      (await link.connect(run.profile === GENERIC_PROFILE ? undefined : run.profile, run.adapter));
     try {
-      if (session.adapterUrl !== run.adapter || session.profile.name !== run.profile) {
+      if (session.adapterUrl !== run.adapter || profileLabel(session.profile) !== run.profile) {
         throw new StorageError(
           "conflict",
-          `the connection is to ${session.adapterUrl} with ${session.profile.name}, not what run ${run.id} collects from`,
+          `the connection is to ${session.adapterUrl} with ${profileLabel(session.profile)}, not what run ${run.id} collects from`,
         );
       }
       const source = await this.sourceFor(request);
@@ -199,7 +201,7 @@ export class LiveCollector implements Collector {
   }
 
   private buildSource(session: LinkSession, request: CollectionRequest): Promise<Source> {
-    const bus = canBus(session.profile);
+    const bus = sessionBus(session.profile);
     return buildSource(
       session.elm,
       session.profile,

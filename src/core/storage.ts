@@ -24,7 +24,7 @@ const offsetSchema = z.number().int().nonnegative();
 export const runSchema = z.object({
   /** Assigned by storage when the run is created. */
   id: nameSchema,
-  /** The name of the profile the run collected for. */
+  /** The name of the profile the run collected for, or `generic-obd2` for a run with no profile. */
   profile: nameSchema,
   /** The adapter's URL or label, as the user chose it. */
   adapter: nameSchema,
