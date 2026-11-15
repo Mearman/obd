@@ -118,3 +118,44 @@ test("a run another tab is collecting is not resumed here, and resumes once that
   await other.getByRole("button", { name: "Stop" }).click();
   await expect(runs(other).getByText("Stopped", { exact: true })).toBeVisible();
 });
+
+test("a tab refused by one that cannot share stops queueing for the database, and Try again opens it once that tab has gone", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  // A page of the origin, opened before any service worker, that takes the database lock and never answers, as a tab of an older version does.
+  await context.route("**/holder", (route) =>
+    route.fulfill({ contentType: "text/html", body: "<!doctype html><title>holder</title>" }),
+  );
+  const holder = await context.newPage();
+  await holder.goto("/holder");
+  await holder.evaluate(() => {
+    void navigator.locks.request(
+      "obd-read-database",
+      () =>
+        new Promise<void>((resolve) => {
+          // A button the test clicks, so releasing needs no untyped global.
+          const button = document.createElement("button");
+          button.textContent = "Release the database";
+          button.addEventListener("click", () => {
+            resolve();
+          });
+          document.body.append(button);
+        }),
+    );
+  });
+
+  const page = await context.newPage();
+  await page.goto("/");
+  const notice = page.getByRole("alert").filter({ hasText: "The stored data cannot be used" });
+  await expect(notice).toBeVisible({ timeout: 15_000 });
+  // The refused page's worker no longer waits for the lock, so it cannot take the database unseen later.
+  await expect
+    .poll(() => holder.evaluate(async () => (await navigator.locks.query()).pending?.length))
+    .toBe(0);
+
+  await holder.getByRole("button", { name: "Release the database" }).click();
+  await page.getByRole("button", { name: "Try again" }).click();
+  await expect(notice).toBeHidden();
+  await context.close();
+});
