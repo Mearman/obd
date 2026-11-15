@@ -1,5 +1,5 @@
 /**
- * Sharing results as a link: a scan or a run summary packed into the URL fragment.
+ * Sharing results as a link: a scan, a generic OBD-II report or a run summary packed into the URL fragment.
  *
  * A link is `<app address>#share=1.<payload>`. The payload is a versioned envelope `{v, kind, createdAt, data}` written as canonical JSON (keys sorted, ASCII only), compressed with raw deflate and written as unpadded base64url. The data sits in the fragment, which a browser never sends to a server, so only whoever holds the link can read it.
  *
@@ -9,6 +9,7 @@
  */
 
 import { z } from "zod";
+import type { ObdScan } from "./obd-scan.js";
 import { runExportSchema } from "./run-export.js";
 import type { UnitReportData } from "./service.js";
 import type { Json, Run, Sample, SignalAggregate } from "./storage.js";
@@ -193,8 +194,84 @@ export const runSummaryShareSchema = z.strictObject({
 /** What one run summary shares. */
 export type RunSummaryShareData = z.output<typeof runSummaryShareSchema>;
 
+const senderSchema = z.string().max(40);
+const textListSchema = z.array(textSchema).max(2000);
+const nullableTextListSchema = textListSchema.nullable();
+
+const obdUnitSchema = z.strictObject({
+  sender: senderSchema,
+  lampOn: z.boolean().nullable(),
+  codeCount: timeSchema.nullable(),
+  stored: nullableTextListSchema,
+  pending: nullableTextListSchema,
+  permanent: nullableTextListSchema,
+  readiness: z
+    .strictObject({
+      compressionIgnition: z.boolean(),
+      complete: textListSchema,
+      incomplete: textListSchema,
+    })
+    .nullable(),
+  freezeFrame: z
+    .strictObject({ code: textSchema.nullable(), values: z.record(keySchema, textSchema) })
+    .nullable(),
+  misfire: z
+    .array(
+      z.strictObject({
+        monitor: textSchema,
+        lastCycle: z.number().nullable(),
+        averageLastTenCycles: z.number().nullable(),
+      }),
+    )
+    .max(64),
+  calibrationIds: z.array(textSchema).max(100),
+});
+
+/** The data of an `obd-report` link: what the legislated OBD-II reads said about a car (stored, pending and permanent codes, readiness monitors, the VIN, the freeze frame, current-data values with units and mode 06 results, as `ObdScan` holds them), with when it was read and the adapter's own name for itself. Code names are not carried; a reader looks them up from the codes. */
+export const obdReportShareSchema = z.strictObject({
+  /** When the read was taken, as a saved report records it. */
+  taken: z.string().max(100),
+  /** The adapter's own name for itself, such as `ELM327 v1.5`; never its address. */
+  adapter: z.strictObject({ label: z.string().max(200) }),
+  /** Whether the VIN and calibration identifiers were blanked before the link was written. */
+  redacted: z.boolean(),
+  obd: z.strictObject({
+    /** The VIN, `null` when no unit reported one, or `""` when redaction blanked it. */
+    vin: z.string().max(100).nullable(),
+    units: z.array(obdUnitSchema).max(64),
+    values: z
+      .array(
+        z.strictObject({
+          sender: senderSchema,
+          signal: nameSchema,
+          unit: z.string().max(40),
+          value: z.union([z.number(), textSchema]),
+        }),
+      )
+      .max(2000),
+    monitorResults: z
+      .array(
+        z.strictObject({
+          sender: senderSchema,
+          monitor: textSchema,
+          test: z.string().max(40),
+          scaling: z.string().max(40),
+          value: z.number(),
+          minimum: z.number(),
+          maximum: z.number(),
+          withinLimits: z.boolean(),
+        }),
+      )
+      .max(4000),
+    notes: z.array(textSchema).max(100),
+  }),
+});
+
+/** What one generic OBD-II report shares. */
+export type ObdReportShareData = z.output<typeof obdReportShareSchema>;
+
 /** The kinds of result a link carries. */
-export const SHARE_KINDS = ["scan", "run-summary"] as const;
+export const SHARE_KINDS = ["scan", "obd-report", "run-summary"] as const;
 
 /** A link's content: the version, what kind of result it is, when it was made and the result. */
 export const shareEnvelopeSchema = z.discriminatedUnion("kind", [
@@ -203,6 +280,12 @@ export const shareEnvelopeSchema = z.discriminatedUnion("kind", [
     kind: z.literal("scan"),
     createdAt: timeSchema,
     data: scanShareSchema,
+  }),
+  z.strictObject({
+    v: z.literal(SHARE_VERSION),
+    kind: z.literal("obd-report"),
+    createdAt: timeSchema,
+    data: obdReportShareSchema,
   }),
   z.strictObject({
     v: z.literal(SHARE_VERSION),
@@ -308,6 +391,72 @@ export function redactScan(data: ScanShareData): ScanShareData {
   };
 }
 
+/** Every text in a generic OBD-II report that identifies the car or a unit: the VIN, the calibration identifiers, and any VIN-shaped word in a note, a freeze frame or a text reading. */
+function obdIdentifyingValues(data: ObdReportShareData): string[] {
+  const { obd } = data;
+  const found = new Set<string>();
+  if (obd.vin !== null && obd.vin.length >= 4) found.add(obd.vin);
+  const searched: string[] = [...obd.notes];
+  for (const unit of obd.units) {
+    for (const text of unit.calibrationIds) if (text.length >= 4) found.add(text);
+    searched.push(...Object.values(unit.freezeFrame?.values ?? {}));
+  }
+  for (const reading of obd.values) {
+    if (typeof reading.value === "string") searched.push(reading.value);
+  }
+  for (const text of searched) for (const word of vinsIn(text)) found.add(word);
+  return [...found];
+}
+
+/**
+ * A copy of the generic OBD-II report with every identifying value removed: the VIN and each calibration identifier are blanked (`""`), and any copy of one, or any VIN-shaped word, in a note, a freeze frame or a text reading is replaced.
+ */
+export function redactObdReport(data: ObdReportShareData): ObdReportShareData {
+  const secrets = secretSpellings(obdIdentifyingValues(data));
+  const { obd } = data;
+  return {
+    ...data,
+    redacted: true,
+    obd: {
+      ...obd,
+      vin: obd.vin === null ? null : "",
+      notes: obd.notes.map((note) => scrub(note, secrets)),
+      units: obd.units.map((unit) => ({
+        ...unit,
+        calibrationIds: unit.calibrationIds.map(() => ""),
+        freezeFrame:
+          unit.freezeFrame === null
+            ? null
+            : {
+                ...unit.freezeFrame,
+                values: Object.fromEntries(
+                  Object.entries(unit.freezeFrame.values).map(([name, value]) => [
+                    name,
+                    scrub(value, secrets),
+                  ]),
+                ),
+              },
+      })),
+      values: obd.values.map((reading) => ({
+        ...reading,
+        value: typeof reading.value === "string" ? scrub(reading.value, secrets) : reading.value,
+      })),
+    },
+  };
+}
+
+/** The envelope with its identifying values removed: a scan and a generic OBD-II report are redacted, a run summary has none and is returned as it is. */
+export function redactEnvelope(envelope: ShareEnvelope): ShareEnvelope {
+  switch (envelope.kind) {
+    case "scan":
+      return { ...envelope, data: redactScan(envelope.data) };
+    case "obd-report":
+      return { ...envelope, data: redactObdReport(envelope.data) };
+    case "run-summary":
+      return envelope;
+  }
+}
+
 function sorted(value: unknown): Json {
   if (Array.isArray(value)) return value.map(sorted);
   if (typeof value === "object" && value !== null) {
@@ -379,14 +528,14 @@ export interface EncodedShare {
 
 /** Options of {@link encodeShare}. */
 export interface EncodeOptions {
-  /** Blank the VIN and serial numbers of a scan first. */
+  /** Blank the VIN and serial numbers of a scan, or the VIN and calibration identifiers of a generic OBD-II report, first. */
   readonly redactVin?: boolean;
 }
 
 /**
  * Writes an envelope as a link fragment.
  *
- * With `redactVin` a scan's identifying values are blanked first ({@link redactScan}). Fails with `invalid` when the envelope does not match its kind's schema and with `too-large` when its canonical JSON passes {@link MAX_DECODED_BYTES} or the fragment passes {@link MAX_ENCODED_LENGTH}.
+ * With `redactVin` a scan's or generic OBD-II report's identifying values are blanked first ({@link redactEnvelope}). Fails with `invalid` when the envelope does not match its kind's schema and with `too-large` when its canonical JSON passes {@link MAX_DECODED_BYTES} or the fragment passes {@link MAX_ENCODED_LENGTH}.
  */
 export async function encodeShare(
   envelope: ShareEnvelope,
@@ -398,10 +547,7 @@ export async function encodeShare(
   const parsed = shareEnvelopeSchema.safeParse(envelope);
   if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
   const checked = parsed.data;
-  const chosen: ShareEnvelope =
-    options.redactVin === true && checked.kind === "scan"
-      ? { ...checked, data: redactScan(checked.data) }
-      : checked;
+  const chosen: ShareEnvelope = options.redactVin === true ? redactEnvelope(checked) : checked;
   const bytes = asciiBytes(canonicalJson(chosen));
   if (bytes.length > MAX_DECODED_BYTES)
     return tooLarge("decoded", bytes.length, true, MAX_DECODED_BYTES);
@@ -560,6 +706,80 @@ export function scanShareData(report: unknown): ShareResult<ScanShareData> {
   const parsed = scanShareSchema.safeParse(candidate);
   if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
   return { ok: true, value: parsed.data };
+}
+
+/** The `format` a saved generic OBD-II read carries, as `obd --output` writes it. */
+export const OBD_REPORT_FORMAT = "obd-report";
+
+/** A generic OBD-II read saved as a file (`obd --output`): the structured result with when and through which adapter it was read, never the adapter's address. */
+export interface ObdReportDocument {
+  readonly tool: "obd-read";
+  readonly format: typeof OBD_REPORT_FORMAT;
+  readonly taken: string;
+  readonly adapter: { readonly identity: string | null };
+  readonly obd: ObdScan;
+}
+
+/** The document `obd --output` writes for a read. */
+export function obdReportDocument(
+  scan: ObdScan,
+  read: { readonly takenAt: number; readonly adapterLabel: string },
+): ObdReportDocument {
+  return {
+    tool: "obd-read",
+    format: OBD_REPORT_FORMAT,
+    taken: savedTime(read.takenAt),
+    adapter: { identity: read.adapterLabel },
+    obd: scan,
+  };
+}
+
+const SAVED_OBD = z.object({
+  tool: z.literal("obd-read"),
+  format: z.literal(OBD_REPORT_FORMAT),
+  taken: z.string(),
+  adapter: z.object({ identity: z.string().nullable() }),
+  obd: z.unknown(),
+});
+
+/** Checks a candidate against the schema and refuses a forbidden key. */
+function checkedObdReport(candidate: unknown): ShareResult<ObdReportShareData> {
+  const forbidden = forbiddenKey(candidate);
+  if (forbidden !== undefined) return failure("invalid", `the key ${forbidden} is not allowed`);
+  const parsed = obdReportShareSchema.safeParse(candidate);
+  if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
+  return { ok: true, value: parsed.data };
+}
+
+/**
+ * What a generic OBD-II read shares: the structured result, when it was taken and the adapter's own name for itself. Fails with `invalid` when the result holds a key or a size the schema refuses.
+ */
+export function obdReportShareData(
+  scan: ObdScan,
+  read: { readonly takenAt: number; readonly adapterLabel: string },
+): ShareResult<ObdReportShareData> {
+  return checkedObdReport({
+    taken: savedTime(read.takenAt),
+    adapter: { label: read.adapterLabel },
+    redacted: false,
+    obd: scan,
+  });
+}
+
+/** The shareable part of a saved generic OBD-II read ({@link obdReportDocument}). Fails with `invalid` when the document is not one. */
+export function obdReportDocumentShareData(document: unknown): ShareResult<ObdReportShareData> {
+  const forbidden = forbiddenKey(document);
+  if (forbidden !== undefined) return failure("invalid", `the key ${forbidden} is not allowed`);
+  const saved = SAVED_OBD.safeParse(document);
+  if (!saved.success) {
+    return failure("invalid", `not a saved OBD-II read: ${describeIssue(saved.error)}`);
+  }
+  return checkedObdReport({
+    taken: saved.data.taken,
+    adapter: { label: saved.data.adapter.identity ?? "" },
+    redacted: false,
+    obd: saved.data.obd,
+  });
 }
 
 /** A shared scan as a saved scan report, for the app to store when the user chooses to keep it. It reads in `compare` and `describe` like any report; `origin` marks it as shared and its transcript is empty. */
@@ -792,6 +1012,24 @@ export function shareContents(envelope: ShareEnvelope): string[] {
       `Run details: profile ${run.profile}, adapter ${run.adapter}, start and stop times${run.notes === "" ? "" : " and your notes"}.`,
       `${plural(signals.length, "signal")} with count, minimum, maximum and mean, and at most ${String(MAX_SERIES_POINTS)} readings of each over time.`,
       "Not included: the other readings of the run.",
+    ];
+  }
+  if (envelope.kind === "obd-report") {
+    const { obd, redacted } = envelope.data;
+    const count = (kind: "stored" | "pending" | "permanent"): number =>
+      obd.units.reduce((total, unit) => total + (unit[kind]?.length ?? 0), 0);
+    const present = obdIdentifyingValues(envelope.data).length;
+    return [
+      `${plural(obd.units.length, "emissions control unit")}, with whether its warning lamp is on and which monitors have completed.`,
+      `${plural(count("stored"), "stored code")}, ${plural(count("pending"), "pending code")} and ${plural(count("permanent"), "permanent code")}.`,
+      `${plural(obd.units.filter((unit) => unit.freezeFrame !== null).length, "freeze frame")}, ${plural(obd.values.length, "current-data value")} with units and ${plural(obd.monitorResults.length, "mode 06 test result")}.`,
+      present > 0
+        ? `VIN and calibration identifiers: included (${plural(present, "value")}).`
+        : redacted
+          ? "VIN and calibration identifiers: removed."
+          : "No VIN or calibration identifier was found in this read.",
+      "The time of the read and the adapter's own name for itself.",
+      "Not included: the raw adapter transcript and the adapter's address.",
     ];
   }
   const { units, redacted } = envelope.data;

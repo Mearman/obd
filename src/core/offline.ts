@@ -14,6 +14,8 @@ import {
   type NamesFile,
 } from "./codenames.js";
 import { DefinitionError, readDefinitions } from "./definitions.js";
+import { formatValue } from "./legislated.js";
+import type { ObdScan } from "./obd-scan.js";
 import {
   ScanFileError,
   compareScans,
@@ -22,11 +24,13 @@ import {
   type SavedScan,
 } from "./scancompare.js";
 import {
+  OBD_REPORT_FORMAT,
   decodeShare,
   describeSharedRun,
   describeSharedScan,
   encodeShare,
   fragmentOfLink,
+  obdReportDocumentShareData,
   runExportShareData,
   scanShareData,
   shareLink,
@@ -146,14 +150,14 @@ export interface ShareLinkParams {
   /** The app's address, with its base path; any fragment on it is replaced. */
   readonly base: string;
   readonly codec: ShareCodec;
-  /** Blank the VIN and serial numbers of a scan. */
+  /** Blank the VIN and serial numbers of a scan, or the VIN and calibration identifiers of a generic OBD-II read. */
   readonly redactVin: boolean;
   /** The creation time to record, in milliseconds since the Unix epoch. */
   readonly createdAt: number;
 }
 
 /**
- * The link that shares a saved document: a scan report (`scan --output`) or a run's JSON export; `path` labels it in errors.
+ * The link that shares a saved document: a scan report (`scan --output`), a generic OBD-II read (`obd --output`) or a run's JSON export; `path` labels it in errors.
  *
  * Throws {@link ShareLinkError} when the text is neither, or when the link would pass a size limit.
  */
@@ -169,28 +173,92 @@ export async function shareDocumentLink(
     if (error instanceof SyntaxError) throw new ShareLinkError(`${path}: ${error.message}`);
     throw error;
   }
-  const isRun =
-    typeof document === "object" &&
-    document !== null &&
-    Reflect.get(document, "format") === "obd-read-run";
-  const envelope: ShareEnvelope = isRun
-    ? {
-        v: 1,
-        kind: "run-summary",
-        createdAt: params.createdAt,
-        data: unwrap(runExportShareData(document), path),
-      }
-    : {
-        v: 1,
-        kind: "scan",
-        createdAt: params.createdAt,
-        data: unwrap(scanShareData(document), path),
-      };
+  const format: unknown =
+    typeof document === "object" && document !== null ? Reflect.get(document, "format") : undefined;
+  const envelope: ShareEnvelope =
+    format === "obd-read-run"
+      ? {
+          v: 1,
+          kind: "run-summary",
+          createdAt: params.createdAt,
+          data: unwrap(runExportShareData(document), path),
+        }
+      : format === OBD_REPORT_FORMAT
+        ? {
+            v: 1,
+            kind: "obd-report",
+            createdAt: params.createdAt,
+            data: unwrap(obdReportDocumentShareData(document), path),
+          }
+        : {
+            v: 1,
+            kind: "scan",
+            createdAt: params.createdAt,
+            data: unwrap(scanShareData(document), path),
+          };
   const encoded = unwrap(
     await encodeShare(envelope, params.codec, { redactVin: params.redactVin }),
     path,
   );
   return shareLink(params.base, encoded.fragment);
+}
+
+function codeLines(kind: string, codes: readonly string[], names: CodeNames): string[] {
+  return codes.map((code) => `  ${describedLine(`${kind} ${code}`, names.genericCode(code))}`);
+}
+
+/**
+ * The report lines for a generic OBD-II read: the VIN, then per unit its lamp, each code with its generic title where one is known, readiness, freeze frame, misfire counts and calibration identifiers, then the current-data values and the mode 06 results. A VIN that redaction blanked reads as removed.
+ *
+ * Throws {@link CodeNameError} when a code is not a valid code.
+ */
+export function describeObdScan(scan: ObdScan, names: CodeNames): string[] {
+  const vin = scan.vin === null ? "not reported" : scan.vin === "" ? "(removed)" : scan.vin;
+  const lines = [`VIN: ${vin}`];
+  for (const unit of scan.units) {
+    const lamp = unit.lampOn === null ? "not reported" : unit.lampOn ? "on" : "off";
+    const count = unit.codeCount === null ? "" : `, ${String(unit.codeCount)} stored codes`;
+    lines.push(`unit ${unit.sender}: warning lamp ${lamp}${count}`);
+    for (const kind of ["stored", "pending", "permanent"] as const) {
+      const found = unit[kind];
+      if (found === null) lines.push(`  ${kind} codes: not read`);
+      else if (found.length === 0) lines.push(`  ${kind} codes: none`);
+      else lines.push(...codeLines(kind, found, names));
+    }
+    if (unit.readiness !== null) {
+      const engine = unit.readiness.compressionIgnition ? "compression ignition" : "spark ignition";
+      lines.push(
+        `  readiness (${engine}): complete ${unit.readiness.complete.join(", ") || "none"}; not complete ${unit.readiness.incomplete.join(", ") || "none"}`,
+      );
+    }
+    if (unit.freezeFrame !== null) {
+      lines.push(`  freeze frame: ${unit.freezeFrame.code ?? "no code"}`);
+      for (const [name, value] of Object.entries(unit.freezeFrame.values)) {
+        lines.push(`    ${name}: ${value}`);
+      }
+    }
+    for (const counts of unit.misfire) {
+      lines.push(
+        `  misfire ${counts.monitor}: last cycle ${String(counts.lastCycle ?? "not reported")}, average of last ten cycles ${String(counts.averageLastTenCycles ?? "not reported")}`,
+      );
+    }
+    const identifiers = unit.calibrationIds.map((text) => (text === "" ? "(removed)" : text));
+    if (identifiers.length > 0) lines.push(`  calibration identifiers: ${identifiers.join(", ")}`);
+  }
+  for (const reading of scan.values) {
+    lines.push(
+      `${reading.signal} from ${reading.sender}: ${formatValue(reading.value, reading.unit)}`,
+    );
+  }
+  for (const test of scan.monitorResults) {
+    lines.push(
+      `${test.monitor} from ${test.sender}, test ${test.test} (unit and scaling ${test.scaling}): ` +
+        `value ${String(test.value)}, limits ${String(test.minimum)} to ${String(test.maximum)}, ` +
+        `${test.withinLimits ? "within" : "outside"} the limits`,
+    );
+  }
+  for (const note of scan.notes) lines.push(`note: ${note}`);
+  return lines;
 }
 
 /**
@@ -209,6 +277,17 @@ export async function openShareLink(
     throw new ShareLinkError("not a share link: it has no #share= fragment");
   const envelope = unwrap(await decodeShare(fragment, codec), "share link");
   if (envelope.kind === "run-summary") return describeSharedRun(envelope.data, envelope.createdAt);
+  if (envelope.kind === "obd-report") {
+    const { data } = envelope;
+    return [
+      `shared data, not read from an adapter; link made ${new Date(envelope.createdAt).toISOString()}`,
+      `shared OBD-II read (taken ${data.taken}, adapter ${data.adapter.label === "" ? "unknown" : data.adapter.label})`,
+      data.redacted
+        ? "VIN and calibration identifiers were removed before sharing"
+        : "VIN and calibration identifiers are included",
+      ...describeObdScan(data.obd, generic),
+    ];
+  }
   const saved = parseScan(JSON.stringify(sharedScanReport(envelope.data)), "shared link");
   return [
     `shared data, not read from an adapter; link made ${new Date(envelope.createdAt).toISOString()}`,
