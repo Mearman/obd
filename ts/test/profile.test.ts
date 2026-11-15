@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  PROFILE_PROTOCOLS,
   ProfileError,
+  READ_ONLY,
+  isReadOnlySession,
   canBus,
   decodeValue,
   parseProfile,
@@ -226,5 +229,19 @@ describe("named values", () => {
     expect(profileUnit(parseProfile(data, "test"), "engine").values.get("boost")?.identifier).toBe(
       0xf410,
     );
+  });
+});
+
+describe("session allowlist", () => {
+  it("accepts exactly the sessions the guard allows for service 0x10", () => {
+    for (const protocol of PROFILE_PROTOCOLS) {
+      const allowed = READ_ONLY[protocol].get(0x10);
+      if (!(allowed instanceof Set)) throw new Error(`no session allowlist for ${protocol}`);
+      for (let session = 0; session <= 0xff; session++) {
+        expect(isReadOnlySession(protocol, session), `${protocol} ${String(session)}`).toBe(
+          allowed.has(session),
+        );
+      }
+    }
   });
 });

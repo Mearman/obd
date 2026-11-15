@@ -5,6 +5,7 @@
  */
 
 import { z } from "zod";
+import { DiagProtocol, READ_ONLY } from "./guard.js";
 import { codeTableProblems, profileCodesSchema } from "./codenames.js";
 
 /** A profile file is malformed or asks for something this tool will not send. */
@@ -21,27 +22,25 @@ export class ProfileError extends Error {
 }
 
 /** The diagnostic protocols a profile may name. */
-export const DIAG_PROTOCOLS = ["kwp2000", "uds"] as const;
+export const PROFILE_PROTOCOLS = [DiagProtocol.KWP2000, DiagProtocol.UDS] as const;
 
 /** A diagnostic protocol a profile may name. */
-export type ProfileProtocol = (typeof DIAG_PROTOCOLS)[number];
+export type ProfileProtocol = (typeof PROFILE_PROTOCOLS)[number];
 
 /**
- * The diagnostic sessions each protocol's read-only allowlist for service 0x10 permits: KWP2000 the default and standard diagnostic sessions, UDS the default and extended diagnostic sessions.
- *
- * This is the guard's allowlist for session control and must stay equal to it.
+ * Whether the guard's read-only allowlist permits opening `session` with service 0x10 under `protocol`. A profile may only name such a session.
  */
-export const READ_ONLY_SESSIONS: Readonly<Record<ProfileProtocol, readonly number[]>> = {
-  kwp2000: [0x81, 0x92],
-  uds: [0x01, 0x03],
-};
+export function isReadOnlySession(protocol: ProfileProtocol, session: number): boolean {
+  const allowed = READ_ONLY[protocol].get(0x10);
+  return allowed === null || allowed === undefined ? allowed === null : allowed.has(session);
+}
 
 /**
  * The widest identifier each protocol's read-by-identifier service takes: KWP2000 service 21 reads a one-byte local identifier, UDS service 22 a two-byte data identifier.
  */
 export const MAX_IDENTIFIER: Readonly<Record<ProfileProtocol, number>> = {
-  kwp2000: 0xff,
-  uds: 0xffff,
+  [DiagProtocol.KWP2000]: 0xff,
+  [DiagProtocol.UDS]: 0xffff,
 };
 
 /** The most bytes a named value may span. */
@@ -134,7 +133,7 @@ export const profileFileSchema = object({
   status: text(),
   bus: z.union([klineBusSchema, canBusSchema]),
   diagnostics: object({
-    protocol: z.literal(DIAG_PROTOCOLS, { error: wrong("kwp2000 or uds") }),
+    protocol: z.literal(PROFILE_PROTOCOLS, { error: wrong("kwp2000 or uds") }),
     session: whole(),
   }),
   units: z
@@ -150,7 +149,7 @@ export const profileFileSchema = object({
       message: `a K-line bus carries kwp2000 only, got ${JSON.stringify(protocol)}`,
     });
   }
-  if (!READ_ONLY_SESSIONS[protocol].includes(session)) {
+  if (!isReadOnlySession(protocol, session)) {
     context.addIssue({
       code: "custom",
       path: ["diagnostics"],
