@@ -140,7 +140,7 @@ describe("a screen's boundary", () => {
       // The shell, the navigation and the other screens are untouched.
       expect(screen.getByText("obd-read")).toBeVisible();
       expect(screen.getByText("Not connected")).toBeVisible();
-      expect(screen.getAllByRole("tab")).toHaveLength(5);
+      expect(screen.getAllByRole("tab")).toHaveLength(6);
     },
   );
 
