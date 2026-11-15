@@ -17,6 +17,8 @@ export * from "./scancompare.js";
 export * from "./offline.js";
 export * from "./share.js";
 export * from "./csvlog.js";
+export * from "./tabular.js";
+export * from "./tabular-views.js";
 export * from "./unit-access.js";
 export * from "./writes.js";
 export * from "./actuate.js";

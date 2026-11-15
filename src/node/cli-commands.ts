@@ -97,6 +97,18 @@ const UNIT = (): PositionalSpec => positional("unit", "a unit name from the prof
 
 const SAVE = (help: string): OptionSpec => option("--save", "string", help, { required: true });
 
+/** The options that print a result as a table: `--format` (`json`, `csv` or `tsv`; omitted, the usual text) and `--table`, which view of the result to print. */
+const tableOptions = (views: readonly string[], text: string): OptionSpec[] => [
+  option("--format", "string", `print ${text} as JSON, CSV or TSV instead of text`, {
+    choices: ["json", "csv", "tsv"],
+  }),
+  option("--table", "string", `with --format, which table to print (default ${views[0] ?? ""})`, {
+    choices: views,
+  }),
+];
+
+const UNIT_VIEWS = ["faults", "identification"] as const;
+
 const YES = (): OptionSpec => option("--yes", "flag", "do not ask before clearing");
 
 /** The commands, in the order the command line offers them. */
@@ -167,13 +179,24 @@ export const COMMANDS: readonly CommandSpec[] = [
       option("--port", "int", "port to listen on (0 picks one)", { default: 35_000 }),
     ],
   },
-  car("probe", "ask every unit in the profile to identify itself"),
-  car("ident", "read one unit's identification", [UNIT()]),
-  car("faults", "read one unit's stored fault codes", [UNIT()]),
-  car("freeze", "read the freeze frame stored with each fault code", [UNIT()]),
+  car(
+    "probe",
+    "ask every unit in the profile to identify itself",
+    tableOptions(UNIT_VIEWS, "the units"),
+  ),
+  car("ident", "read one unit's identification", [UNIT(), ...tableOptions(UNIT_VIEWS, "the unit")]),
+  car("faults", "read one unit's stored fault codes", [
+    UNIT(),
+    ...tableOptions(UNIT_VIEWS, "the unit"),
+  ]),
+  car("freeze", "read the freeze frame stored with each fault code", [
+    UNIT(),
+    ...tableOptions(UNIT_VIEWS, "the unit"),
+  ]),
   car("scan", "read identification and fault codes from every unit", [
     option("--output", "string", "write <output>.json and <output>.md"),
     option("--freeze", "flag", "also read freeze frames"),
+    ...tableOptions(UNIT_VIEWS, "the units"),
   ]),
   car(
     "obd",
@@ -189,18 +212,20 @@ export const COMMANDS: readonly CommandSpec[] = [
         "string",
         "read once as structured data, print it and write it to this JSON file, which share turns into a link (TypeScript only)",
       ),
+      ...tableOptions(UNIT_VIEWS, "the read"),
     ],
     false,
   ),
   car(
     "live",
-    "read named live values once or repeatedly, optionally logging to CSV",
+    "read named live values once or repeatedly, optionally logging to CSV or TSV",
     [
       ...sourceOptions(),
       option("--list", "flag", "list the value names and stop"),
       option("--count", "int", "how many samples to take", { default: 1 }),
       option("--interval", "float", "seconds between samples", { default: 1 }),
       option("--csv", "string", "write each sample to this new CSV file"),
+      option("--tsv", "string", "write each sample to this new TSV file"),
     ],
     false,
   ),
@@ -212,6 +237,7 @@ export const COMMANDS: readonly CommandSpec[] = [
       option("--interval", "float", "seconds between samples", { default: 0.25 }),
       option("--precision", "int", "decimals to ask for from an adapter that has STVR"),
       option("--csv", "string", "write each sample to this new CSV file"),
+      option("--tsv", "string", "write each sample to this new TSV file"),
     ],
     false,
   ),
@@ -396,6 +422,7 @@ export const COMMANDS: readonly CommandSpec[] = [
     args: [
       positional("capture", "the capture file (.obdcap.json or .obdcap.json.gz)"),
       option("--profile", "string", "profile name or path to a .json file; omitted, no profile"),
+      ...tableOptions(["values", "faults", "identification", "exchanges"], "the decoding"),
     ],
   },
   {

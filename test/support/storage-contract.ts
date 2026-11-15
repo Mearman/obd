@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   StorageError,
   buildCapture,
-  exportRunCsvText,
+  exportRunDelimitedText,
   exportRunJson,
   runExportSchema,
   type Capture,
@@ -541,7 +541,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
         expect(runExportSchema.parse(exported)).toEqual(exported);
         expect(exported.run).toEqual(run);
         expect(exported.samples).toHaveLength(5);
-        expect(await exportRunCsvText(storage, run.id)).toBe(
+        expect(await exportRunDelimitedText(storage, run.id, "csv")).toBe(
           [
             "time,elapsed (s),battery (V),rpm (V),gear",
             "2023-11-14T22:13:20.000Z,0.000,12.6,780,",
@@ -551,7 +551,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
           ].join("\r\n"),
         );
         expect(await code(exportRunJson(storage, "nope"))).toBe("not-found");
-        expect(await code(exportRunCsvText(storage, "nope"))).toBe("not-found");
+        expect(await code(exportRunDelimitedText(storage, "nope", "csv"))).toBe("not-found");
       }));
   });
 }

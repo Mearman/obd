@@ -43,4 +43,11 @@ describe("CsvLog", () => {
     await log.close();
     expect(sink.closed).toBe(true);
   });
+
+  it("writes TSV rows when given the dialect", async () => {
+    const sink = new MemorySink();
+    const log = await CsvLog.create(sink, ["a", "b"], "tsv");
+    await log.write(["x\ty", "z"]);
+    expect(sink.writes).toEqual(["a\tb\n", "x\\ty\tz\n"]);
+  });
 });
