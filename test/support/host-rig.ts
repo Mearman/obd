@@ -113,7 +113,12 @@ export class FlakyTransport implements Transport {
 
 /** A service over the simulator with a fast collector and a clock the test can read. */
 export function newSimulatedService(
-  options: { storage?: Storage; transports?: TransportHost; confirmationTtlMs?: number } = {},
+  options: {
+    storage?: Storage;
+    transports?: TransportHost;
+    confirmationTtlMs?: number;
+    codesMs?: number;
+  } = {},
 ): DiagnosticsService & { storage: Storage; clock: { time: number } } {
   const storage = options.storage ?? new MemoryStorage();
   const clock = { time: 1_700_000_000_000 };
@@ -126,7 +131,13 @@ export function newSimulatedService(
     transports: options.transports ?? composeTransportHosts(simulatorTransportHost(loadProfile)),
     now: () => (clock.time += 10),
     sleep: turn,
-    timing: { pollMs: 0, flushMs: 0, batchSize: 1, reconnectDelay: () => 0 },
+    timing: {
+      pollMs: 0,
+      flushMs: 0,
+      batchSize: 1,
+      reconnectDelay: () => 0,
+      ...(options.codesMs === undefined ? {} : { codesMs: options.codesMs }),
+    },
     ...(options.confirmationTtlMs === undefined
       ? {}
       : { confirmationTtlMs: options.confirmationTtlMs }),

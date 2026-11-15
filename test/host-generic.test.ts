@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DiagProtocol,
+  faultEvents,
   GENERIC_PROFILE,
   GuardError,
   authoriseClear,
@@ -104,9 +105,42 @@ describe("a connection with no profile", () => {
     expect(aggregate.map((row) => row.signal)).toEqual([
       "coolant temperature",
       "engine speed",
+      "pending fault codes",
+      "permanent fault codes",
+      "stored fault codes",
       "vehicle speed",
     ]);
     await host.client.runs.stop({ runId: run.id });
+  });
+
+  it("records the fault codes when a run starts, when they change and when it stops", async () => {
+    const rig = recordingGenericHost();
+    const { host, storage } = newSimulatedService({ transports: rig.transports, codesMs: 50 });
+    await host.client.link.connect({ adapter: GENERIC_SIMULATOR });
+    const run = await host.client.runs.start({ adapter: GENERIC_SIMULATOR });
+    const signalSamples = async (signal: string) =>
+      (await storage.readSamples({ runId: run.id, signal })).map((sample) => sample.value);
+    await eventually(async () =>
+      (await signalSamples("stored fault codes")).length > 0 ? true : undefined,
+    );
+    expect(await signalSamples("stored fault codes")).toEqual(["P0420"]);
+    expect(await signalSamples("pending fault codes")).toEqual(["none"]);
+    expect(await signalSamples("permanent fault codes")).toEqual(["none"]);
+
+    // The car forgets its code, as it does when another tool sends mode 04 while the run goes on.
+    rig.car.responders[0x7df]?.(Uint8Array.of(0x04));
+    await eventually(async () =>
+      (await signalSamples("stored fault codes")).length > 1 ? true : undefined,
+    );
+    await host.client.runs.stop({ runId: run.id });
+
+    expect(await signalSamples("stored fault codes")).toEqual(["P0420", "none"]);
+    const events = faultEvents(await storage.readSamples({ runId: run.id }));
+    expect(events.map((event) => `${event.list} ${event.code} ${event.change}`)).toEqual([
+      "stored P0420 appeared",
+      "stored P0420 disappeared",
+    ]);
+    expect(events[0]?.atStart).toBe(true);
   });
 
   it("starts a run on its own when nothing is connected, and releases the adapter after", async () => {
