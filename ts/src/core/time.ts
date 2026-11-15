@@ -16,3 +16,8 @@ export function sleep(milliseconds: number): Promise<void> {
     setTimeout(resolve, milliseconds);
   });
 }
+
+/** The current UTC time as ISO 8601 with milliseconds and a `+00:00` offset, for log rows. */
+export function isoNow(): string {
+  return new Date().toISOString().replace("Z", "+00:00");
+}

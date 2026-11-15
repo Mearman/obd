@@ -26,3 +26,6 @@ export * from "./obd.js";
 export * from "./legislated.js";
 export * from "./obd-report.js";
 export * from "./kline.js";
+export * from "./options.js";
+export * from "./openlog.js";
+export * from "./battery.js";
