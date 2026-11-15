@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { profileTitle } from "../profiles/generic";
 import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
-import { Badge, Button, DataTable, type Column } from "../ui";
+import { Badge, Button, DataTable, download, type Column } from "../ui";
 import { error, muted, page, row } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
 import { ShareDialog } from "../share/ShareDialog";
@@ -18,16 +18,6 @@ import { ShareDialog } from "../share/ShareDialog";
 interface RunRow {
   readonly run: Run;
   readonly samples: number;
-}
-
-/** Saves `content` as a file the user downloads. */
-function download(filename: string, mediaType: string, content: string): void {
-  const url = URL.createObjectURL(new Blob([content], { type: mediaType }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 /** How many samples one read of a run's samples asks for. */
