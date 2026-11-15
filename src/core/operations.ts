@@ -21,11 +21,12 @@ import { isoNowSeconds } from "./time.js";
 import { makeClient, unitSession, type LineSink, type UnitProfile } from "./unit-access.js";
 import { writeCommand, type WriteCommand, type WritableSnapshotStore } from "./writes.js";
 
-/** The parts of a unit a report names. */
+/** The parts of a unit a report names, with the diagnostics the unit is read with when it carries its own. */
 export type ReportUnit = Pick<
   Unit,
   "name" | "description" | "requestId" | "responseId" | "extendedAddress" | "idBits"
->;
+> &
+  Partial<Pick<Unit, "protocol" | "session">>;
 
 /** One stored fault code in a report: the code and its status byte as two hexadecimal digits. */
 export interface ReportFault {

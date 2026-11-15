@@ -86,6 +86,12 @@ function profileBus(profile: Profile): ExchangeBus {
       };
 }
 
+/** The bus one unit of a profile is read on: the profile's, at the unit's own identifier width when it gives one. */
+function unitBus(profile: Profile, unit: Unit): ExchangeBus {
+  const bus = profileBus(profile);
+  return bus?.kind === "can" && unit.idBits !== undefined ? { ...bus, idBits: unit.idBits } : bus;
+}
+
 /** The address a profile's unit is read at. */
 function unitAddress(profile: Profile, unit: Unit): ExchangeAddress {
   return {
@@ -126,33 +132,32 @@ async function decodeUnit(
   unit: Unit,
   served: Set<number>,
 ): Promise<UnitReport> {
-  const bus = profileBus(profile);
   const address = unitAddress(profile, unit);
-  const held = exchangesAt(capture, address, bus);
+  const held = exchangesAt(capture, address, unitBus(profile, unit));
   if (held.length === 0) return absentUnit(unit);
-  const reads = READS[profile.protocol];
-  const sessionRequest = `10${hexNumber(profile.session, 2)}`;
+  const reads = READS[unit.protocol];
+  const sessionRequest = `10${hexNumber(unit.session, 2)}`;
   // Another session the capture opened stands in only when the profile's protocol may open it too.
   const opened = held.find(
     (exchange) =>
       exchange.request.startsWith("10") &&
       exchange.request.length === 4 &&
-      isReadOnlySession(profile.protocol, Number.parseInt(exchange.request.slice(2), 16)),
+      isReadOnlySession(unit.protocol, Number.parseInt(exchange.request.slice(2), 16)),
   );
-  let session = profile.session;
+  let session = unit.session;
   const notes: string[] = [];
   if (!held.some((exchange) => exchange.request === sessionRequest) && opened !== undefined) {
     session = Number.parseInt(opened.request.slice(2), 16);
     notes.push(
-      `decoded with the session the capture opened (10 ${opened.request.slice(2)}), not the profile's (10 ${hexNumber(profile.session, 2)})`,
+      `decoded with the session the capture opened (10 ${opened.request.slice(2)}), not the profile's (10 ${hexNumber(unit.session, 2)})`,
     );
   }
   const options: ReadOptions = {
     faults: held.some((exchange) => exchange.request === reads.faults),
     freeze: held.some((exchange) => exchange.request.startsWith(reads.freeze)),
   };
-  const replay = new ReplayElm(capture.exchanges, { bus, address: null });
-  const report = await readUnit(replay, { ...profile, session }, unit, options);
+  const replay = new ReplayElm(capture.exchanges, { bus: profileBus(profile), address: null });
+  const report = await readUnit(replay, profile, { ...unit, session }, options);
   for (const seq of replay.served) served.add(seq);
   report.notes.push(...notes);
   return report;
@@ -171,13 +176,13 @@ async function decodeValues(
   profile: Profile,
   served: Set<number>,
 ): Promise<DecodedValue[]> {
-  const bus = profileBus(profile);
   const values: DecodedValue[] = [];
   for (const unit of profile.units.values()) {
     const address = unitAddress(profile, unit);
+    const bus = unitBus(profile, unit);
     for (const value of unit.values.values()) {
       const replay = new ReplayElm(capture.exchanges, { bus, address });
-      if (!replay.holds(address, valueRequest(profile.protocol, value.identifier))) continue;
+      if (!replay.holds(address, valueRequest(unit.protocol, value.identifier))) continue;
       let decoded: DecodedValue["value"];
       try {
         decoded = decodeValue(
@@ -251,7 +256,7 @@ async function decodeLegislated(
 /**
  * Decodes a capture under a profile or under none.
  *
- * With a profile, every unit of the profile is decoded from the exchanges at its address on the profile's bus: a unit the capture holds nothing for is reported as not in the capture, and a unit whose session request differs from the profile's is decoded with the session the capture opened, with a note saying so, when that session is one the profile's protocol may open. The profile's named values are decoded wherever the capture holds a read of their identifier. In both cases the legislated reads are decoded when the capture holds a broadcast, and the units that answered a discovery sweep are listed. Every other exchange is returned undecoded.
+ * With a profile, every unit of the profile is decoded from the exchanges at its address on the profile's bus, at the unit's own identifier width, with the unit's own protocol and session: a unit the capture holds nothing for is reported as not in the capture, and a unit whose session request differs from the profile's is decoded with the session the capture opened, with a note saying so, when that session is one the unit's protocol may open. The profile's named values are decoded wherever the capture holds a read of their identifier. In both cases the legislated reads are decoded when the capture holds a broadcast, and the units that answered a discovery sweep are listed. Every other exchange is returned undecoded.
  *
  * The result depends only on the capture and the target: decoding twice gives equal results.
  */
