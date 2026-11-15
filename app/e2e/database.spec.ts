@@ -93,7 +93,7 @@ test("samples written through the worker survive a reload and an offline reload"
   await context.setOffline(false);
 });
 
-test("a second tab is told the database is in use and the first keeps working", async ({
+test("a second tab shares the first tab's database and takes it over when the first closes", async ({
   context,
   baseURL,
 }) => {
@@ -102,25 +102,25 @@ test("a second tab is told the database is in use and the first keeps working", 
 
   const second = await context.newPage();
   await second.goto(baseURL ?? "/");
-  await expect(second.getByRole("alert")).toContainText("already open in another tab");
-  const failure = await second.evaluate(async () => {
-    try {
-      await window.obdE2e;
-      return null;
-    } catch (error) {
-      return error instanceof Error ? error.name : String(error);
-    }
-  });
-  expect(failure).toBe("DatabaseUnavailableError");
-
-  // The first tab was not disturbed, and its data is intact.
-  expect(await readRun(first, runId)).toEqual(EXPECTED);
-
-  // Once the first tab closes, "Try again" in the second opens the same data.
-  await first.close();
-  await second.getByRole("button", { name: "Try again" }).click();
+  await expect(second.getByRole("tablist")).toBeVisible();
   await expect(second.getByRole("alert")).toBeHidden();
+  // The second tab reads the first tab's data and writes to it.
   expect(await readRun(second, runId)).toEqual(EXPECTED);
+  const fromSecond = await writeRun(second, "from-the-second-tab");
+  expect(await readRun(first, fromSecond)).toEqual(EXPECTED);
+  // There is one database, open in the first tab.
+  const info = await second.evaluate(
+    async () => (await (await window.obdE2e)?.control.info()) ?? null,
+  );
+  expect(info?.vfs).toBe("opfs-sahpool");
+
+  // Once the first tab closes the second opens the same data itself, with nothing to press.
+  await first.close();
+  expect(await readRun(second, runId)).toEqual(EXPECTED);
+  expect(await readRun(second, fromSecond)).toEqual(EXPECTED);
+  const afterHandover = await writeRun(second, "after-handover");
+  expect(await readRun(second, afterHandover)).toEqual(EXPECTED);
+  await expect(second.getByRole("alert")).toBeHidden();
 });
 
 test("the database exports as a SQLite file and an import restores it", async ({

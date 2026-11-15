@@ -30,13 +30,14 @@ export function fakeControl(
 export function readySession(control: DatabaseControl = fakeControl()): DatabaseSession {
   return {
     connection: Promise.resolve({ storage: new MemoryStorage(), control }),
+    subscribe: () => () => undefined,
     close: () => undefined,
   };
 }
 
-/** A session whose database cannot be used, as when another tab holds it. */
+/** A session whose database cannot be used, as when a tab that cannot share holds it. */
 export function unavailableSession(reason: "in-use" | "unsupported"): DatabaseSession {
   const connection = Promise.reject(new DatabaseUnavailableError(reason, `database ${reason}`));
   connection.catch(() => undefined);
-  return { connection, close: () => undefined };
+  return { connection, subscribe: () => () => undefined, close: () => undefined };
 }

@@ -18,7 +18,7 @@ import { App } from "../src/App";
 import { AUTO_SAVED_LIMIT } from "../src/share/auto-saved";
 import type { BrowserSupport } from "../src/connect/support";
 import type { DatabaseSession } from "../src/database/session";
-import { fakeControl } from "./fake-database";
+import { fakeControl, unavailableSession } from "./fake-database";
 import { createTestService, renderApp } from "./render";
 import { captureFragment, simulatedCapture } from "./simulated-capture";
 
@@ -47,6 +47,7 @@ afterEach(() => {
 function sessionOver(storage: MemoryStorage): DatabaseSession {
   return {
     connection: Promise.resolve({ storage, control: fakeControl() }),
+    subscribe: () => () => undefined,
     close: () => undefined,
   };
 }
@@ -229,6 +230,20 @@ async function sharedFragment(data: ScanShareData = SHARED): Promise<string> {
   if (!result.ok) throw new Error(result.error.message);
   return result.value.fragment;
 }
+
+describe("a shared link when the database cannot be used", () => {
+  it("says why the link cannot be saved, using the problem the database reports", async () => {
+    window.location.hash = await sharedFragment();
+    renderApp(<App support={CHROME} />, createTestService(), unavailableSession("unsupported"));
+    await screen.findByRole("table", { name: "Shared scan" });
+    expect(
+      await screen.findByText(
+        "The scan cannot be saved because this browser cannot store data on this device.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save this scan" })).toBeDisabled();
+  });
+});
 
 describe("a shared link with automatic saving off", () => {
   beforeEach(() => {

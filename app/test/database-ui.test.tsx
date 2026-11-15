@@ -15,10 +15,12 @@ describe("the database notice", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("tells a second tab to close the other one and retries on request", async () => {
+  it("tells a tab that cannot share why, and retries on request", async () => {
     const restart = vi.fn(() => readySession());
     renderApp(<DatabaseNotice />, createTestService(), unavailableSession("in-use"), restart);
-    expect(await screen.findByRole("alert")).toHaveTextContent(/already open in another tab/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /cannot be used because obd-read is open in another tab or window that cannot share/,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(restart).toHaveBeenCalledOnce();
@@ -43,7 +45,9 @@ describe("the stored data card", () => {
 
   it("disables export and import while the database is unavailable", async () => {
     renderApp(<DatabaseCard />, createTestService(), unavailableSession("in-use"));
-    await screen.findByText("The database is not available.");
+    await screen.findByText(
+      "The database cannot be used because obd-read is open in another tab or window that cannot share its stored data with this one.",
+    );
     expect(screen.getByRole("button", { name: "Export the database" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Import a database file" })).toBeDisabled();
   });

@@ -3,6 +3,7 @@ import type { DatabaseInfo } from "obd-read/web/storage";
 import { Button, Card, download } from "../ui";
 import { error, muted, stack } from "../screens/screen.css";
 import { useDatabase } from "./DatabaseProvider";
+import { unavailableBecause } from "./problem";
 
 /** A name for the exported file that sorts by date, from the time it is exported. */
 export function exportFileName(now: Date): string {
@@ -79,7 +80,11 @@ export function DatabaseCard() {
     >
       <div className={stack}>
         {state.status === "opening" && <p className={muted}>Opening the database…</p>}
-        {state.status === "unavailable" && <p className={muted}>The database is not available.</p>}
+        {state.status === "unavailable" && (
+          <p className={muted}>
+            The database cannot be used because {unavailableBecause(state.problem, state.message)}.
+          </p>
+        )}
         {info !== undefined && (
           <>
             <p>

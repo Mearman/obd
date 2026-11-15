@@ -11,6 +11,7 @@ import {
 } from "react";
 import { adapterUrl } from "../connect/adapters";
 import { DiagnosticsError, type AdapterKind, type AppService } from "./client";
+import { collectedElsewhere, runClaims } from "./run-claims";
 import { useWakeLock } from "./useWakeLock";
 
 /** How a collection run is going, as the screens show it. */
@@ -57,7 +58,7 @@ const STATUS_POLL_MS = 1000;
 /**
  * Gives the screens the service and tracks the connection and the collection run.
  *
- * A run left open by an earlier page (a reload) is resumed at once when it was collecting from the simulator, which needs no gesture. A run from hardware is only listed: reconnecting a device needs a click.
+ * A run left open by an earlier page (a reload) is resumed at once when it was collecting from the simulator, which needs no gesture. A run from hardware is only listed: reconnecting a device needs a click. A run another open tab is collecting is never resumed here: the tab collecting a run holds its lock ({@link runClaims}).
  */
 export function DiagnosticsProvider({
   service,
@@ -73,8 +74,20 @@ export function DiagnosticsProvider({
   const [runsVersion, setRunsVersion] = useState(0);
   const runId = collection.run?.id;
   const resumed = useRef(false);
+  const [claims] = useState(() =>
+    runClaims(typeof navigator.locks === "object" ? navigator.locks : undefined),
+  );
 
   useWakeLock(runId !== undefined);
+
+  // Holds the collected run's lock for as long as this tab collects it.
+  useEffect(() => {
+    if (runId === undefined) return;
+    void claims.claim(runId);
+    return () => {
+      claims.release(runId);
+    };
+  }, [claims, runId]);
 
   const track = useCallback((run: Run) => {
     setCollection({ run, state: "collecting", lastError: null, latest: [] });
@@ -99,16 +112,20 @@ export function DiagnosticsProvider({
         const open = (await client.runs.list({})).find(
           (run) => run.stoppedAt === null && isSimulatorUrl(run.adapter),
         );
-        if (open === undefined) return;
-        if ((await client.runs.status({ runId: open.id })) === null) {
+        if (open === undefined || !(await claims.claim(open.id))) return;
+        if ((await client.runs.status({ runId: open.id })) !== null) return;
+        try {
           track(await client.runs.resume({ runId: open.id }));
-          setConnection((await client.link.status()) ?? undefined);
+        } catch (error) {
+          claims.release(open.id);
+          throw error;
         }
+        setConnection((await client.link.status()) ?? undefined);
       } catch {
         // The run stays listed with its Resume button; there is nobody to tell at start-up.
       }
     })();
-  }, [client, track]);
+  }, [claims, client, track]);
 
   useEffect(() => {
     if (runId === undefined) return;
@@ -181,10 +198,16 @@ export function DiagnosticsProvider({
   const resumeCollection = useCallback(
     async (run: Run) => {
       if (run.adapter.startsWith("webbluetooth://")) await service.devices.prepare(run.adapter);
-      track(await client.runs.resume({ runId: run.id }));
+      if (!(await claims.claim(run.id))) throw collectedElsewhere();
+      try {
+        track(await client.runs.resume({ runId: run.id }));
+      } catch (error) {
+        claims.release(run.id);
+        throw error;
+      }
       setConnection((await client.link.status()) ?? undefined);
     },
-    [client, service, track],
+    [claims, client, service, track],
   );
 
   const value = useMemo(

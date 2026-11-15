@@ -9,6 +9,7 @@ import {
 } from "obd-read";
 import { streamShareCodec } from "obd-read/web";
 import { useEffect, useRef, useState } from "react";
+import { unavailableBecause } from "../database/problem";
 import { useDatabase } from "../database/DatabaseProvider";
 import { LineChart } from "../charts";
 import { useAutoSaveShared } from "../settings/auto-save-shared";
@@ -302,7 +303,7 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
         <p className={muted}>
           {state.status === "opening"
             ? `The database is opening, so the ${KIND_NAMES[envelope.kind]} cannot be saved yet.`
-            : `The database is not available, so the ${KIND_NAMES[envelope.kind]} cannot be saved.`}
+            : `The ${KIND_NAMES[envelope.kind]} cannot be saved because ${unavailableBecause(state.problem, state.message)}.`}
         </p>
       )}
     </div>

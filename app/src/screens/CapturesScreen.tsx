@@ -2,6 +2,7 @@ import { captureText, isGzip, readCaptureFile, type CaptureSummary } from "obd-r
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { CaptureViewer } from "../captures/CaptureViewer";
 import { failureMessage } from "../diagnostics/client";
+import { useDatabase } from "../database/DatabaseProvider";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { profileTitle } from "../profiles/generic";
 import { OriginBadge } from "../origin/OriginBadge";
@@ -28,6 +29,7 @@ export function CapturesScreen({
 }) {
   const { service } = useDiagnostics();
   const { client } = service;
+  const { revision } = useDatabase();
   const [captures, setCaptures] = useState<readonly CaptureSummary[] | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [unrecovered, setUnrecovered] = useState<readonly string[]>([]);
@@ -49,7 +51,7 @@ export function CapturesScreen({
     return () => {
       live.active = false;
     };
-  }, [client, version, open, shown]);
+  }, [client, version, open, shown, revision]);
 
   const act = useCallback(async (work: () => Promise<unknown>, failure: string) => {
     setProblem(undefined);

@@ -10,6 +10,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import { profileTitle } from "../profiles/generic";
 import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
+import { useDatabase } from "../database/DatabaseProvider";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { OriginBadge } from "../origin/OriginBadge";
 import { ALL_ORIGINS, ORIGIN_FILTER_OPTIONS, originQuery } from "../origin/origins";
@@ -51,6 +52,7 @@ async function runEnvelope(client: DiagnosticsClient, run: Run): Promise<ShareEn
 export function RunsScreen() {
   const { service, collection, runsVersion, resumeCollection, stopCollection } = useDiagnostics();
   const { client } = service;
+  const { revision } = useDatabase();
   const [rows, setRows] = useState<readonly RunRow[] | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [shown, setShown] = useState(ALL_ORIGINS);
@@ -77,7 +79,7 @@ export function RunsScreen() {
     return () => {
       live.active = false;
     };
-  }, [client, runsVersion, collection.latest.length, shown, imported]);
+  }, [client, runsVersion, collection.latest.length, shown, imported, revision]);
 
   const act = useCallback(async (work: () => Promise<unknown>, failure: string) => {
     setProblem(undefined);
