@@ -73,6 +73,22 @@ describe("reading through the host", () => {
   });
 });
 
+describe("listening to the bus", () => {
+  const capture = { adapter: SIMULATOR, idBits: 11, bitrate: 500_000, durationMs: 50 } as const;
+
+  it("captures for a limited time without transmitting and reports the frame count", async () => {
+    const { host } = newSimulatedService();
+    const { lines } = await host.client.monitor.capture(capture);
+    expect(lines.at(-1)).toBe("0 frames logged");
+    expect(lines.join("\n")).toContain("monitoring with");
+  });
+
+  it("needs the adapter free", async () => {
+    const { host } = await connected();
+    await expect(host.client.monitor.capture(capture)).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+});
+
 describe("collecting a run", () => {
   it("stores samples and streams them live, then stops and releases the adapter", async () => {
     const service = newSimulatedService();
