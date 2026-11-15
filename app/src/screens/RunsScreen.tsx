@@ -1,12 +1,18 @@
-import type { Run } from "obd-read";
-import { isSimulatorUrl } from "obd-read";
+import {
+  isSimulatorUrl,
+  runSummaryShareData,
+  type Run,
+  type Sample,
+  type ShareEnvelope,
+} from "obd-read";
 import { useCallback, useEffect, useState } from "react";
 import { profileTitle } from "../profiles/generic";
-import { failureMessage } from "../diagnostics/client";
+import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { Badge, Button, DataTable, type Column } from "../ui";
 import { error, muted, page, row } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
+import { ShareDialog } from "../share/ShareDialog";
 
 /** A stored run with the number of samples it holds. */
 interface RunRow {
@@ -22,6 +28,26 @@ function download(filename: string, mediaType: string, content: string): void {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+/** How many samples one read of a run's samples asks for. */
+const PAGE = 5000;
+
+/** The envelope that shares `run`: its aggregates and a thinned series, read from the service when the user asks to share. */
+async function runEnvelope(client: DiagnosticsClient, run: Run): Promise<ShareEnvelope> {
+  const aggregates = await client.runs.aggregate({ runId: run.id });
+  const samples: Sample[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const page = await client.runs.samples({ runId: run.id, limit: PAGE, offset });
+    samples.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return {
+    v: 1,
+    kind: "run-summary",
+    createdAt: Date.now(),
+    data: runSummaryShareData(run, aggregates, samples),
+  };
 }
 
 /** Runs: the stored collection runs, with export and, for an open run, resume. */
@@ -105,6 +131,11 @@ export function RunsScreen() {
               Stop
             </Button>
           )}
+          <ShareDialog
+            label="Share"
+            title="Share this run's summary"
+            load={() => runEnvelope(client, run)}
+          />
           {(["csv", "json"] as const).map((format) => (
             <Button
               key={format}
