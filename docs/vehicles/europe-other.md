@@ -30,6 +30,47 @@ Tools that document Renault: Renault CLIP (dealer tool, databases not public), d
 
 What ELM327 can do: generic OBD-II on pins 6 and 14 or pin 7, plus manual ISO-TP requests to individual ECUs with `AT SH`, `AT CRA` and `AT FC`. What it cannot: K-line ECUs on pin 13, the 13/12 CAN pair, or anything needing an STN-specific feature the clone lacks.
 
+### What obd-read ships for Renault and Dacia
+
+Five profiles, every row `unconfirmed` until read from a car. Each unit's `source` names the CanZE file row and the ddt4all table row it came from, with the archived page.
+
+- `renault-zoe-ph1`: the 15 addressed units of the CanZE Zoe file (2012 to 2019 cars), 11-bit CAN at 500 kbit/s, UDS.
+- `renault-twizy`: the 3 units of the CanZE Twizy file (cluster, battery controller, charger), UDS in the extended diagnostic session the file gives.
+- `renault-twingo-smart-453`: the 29 units of the CanZE `Twingo_3_Ph2` file, with the S-GW3 security gateway on a 29-bit identifier pair. The smart 453 (fortwo and forfour) is covered by inference only, see below.
+- `renault-zoe-ph2`: the 27 units of the CanZE `ZOE_Ph2` file, 19 on 11-bit identifiers and 8 on 29-bit ones (ABS-VDC, battery charger, E-ACT-EBA, INV-ME, both battery controllers, the security gateway and the vehicle control module). A unit's own `id_bits` carries its width; the session switches the adapter between ATSP6 and ATSP7 as it moves between units, at the bit rate already selected. The 29-bit identifiers have the shape 18DA followed by the target and source address bytes, ISO 15765-4 normal fixed addressing, and the tool sets the priority byte with `ATCP18` as it does for any 29-bit unit.
+- `renault-dacia-core`: 10 core units (engine, gearbox, ABS and stability control, steering, body control, cluster, climate, airbag, USM, parking sonar) for Clio IV and V, Captur, Megane IV, Duster and Sandero, scoped to cars up to about the 2018 model year. That cut-off is my inference, not a sourced date: no source read says from which model or year the security gateway appears.
+
+#### Sources opened this session
+
+Every page below was opened and read, and a Wayback Machine snapshot was saved on 2026-11-15 (the 14-digit timestamp is the snapshot).
+
+- CanZE ECU files (GPL-3.0 per the repository's licence file; only the facts, addresses and names, are used, no text or code is copied): https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE/_Ecus.csv (https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE/_Ecus.csv), https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twizy/_Ecus.csv (https://web.archive.org/web/20261115133545/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twizy/_Ecus.csv), https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv (https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv) and https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv (https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv). The repository's licence file: https://github.com/fesch/CanZE/blob/master/LICENSE.md (https://web.archive.org/web/20261115134044/https://github.com/fesch/CanZE/blob/master/LICENSE.md).
+- ddt4all `projects.json` (GPL-3.0 per the GitHub licence field, facts only): https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json (https://web.archive.org/web/20261115132826/https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json). A snapshot of the raw file URL could not be saved (the save failed after retries); the blob page above is the cited copy, and the table was read from the raw file at commit e109cd2.
+- ddt4all issue 404, "Not working on Clio V" (2020): https://github.com/cedricp/ddt4all/issues/404 (https://web.archive.org/web/20261115133838/https://github.com/cedricp/ddt4all/issues/404)
+- Hella Gutmann on cyber security management for Renault and Kia: https://www.hella.com/techworld/au/lounge/cyber_security_management_renault_kia (https://web.archive.org/web/20261115133919/https://www.hella.com/techworld/au/lounge/cyber_security_management_renault_kia)
+- Delphi, how to unlock the security gateway on a Renault Arkana: https://delphiautoparts.com/en-gb/mom/how-to/article/how-to-unlock-the-security-gateway-on-a-renault-arkana (https://web.archive.org/web/20261115134005/https://www.delphiautoparts.com/en-gb/mom/how-to/article/how-to-unlock-the-security-gateway-on-a-renault-arkana, saved by the same request; the saved copy is under the www host name)
+
+#### Confirmed and reported
+
+- Confirmed by two sources agreeing: every addressed row of the four CanZE files has a matching request and response pair in the ddt4all table (checked row by row; the ddt4all table lists the same identifiers under Renault address bytes, for example 0x95 and 0xDA for the EVC and 0x93 for the battery controller). Two independent projects agreeing is not a confirmation on a car, and CanZE and ddt4all are community projects that may share ancestry, so `unconfirmed` stands.
+- ddt4all's table is identical across all 185 projects in the file (Zoe, Twizy, Twingo, Clio IV, Captur, Megane IV, Duster, Logan, Sandero and many more): it is one Alliance-wide address plan, not a per-model table. That supports reusing the plan for the core profile and says nothing about which units a given model fits.
+- The ddt4all project list names a Daimler smart project ("EDISON") whose address tables are identical to the Zoe's. That is the only link from the smart 453 to these addresses read, and it is an inference: no source read says the 453's units answer at them.
+- Reported, not read from a unit: the gateway. The ddt4all issue (Clio V, 2020) says writes failed and a Renault employee reportedly said recent cars have the gateway locked, with commenters saying they could read. The Delphi page says a locked Arkana gateway gives read access only and blocks erasing fault codes, and the Hella page says reading and deleting fault codes and viewing parameters work without its cyber security management while camera calibration and injector coding need an online unlock. None gives a model or year from which the gateway appears (the Delphi page carries only a 2023 copyright footer), and none says what a locked gateway does to a read from an individual unit behind it.
+
+#### Contradictions and limits
+
+- The Zoe file gives `50c0` as the start-session response for every unit, meaning session 0xC0, which the guard does not allow (it permits 0x01 and 0x03), so the Zoe phase 1 profile opens the default session. The Twizy, Twingo and most Zoe phase 2 rows give `5003`, the extended diagnostic session, which the guard allows. The Zoe phase 2 file mixes 0x03 (21 units), 0xC0 (airbag, battery charger, INV-ME, USM, VSP) and 0x00 (IDM), so that profile also opens the default session. Whether a unit answers reads in the default session is unconfirmed.
+- The Zoe file marks each unit with a network (vehicle, EV, multimedia, options); how the OBD socket's gateway forwards between them is not established, so silence from a unit does not show it is absent.
+- The Twingo file is named phase 2 and mixes petrol and electric units; it is not known which rows exist on a phase 1 Twingo III or on a given engine.
+- The CanZE rows for units with 29-bit identifiers on the Twingo (S-GW3 only) and on the Zoe phase 2 (eight units) use the 18DA form; whether an ELM327 or STN adapter passes replies with those identifiers through the receive filter set by `ATCRA` was not tested.
+
+#### Excluded
+
+- Zoe virtual fields (CanZE rows at 0x800 and 0x801), the Zoe multimedia, horn and R-Link rows and any row with no identifiers: CanZE's own placeholders, not units on the bus.
+- Cars newer than about the 2018 model year in the core profile (Clio V from 2019, Captur II, Megane IV phase 2 and Duster II among them): the gateway's presence per model is unknown, so they are neither included nor ruled out.
+- Alliance models in the ddt4all table that have no CanZE row (Duster, Logan, Sandero, Clio, Captur, Megane): they get no unit rows beyond the ten core ones, which carry the Twingo file's names.
+- K-line Renault cars (Clio II, Megane II and others): out of reach of a profile that names CAN addresses, as the sections above say.
+
 ## PSA (Peugeot, Citroen, DS)
 
 K-line era: an Evoscan pinout page for post-1997 Peugeots lists pin 7 as the K-line for engine and transmission diagnostics, pin 15 as an optional L-line, and pins 6 and 14 as CAN: https://www.evoscan.com/technical-vehicle-manuals/132. A 206 1.4 HDI owner reports an ELM327 connecting to the engine ECU as ISO 14230 with 5-baud init after wiring K and L (pins 7 and 15): https://206info.co.uk/Forums/viewtopic/p=522799.html (forum, seen via search summary). A 2008 207 owner reports from measurement that pin 7 is a direct ISO 14230 link to the engine ECU and pin 12 a second K-line directly to the ABS ECU, and that clearing engine faults via pin 7 avoids the BSI logging it: https://frenchcarforum.co.uk/forum/viewtopic.php?p=853778 (one vehicle, one poster).
