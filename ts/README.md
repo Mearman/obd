@@ -10,6 +10,7 @@ The TypeScript implementation of obd-read, which runs in Node and in the browser
 - `src/node/` holds the Node-only transports (`serialport`, `node:net`, `@stoprocent/noble`) and adapter discovery, behind the `obd-read/node` entry point. Importing it registers the transports. The Bluetooth LE radio sits behind the `BleCentral` interface, so the data-channel picker and the transport are tested against a fake peripheral and only `src/node/noble.ts` touches the native binding. The native packages ship prebuilt binaries, so their install scripts are denied in `pnpm-workspace.yaml`.
 - `src/storage/` holds the SQLite implementation of the core `Storage` contract: the Drizzle schema (`schema.ts`), the SQL migrations `drizzle-kit` generates from it (`migrations/`, embedded into `migrations.ts` so a browser build needs no file access) and `DrizzleStorage`, which runs only through an injected `SqlExecutor`. `obd-read/node` supplies an executor over `node:sqlite` (`openNodeStorage`); `obd-read/web` supplies one that posts SQL to a worker that owns the database (`openWorkerStorage`). Drizzle stays behind `Storage`.
 - `src/service/` holds the oRPC message-port wiring for the `DiagnosticsService` contract in `src/core/service.ts` (`serveDiagnostics`, `connectDiagnostics`). The contract and its in-process implementation over `Storage` are in core; operations that need the OBD and live modules are declared in `pendingDiagnosticsContract` and served by nothing yet.
+- `app/` is the browser app, a separate private workspace package (`obd-read-app`) that depends on this package through the workspace. See [The app](#the-app).
 - `test/` holds the vitest suites. The storage contract suite (`test/support/storage-contract.ts`) runs against the in-memory storage, Drizzle over `node:sqlite` and Drizzle through the message-port worker; the service contract suite runs in process and over a message port.
 
 ## Core and platform
@@ -30,6 +31,30 @@ After changing `src/storage/schema.ts` run `pnpm storage:generate`: it writes th
 ## CAN adapters
 
 A raw CAN link is presented to the session as an ELM327 adapter (`RawCanTransport`), so the same session code drives it. `slcan://<serial device>?baud=N` is an SLCAN adapter on a serial port. `socketcan://<interface>` is a Linux SocketCAN interface (`can0`, `vcan0`, or a candleLight adapter running gs_usb firmware) reached through the optional `socketcan` package, a native addon that is Linux-only and is not built during `pnpm install` because install scripts are denied: on Linux run `pnpm rebuild socketcan` once (it needs a C++ toolchain), and set the interface's bit rate outside the program (`ip link set can0 type can bitrate 500000`). `webusb://<label>` drives a candleLight, CANable or other gs_usb adapter directly from a browser over WebUSB, which is also the route on macOS and Windows, where there is no SocketCAN; the picker is limited to the gs_usb vendor and product ids unless `usbVendorId` and `usbProductId` are given, and `channel` selects a channel on a multi-channel adapter. The gs_usb protocol and bit-timing calculation are in `src/core/gsusb.ts` and are checked against a fake adapter, not against hardware.
+
+## The app
+
+`app/` is an installable, offline-capable PWA built with Vite and React. Styling is vanilla-extract (a CSS-variable theme contract for light and dark, recipes and sprinkles) over Radix UI primitives, so there is no runtime style engine. The layout is mobile-first with phone, tablet and desktop breakpoints, 44 px touch targets and safe-area insets, and the connect flow is built for one-handed use. Data tables reflow to cards on narrow screens.
+
+The screens (Connect, Scan, Live values, Runs, Settings) talk to a small `DiagnosticsClient` interface (`app/src/diagnostics/client.ts`). Only a simulator implements it so far: it returns fixed invented values, every screen labels them "Simulated data", and it refuses real adapters. The real diagnostic service replaces it without UI changes. The Connect screen uses `capabilities()` from `obd-read/web` to explain why Web Serial or Web Bluetooth is unavailable (Safari, Firefox, iOS, or a page that is not a secure context). Settings imports a profile from a local JSON file, validated by the same Zod schema as the bundled profiles; imported profiles last until the page closes.
+
+`vite-plugin-pwa` precaches the whole shell and the bundled profiles and generates the manifest and icons from `app/public/icon.svg` at build time. The app makes no runtime network requests (an ESLint rule forbids `fetch`, `XMLHttpRequest` and `WebSocket` in `app/src/`), loads no CDN scripts and no web fonts. A new service worker waits until the user chooses Reload in the update toast.
+
+Build the package first, because the app imports it through its built exports, then work in the app:
+
+```sh
+pnpm install
+pnpm build
+pnpm --filter obd-read-app lint
+pnpm --filter obd-read-app typecheck
+pnpm --filter obd-read-app test
+pnpm --filter obd-read-app build
+pnpm --filter obd-read-app dev
+```
+
+`pnpm --filter obd-read-app e2e` builds the app, serves it with `vite preview` on localhost, and in Chromium takes screenshots of every screen at phone (390x844), tablet (820x1180) and desktop (1440x900) in both colour schemes into `app/screenshots/` (untracked). It asserts that nothing overflows horizontally and that every interactive element is at least 44 px, and it reloads offline to check the shell loads from the service worker. Install the browser once with `pnpm --filter obd-read-app exec playwright install chromium`, or point `OBD_READ_CHROMIUM` at a Chromium or headless-shell binary you already have. CI runs the same script in its own job.
+
+Not covered by any of this: the real Web Serial and Web Bluetooth APIs, real adapters, and how the installed app behaves on a phone.
 
 ## Commands
 
