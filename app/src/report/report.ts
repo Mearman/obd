@@ -89,6 +89,7 @@ const SCREEN_NAMES = {
   connect: "Connect",
   scan: "Scan",
   live: "Live",
+  guide: "Guide",
   runs: "Runs",
   captures: "Captures",
   settings: "Settings",

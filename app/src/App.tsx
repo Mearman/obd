@@ -5,6 +5,7 @@ import { useDiagnostics } from "./diagnostics/DiagnosticsProvider";
 import { app, brand, header, identity, main, nav, status } from "./App.css";
 import { CapturesScreen } from "./screens/CapturesScreen";
 import { ConnectScreen } from "./screens/ConnectScreen";
+import { GuideScreen } from "./screens/GuideScreen";
 import { LiveScreen } from "./screens/LiveScreen";
 import { RunsScreen } from "./screens/RunsScreen";
 import { ScanScreen } from "./screens/ScanScreen";
@@ -18,13 +19,14 @@ import { THEME_PREFERENCES } from "./theme/preference";
 import { useTheme } from "./theme/ThemeProvider";
 import { Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger, Toast, Tooltip } from "./ui";
 
-const SCREENS = ["connect", "scan", "live", "runs", "captures", "settings"] as const;
+const SCREENS = ["connect", "scan", "live", "guide", "runs", "captures", "settings"] as const;
 type ScreenName = (typeof SCREENS)[number];
 
 const TITLES: Readonly<Record<ScreenName, string>> = {
   connect: "Connect",
   scan: "Scan",
   live: "Live",
+  guide: "Guide",
   runs: "Runs",
   captures: "Captures",
   settings: "Settings",
@@ -67,6 +69,11 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
   const viewCapture = (id: string): void => {
     setOpenCapture(id);
     setScreen("captures");
+  };
+  const [openRun, setOpenRun] = useState<string | undefined>(undefined);
+  const viewRun = (id: string): void => {
+    setOpenRun(id);
+    setScreen("runs");
   };
 
   return (
@@ -154,9 +161,14 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
                 <LiveScreen />
               </ScreenBoundary>
             </TabsContent>
+            <TabsContent value="guide">
+              <ScreenBoundary screen="guide" onGoToConnect={goConnect}>
+                <GuideScreen onOpenRun={viewRun} />
+              </ScreenBoundary>
+            </TabsContent>
             <TabsContent value="runs">
               <ScreenBoundary screen="runs" onGoToConnect={goConnect}>
-                <RunsScreen />
+                <RunsScreen open={openRun} />
               </ScreenBoundary>
             </TabsContent>
             <TabsContent value="captures">
