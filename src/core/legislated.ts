@@ -28,7 +28,8 @@ import type { LineSink } from "./unit-access.js";
 const BITMAP_SPAN = 0x20;
 const BITMAP_BYTES = 4;
 
-const INFO_CALIBRATION_ID = 0x04;
+/** The mode 09 identifier of the calibration identifiers. */
+export const INFO_CALIBRATION_ID = 0x04;
 const CALIBRATION_ID_LENGTH = 16;
 
 // Mode 06 monitor identifiers 01 to 10 are the oxygen sensor monitors, in bank then sensor order.

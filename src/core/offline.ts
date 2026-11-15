@@ -4,6 +4,7 @@
  * Each function takes parsed input and returns the lines to print (or the document to save). Reading and writing files, parsing the command line and finding a profile by name or path belong to the caller; this module is platform-free.
  */
 
+import { CAPTURE_FORMAT, validateCapture, type Capture } from "./capture.js";
 import type { CodeNames } from "./codenames.js";
 import {
   CodeNameError,
@@ -13,6 +14,7 @@ import {
   type NamesDocument,
   type NamesFile,
 } from "./codenames.js";
+import { decodeCapture, decodedLines, type DecodeTarget } from "./decode.js";
 import { DefinitionError, readDefinitions } from "./definitions.js";
 import { formatValue } from "./legislated.js";
 import type { ObdScan } from "./obd-scan.js";
@@ -25,7 +27,9 @@ import {
 } from "./scancompare.js";
 import {
   OBD_REPORT_FORMAT,
+  captureShareData,
   decodeShare,
+  describeSharedCapture,
   describeSharedRun,
   describeSharedScan,
   encodeShare,
@@ -145,19 +149,52 @@ function unwrap<T>(result: ShareResult<T>, label: string): T {
   return result.value;
 }
 
+/** The envelope that shares a saved document, chosen by its `format`. */
+function documentEnvelope(document: unknown, path: string, createdAt: number): ShareEnvelope {
+  const format: unknown =
+    typeof document === "object" && document !== null ? Reflect.get(document, "format") : undefined;
+  if (format === "obd-read-run") {
+    return {
+      v: 1,
+      kind: "run-summary",
+      createdAt,
+      data: unwrap(runExportShareData(document), path),
+    };
+  }
+  if (format === OBD_REPORT_FORMAT) {
+    return {
+      v: 1,
+      kind: "obd-report",
+      createdAt,
+      data: unwrap(obdReportDocumentShareData(document), path),
+    };
+  }
+  if (format === CAPTURE_FORMAT) {
+    let capture: Capture;
+    try {
+      capture = validateCapture(document, path);
+    } catch (error) {
+      if (error instanceof Error) throw new ShareLinkError(error.message);
+      throw error;
+    }
+    return { v: 1, kind: "capture", createdAt, data: unwrap(captureShareData(capture), path) };
+  }
+  return { v: 1, kind: "scan", createdAt, data: unwrap(scanShareData(document), path) };
+}
+
 /** What {@link shareDocumentLink} needs besides the document. */
 export interface ShareLinkParams {
   /** The app's address, with its base path; any fragment on it is replaced. */
   readonly base: string;
   readonly codec: ShareCodec;
-  /** Blank the VIN and serial numbers of a scan, or the VIN and calibration identifiers of a generic OBD-II read. */
+  /** Blank the VIN and serial numbers of a scan, the VIN and calibration identifiers of a generic OBD-II read, or all three in a capture's raw bytes. */
   readonly redactVin: boolean;
   /** The creation time to record, in milliseconds since the Unix epoch. */
   readonly createdAt: number;
 }
 
 /**
- * The link that shares a saved document: a scan report (`scan --output`), a generic OBD-II read (`obd --output`) or a run's JSON export; `path` labels it in errors.
+ * The link that shares a saved document: a scan report (`scan --output`), a generic OBD-II read (`obd --output`), a run's JSON export or a capture document (`capture --output`, `import-capture --output`, uncompressed); `path` labels it in errors.
  *
  * Throws {@link ShareLinkError} when the text is neither, or when the link would pass a size limit.
  */
@@ -173,29 +210,7 @@ export async function shareDocumentLink(
     if (error instanceof SyntaxError) throw new ShareLinkError(`${path}: ${error.message}`);
     throw error;
   }
-  const format: unknown =
-    typeof document === "object" && document !== null ? Reflect.get(document, "format") : undefined;
-  const envelope: ShareEnvelope =
-    format === "obd-read-run"
-      ? {
-          v: 1,
-          kind: "run-summary",
-          createdAt: params.createdAt,
-          data: unwrap(runExportShareData(document), path),
-        }
-      : format === OBD_REPORT_FORMAT
-        ? {
-            v: 1,
-            kind: "obd-report",
-            createdAt: params.createdAt,
-            data: unwrap(obdReportDocumentShareData(document), path),
-          }
-        : {
-            v: 1,
-            kind: "scan",
-            createdAt: params.createdAt,
-            data: unwrap(scanShareData(document), path),
-          };
+  const envelope = documentEnvelope(document, path, params.createdAt);
   const encoded = unwrap(
     await encodeShare(envelope, params.codec, { redactVin: params.redactVin }),
     path,
@@ -264,19 +279,28 @@ export function describeObdScan(scan: ObdScan, names: CodeNames): string[] {
 /**
  * The report lines for a share link (or just its fragment): in the format `describe` prints for a saved scan, preceded by where the data came from.
  *
- * `namesFor` gives the code names for the profile the link names, or undefined when it names none the caller knows; it must not read anything the link controls. Throws {@link ShareLinkError} when the link is not a valid share.
+ * `namesFor` gives the code names for the profile the link names, or undefined when it names none the caller knows; it must not read anything the link controls. A capture is decoded with what `decodeWith` chooses for it, and printed as `decode` prints it. Throws {@link ShareLinkError} when the link is not a valid share.
  */
 export async function openShareLink(
   link: string,
   codec: ShareCodec,
   namesFor: (profile: string) => CodeNames | undefined,
   generic: CodeNames,
+  decodeWith: (capture: Capture) => Promise<DecodeTarget>,
 ): Promise<string[]> {
   const fragment = fragmentOfLink(link);
   if (fragment === undefined)
     throw new ShareLinkError("not a share link: it has no #share= fragment");
   const envelope = unwrap(await decodeShare(fragment, codec), "share link");
   if (envelope.kind === "run-summary") return describeSharedRun(envelope.data, envelope.createdAt);
+  if (envelope.kind === "capture") {
+    const { capture } = envelope.data;
+    return [
+      `shared data, not read from an adapter; link made ${new Date(envelope.createdAt).toISOString()}`,
+      ...describeSharedCapture(envelope.data),
+      ...decodedLines(await decodeCapture(capture, await decodeWith(capture))),
+    ];
+  }
   if (envelope.kind === "obd-report") {
     const { data } = envelope;
     return [

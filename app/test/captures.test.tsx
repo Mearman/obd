@@ -1,11 +1,14 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { simulatorUrl } from "obd-read";
+import { decodeShare, fragmentOfLink, simulatorUrl } from "obd-read";
+import { streamShareCodec } from "obd-read/web";
 import { builtinProfileData } from "obd-read/profiles";
 import { describe, expect, it } from "vitest";
 import { App } from "../src/App";
 import type { BrowserSupport } from "../src/connect/support";
 import { createTestService, renderApp, type TestService } from "./render";
+
+const SIMULATED_VIN = "SIMULATEDCAR00001";
 
 const CHROME: BrowserSupport = {
   family: "chromium",
@@ -122,5 +125,39 @@ describe("Captures", () => {
     expect(await screen.findByText("line 5: not a transcript line")).toBeVisible();
     await summary(/Decoded 1.*Left raw 0.*Generic OBD-II/);
     expect(screen.getByRole("table", { name: "Captures" })).toHaveTextContent("Imported");
+  });
+
+  it("shares the raw capture, overwriting the VIN in its bytes unless asked to keep it", async () => {
+    await scanScreen();
+    await userEvent.click(screen.getByRole("button", { name: "Capture everything" }));
+    await summary(/with mercedes-w211/);
+    await userEvent.click(screen.getByRole("button", { name: "Share the raw capture" }));
+    const dialog = await screen.findByRole("dialog", { name: "Share the raw capture" });
+    const included = await within(dialog).findByRole("list", { name: "What the link contains" });
+    expect(included).toHaveTextContent(/raw exchanges/);
+    expect(included).toHaveTextContent("Not included: the adapter's address.");
+    expect(included).toHaveTextContent(/overwritten with \*/);
+    const vinBytes = Array.from(SIMULATED_VIN, (character) =>
+      character.charCodeAt(0).toString(16).toUpperCase(),
+    ).join("");
+
+    const link = (await within(dialog).findByLabelText("Link")).textContent;
+    const redacted = await decodeShare(fragmentOfLink(link) ?? "", streamShareCodec);
+    expect(redacted).toMatchObject({
+      ok: true,
+      value: { kind: "capture", data: { redacted: true } },
+    });
+    expect(JSON.stringify(redacted)).not.toContain(vinBytes);
+    expect(JSON.stringify(redacted)).not.toContain("simulator://");
+
+    await userEvent.click(within(dialog).getByRole("switch", { name: /overwrite the vin/i }));
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText("Link").textContent).not.toBe(link);
+    });
+    const kept = await decodeShare(
+      fragmentOfLink(within(dialog).getByLabelText("Link").textContent) ?? "",
+      streamShareCodec,
+    );
+    expect(JSON.stringify(kept)).toContain(vinBytes);
   });
 });

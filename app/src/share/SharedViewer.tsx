@@ -2,6 +2,7 @@ import {
   decodeShare,
   sharedScanReport,
   unitReportOf,
+  type CaptureShareData,
   type ObdReportShareData,
   type RunSummaryShareData,
   type ScanShareData,
@@ -9,6 +10,7 @@ import {
 } from "obd-read";
 import { streamShareCodec } from "obd-read/web";
 import { useEffect, useState } from "react";
+import { RAW_COLUMNS } from "../captures/exchange-columns";
 import { useDatabase } from "../database/DatabaseProvider";
 import { ObdReport } from "../screens/ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
@@ -108,6 +110,24 @@ function ObdView({ data }: { readonly data: ObdReportShareData }) {
         description={`Read through the legislated OBD-II services with no profile, taken ${data.taken}, adapter ${data.adapter.label === "" ? "unknown" : data.adapter.label}. ${data.redacted ? "The sender removed the VIN and calibration identifiers." : "The VIN and calibration identifiers are included."}`}
       />
       <ObdReport scan={data.obd} />
+    </>
+  );
+}
+
+function CaptureView({ data }: { readonly data: CaptureShareData }) {
+  const { capture } = data;
+  return (
+    <>
+      <Card
+        title="The capture"
+        description={`Raw exchanges captured ${utc(capture.startedAt)} from ${capture.sessions[0]?.adapter.identity ?? "an adapter"}: ${capture.origin.description}${capture.origin.complete ? "" : " (stopped before it finished)"}. ${data.redacted ? "The sender overwrote the VIN, calibration identifiers and serial numbers with *." : "The VIN, calibration identifiers and serial numbers are included."}`}
+      />
+      <DataTable
+        label="Shared exchanges"
+        columns={RAW_COLUMNS}
+        rows={capture.exchanges}
+        rowKey={(exchange) => String(exchange.seq)}
+      />
     </>
   );
 }
@@ -215,6 +235,7 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
       {envelope?.kind === "scan" && <ScanView data={envelope.data} />}
       {envelope?.kind === "obd-report" && <ObdView data={envelope.data} />}
       {envelope?.kind === "run-summary" && <RunView data={envelope.data} />}
+      {envelope?.kind === "capture" && <CaptureView data={envelope.data} />}
       <div className={row}>
         {envelope?.kind === "scan" && (
           <Button

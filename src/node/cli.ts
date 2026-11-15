@@ -6,9 +6,9 @@
 
 import { readFile, stat } from "node:fs/promises";
 import type { z } from "zod";
-import { CaptureError, captureId } from "../core/capture.js";
+import { CaptureError, captureId, captureText, type Capture } from "../core/capture.js";
 import { ImportError, importRecord } from "../core/capture-import.js";
-import { captureFileBytes, readCaptureFile } from "../core/capture-file.js";
+import { captureFileBytes, isGzip, readCaptureFile } from "../core/capture-file.js";
 import {
   DEFAULT_DISCOVERY,
   captureEverything,
@@ -16,7 +16,7 @@ import {
   identifierSweepSchema,
   type CaptureStep,
 } from "../core/capture-run.js";
-import { decodeCapture, decodedLines } from "../core/decode.js";
+import { decodeCapture, decodedLines, type DecodeTarget } from "../core/decode.js";
 import { captureUnits } from "../core/storage.js";
 import { randomSuffix } from "../core/time.js";
 import { toolVersion } from "./version.js";
@@ -424,15 +424,44 @@ async function shareCommand(io: CliIo, args: ParsedArgs): Promise<number> {
   if ((link === undefined) === (report === undefined)) {
     throw new ShareLinkError("give a report file to share, or --open with a link, not both");
   }
+  const profileName = args.optionalText("profile");
   if (link !== undefined) {
     const generic = new CodeNames(loadGenericTitles(), new Map(), []);
-    for (const line of await openShareLink(link, zlibShareCodec, shippedNames, generic)) {
+    // The link is untrusted: the profile it names is used only when this program ships it.
+    const decodeWith = async (capture: Capture): Promise<DecodeTarget> => {
+      if (profileName !== undefined) {
+        return { kind: "profile", profile: await loadProfile(io, profileName) };
+      }
+      const named = capture.origin.profile;
+      return named !== null && builtinProfiles().includes(named)
+        ? { kind: "profile", profile: parseProfile(builtinProfileData(named), named) }
+        : { kind: "generic" };
+    };
+    for (const line of await openShareLink(
+      link,
+      zlibShareCodec,
+      shippedNames,
+      generic,
+      decodeWith,
+    )) {
       io.out(line);
     }
     return 0;
   }
   if (report === undefined) return 1;
-  const text = await readText(io, report, (message) => new ShareLinkError(message));
+  if (profileName !== undefined) {
+    throw new ShareLinkError("--profile decodes a capture link opened with --open");
+  }
+  let bytes: Uint8Array;
+  try {
+    bytes = await readFile(resolve(io.directory, report));
+  } catch (error) {
+    throw new ShareLinkError(`${report}: ${fileErrorText(error, report)}`);
+  }
+  // A compressed capture is inflated within the capture limits; any other file is read as text.
+  const text = isGzip(bytes)
+    ? captureText(readCaptureFile(bytes, report))
+    : new TextDecoder().decode(bytes);
   io.out(
     await shareDocumentLink(text, report, {
       base: args.text("base"),

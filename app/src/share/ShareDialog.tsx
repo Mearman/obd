@@ -28,6 +28,14 @@ export interface ShareDialogProps {
   readonly base?: string;
 }
 
+/** The redact switch's label for each kind of link that can carry identifying values; a run summary carries none. */
+const REDACT_LABELS: Readonly<Record<ShareEnvelope["kind"], string | undefined>> = {
+  scan: "Remove the VIN and serial numbers",
+  "obd-report": "Remove the VIN and calibration identifiers",
+  capture: "Overwrite the VIN, calibration identifiers and serial numbers in the raw bytes",
+  "run-summary": undefined,
+};
+
 type Loaded =
   | { readonly status: "loading" }
   | { readonly status: "failed"; readonly message: string }
@@ -82,7 +90,7 @@ function Body({
   }, [load]);
 
   const envelope = loaded.status === "ready" ? loaded.envelope : undefined;
-  const hasIdentity = envelope?.kind === "scan" || envelope?.kind === "obd-report";
+  const redactLabel = envelope === undefined ? undefined : REDACT_LABELS[envelope.kind];
   const shown = useMemo(() => {
     if (envelope === undefined) return undefined;
     return redact ? redactEnvelope(envelope) : envelope;
@@ -155,12 +163,8 @@ function Body({
           {shown !== undefined && shareContents(shown).map((line) => <li key={line}>{line}</li>)}
         </ul>
       </div>
-      {hasIdentity && (
-        <Switch
-          label="Remove the VIN and serial numbers"
-          checked={redact}
-          onCheckedChange={setRedact}
-        />
+      {redactLabel !== undefined && (
+        <Switch label={redactLabel} checked={redact} onCheckedChange={setRedact} />
       )}
       <p className={muted}>
         The data sits after the # in the link, which a browser never sends to a server. Anyone who
@@ -201,7 +205,7 @@ function Body({
 }
 
 /**
- * A button that opens a dialog for sharing a result as a link: it lists exactly what the link carries, offers to remove the VIN and serial numbers of a scan or generic OBD-II read (on by default), shows the link's length against the practical limit and copies it or hands it to the system share sheet.
+ * A button that opens a dialog for sharing a result as a link: it lists exactly what the link carries, offers to remove the VIN and serial numbers of a scan, generic OBD-II read or raw capture (on by default), shows the link's length against the practical limit and copies it or hands it to the system share sheet.
  *
  * Nothing leaves the page: the link is made here and only the user sends it.
  */
