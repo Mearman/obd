@@ -1,5 +1,5 @@
 import { captureText, isGzip, readCaptureFile, type CaptureSummary } from "obd-read";
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { CaptureViewer } from "../captures/CaptureViewer";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
@@ -60,16 +60,26 @@ export function CapturesScreen({
     }
   }, []);
 
-  async function onFile(event: ChangeEvent<HTMLInputElement>): Promise<void> {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = "";
-    if (file === undefined) return;
+  async function importFile(file: File): Promise<void> {
     await act(async () => {
       const result = await client.captures.import({ text: await fileText(file), name: file.name });
       setUnrecovered(result.unrecovered);
       setVersion((value) => value + 1);
       onOpen(result.summary.id);
     }, "That file is not a capture, a saved scan or an adapter transcript.");
+  }
+
+  async function onFile(event: ChangeEvent<HTMLInputElement>): Promise<void> {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (file !== undefined) await importFile(file);
+  }
+
+  // Dropping a file anywhere on the screen imports it like the picker does; the button stays for touch and keyboard use.
+  function onDrop(event: DragEvent<HTMLDivElement>): void {
+    event.preventDefault();
+    const file = event.dataTransfer.files[0];
+    if (file !== undefined) void importFile(file);
   }
 
   const columns: readonly Column<CaptureSummary>[] = [
@@ -125,7 +135,13 @@ export function CapturesScreen({
   ];
 
   return (
-    <div className={page}>
+    <div
+      className={page}
+      onDragOver={(event) => {
+        event.preventDefault();
+      }}
+      onDrop={onDrop}
+    >
       <ScreenHeading>Captures</ScreenHeading>
       <Card
         title="Raw captures"
@@ -142,6 +158,7 @@ export function CapturesScreen({
         <Button block onClick={() => input.current?.click()}>
           Import a capture, saved scan or transcript
         </Button>
+        <p className={muted}>Or drop the file anywhere on this screen.</p>
         {unrecovered.length > 0 && (
           <div role="status">
             <p>Some of that file could not be turned into exchanges:</p>
