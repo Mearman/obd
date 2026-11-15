@@ -3,12 +3,13 @@ import { vars } from "../theme/contract.css";
 
 export const root = style({ display: "flex", flexDirection: "column", minHeight: 0, flex: 1 });
 
-// Below this width the labels are set smaller so every tab fits a phone's width.
+// Below this width the labels are set smaller, with no gap between tabs, so every tab fits a phone's width.
 const WIDE = "screen and (min-width: 640px)";
 
 export const list = style({
   display: "flex",
-  gap: vars.space["1"],
+  gap: 0,
+  "@media": { [WIDE]: { gap: vars.space["1"] } },
   background: vars.color.surface,
   borderTop: `1px solid ${vars.color.border}`,
   // A phone narrower than the labels scrolls the bar rather than letting labels overlap.
