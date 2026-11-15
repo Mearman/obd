@@ -13,7 +13,9 @@ import { useCallback, useEffect, useState } from "react";
 import { GENERIC_CHOICE, chosenProfile, useDecodeChoices } from "../captures/decode-choices";
 import { PlaybackView } from "../captures/playback/PlaybackView";
 import { error, muted, stack } from "../screens/screen.css";
-import { Card, Select } from "../ui";
+import { Card } from "../ui";
+import { ProfilePicker } from "../profiles/ProfilePicker";
+import { useProfiles } from "../profiles/ProfilesProvider";
 
 /** The decode target for a choice: a shipped profile from the bundle, an imported one read from storage, or none. */
 async function targetFor(choice: string, storage: Storage | undefined): Promise<DecodeTarget> {
@@ -54,6 +56,7 @@ export function SharedCaptureView({
 }) {
   const { capture } = data;
   const options = useDecodeChoices();
+  const { builtin, imported } = useProfiles();
   const [choice, setChoice] = useState(() =>
     initialChoice(
       data,
@@ -102,7 +105,15 @@ export function SharedCaptureView({
           The link carries the raw requests and replies, not what any profile made of them. Choose a
           profile here to decode them; nothing is saved by choosing.
         </p>
-        <Select label="Decode with" value={choice} options={options} onValueChange={setChoice} />
+        <ProfilePicker
+          label="Decode with"
+          builtin={builtin}
+          imported={imported}
+          value={chosenProfile(choice) ?? undefined}
+          onValueChange={(name) => {
+            setChoice(name ?? GENERIC_CHOICE);
+          }}
+        />
         {current === undefined && <p className={muted}>Decoding…</p>}
         {current?.status === "failed" && (
           <p role="alert" className={error}>

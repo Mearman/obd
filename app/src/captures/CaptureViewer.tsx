@@ -13,14 +13,14 @@ import {
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
-import { useProfiles } from "../profiles/ProfilesProvider";
 import { error, muted, row, stack } from "../screens/screen.css";
 import { ShareDialog } from "../share/ShareDialog";
-import { Button, Card, Select, download } from "../ui";
+import { Button, Card, download } from "../ui";
 import { OriginBadge } from "../origin/OriginBadge";
 import { PlaybackView } from "./playback/PlaybackView";
 import { DecodedDownloads } from "./DecodedDownloads";
-import { GENERIC_CHOICE, chosenProfile, useDecodeChoices } from "./decode-choices";
+import { ProfilePicker } from "../profiles/ProfilePicker";
+import { GENERIC_CHOICE, chosenProfile } from "./decode-choices";
 
 /** The link a decoding makes: the units under a profile, or the OBD-II report under none. Only the decoded summary travels; the raw capture has its own link. */
 function decodedEnvelope(decoded: DecodedCaptureData, capture: Capture): ShareEnvelope {
@@ -61,8 +61,7 @@ export function CaptureViewer({
 }) {
   const { service } = useDiagnostics();
   const { client } = service;
-  const { imported, importText } = useProfiles();
-  const options = useDecodeChoices();
+  const { builtin, imported, importText } = useProfiles();
   const [capture, setCapture] = useState<Capture | undefined>(undefined);
   const [choice, setChoice] = useState<string | undefined>(undefined);
   const [decoded, setDecoded] = useState<DecodedCaptureData | undefined>(undefined);
@@ -151,11 +150,14 @@ export function CaptureViewer({
             A capture is decoded with whichever profile you choose here.
           </p>
         )}
-        <Select
+        <ProfilePicker
           label="Decode with"
-          value={choice ?? GENERIC_CHOICE}
-          options={options}
-          onValueChange={setChoice}
+          builtin={builtin}
+          imported={imported}
+          value={chosenProfile(choice ?? GENERIC_CHOICE) ?? undefined}
+          onValueChange={(name) => {
+            setChoice(name ?? GENERIC_CHOICE);
+          }}
         />
         <div className={row}>
           <input
