@@ -1,0 +1,596 @@
+import { deflateRawSync } from "node:zlib";
+import { describe, expect, it } from "vitest";
+import {
+  MAX_DECODED_BYTES,
+  MAX_ENCODED_LENGTH,
+  MAX_SERIES_POINTS,
+  canonicalJson,
+  decodeShare,
+  describeSharedScan,
+  encodeShare,
+  fragmentOfLink,
+  fromBase64Url,
+  isIdentifyingLabel,
+  redactScan,
+  runSummaryShareData,
+  scanShareData,
+  shareLink,
+  sharedScanReport,
+  thin,
+  toBase64Url,
+  type ScanShareData,
+  type ShareCodec,
+  type ShareEnvelope,
+} from "../src/core/share.js";
+import { parseScan } from "../src/core/scancompare.js";
+import { streamShareCodec } from "../src/web/share-codec.js";
+import { zlibShareCodec } from "../src/node/share-codec.js";
+
+const VIN = "TESTVIN0000000001";
+
+function scanData(overrides: Partial<ScanShareData> = {}): ScanShareData {
+  return {
+    taken: "2026-11-15T10:00:00+00:00",
+    profile: { name: "mercedes-w211" },
+    adapter: { label: "ELM327 v1.5" },
+    redacted: false,
+    units: [
+      {
+        unit: "engine",
+        description: "Engine control",
+        request_id: "7E0",
+        response_id: "7E8",
+        answered: true,
+        notes: [`read ${VIN} ok`],
+        identification: {
+          VIN: { hex: "544553545649", text: VIN },
+          "software version": { hex: "0102", text: `build for ${VIN}` },
+          "serial number": { hex: "AABBCCDD", text: "SN-12345" },
+        },
+        faults: [
+          { code: "P0001", status: "2F" },
+          { code: "P0002", status: "08" },
+        ],
+        freeze_frames: { P0001: "00 11 22", P0002: "no freeze frame" },
+      },
+      {
+        unit: "abs",
+        description: "Brakes",
+        request_id: "7E1",
+        response_id: "7E9",
+        answered: false,
+        notes: [],
+        identification: {},
+        faults: null,
+        freeze_frames: {},
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function engineUnit(): ScanShareData["units"][number] {
+  const unit = scanData().units[0];
+  if (unit === undefined) throw new Error("no engine unit");
+  return unit;
+}
+
+function scanEnvelope(data = scanData()): ShareEnvelope {
+  return { v: 1, kind: "scan", createdAt: 1_790_000_000_000, data };
+}
+
+function runEnvelope(): ShareEnvelope {
+  return {
+    v: 1,
+    kind: "run-summary",
+    createdAt: 1_790_000_000_000,
+    data: {
+      run: {
+        profile: "mercedes-w211",
+        adapter: "simulator://mercedes-w211",
+        startedAt: 1_790_000_000_000,
+        stoppedAt: null,
+        notes: "idle",
+      },
+      signals: [
+        {
+          signal: "engine speed",
+          unit: "rpm",
+          count: 3,
+          numericCount: 3,
+          min: 700,
+          max: 900,
+          mean: 800,
+          firstAt: 1_790_000_000_000,
+          lastAt: 1_790_000_002_000,
+          series: [
+            [0, 700],
+            [1000, 800],
+            [2000, 900],
+          ],
+        },
+      ],
+    },
+  };
+}
+
+/** A small deterministic generator, so a failing case can be replayed from its seed. */
+function random(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+    return state / 2 ** 32;
+  };
+}
+
+function randomText(next: () => number, max: number): string {
+  const alphabet = 'abcXYZ 0123456789-_/:.éü中\u{1f697}"\\';
+  const characters = Array.from(alphabet);
+  const length = Math.floor(next() * max);
+  let out = "";
+  for (let index = 0; index < length; index++) {
+    out += characters[Math.floor(next() * characters.length)] ?? "";
+  }
+  return out;
+}
+
+function randomEnvelope(seed: number): ShareEnvelope {
+  const next = random(seed);
+  const createdAt = Math.floor(next() * 2_000_000_000_000);
+  if (next() < 0.5) {
+    const units = Array.from({ length: Math.floor(next() * 6) }, (_item, unitIndex) => ({
+      unit: `unit${String(unitIndex)}`,
+      description: randomText(next, 30),
+      request_id: "7E0",
+      response_id: "7E8",
+      answered: next() < 0.5,
+      notes: Array.from({ length: Math.floor(next() * 3) }, () => randomText(next, 40)),
+      identification: Object.fromEntries(
+        Array.from({ length: Math.floor(next() * 4) }, (_value, index) => [
+          `label ${String(index)}`,
+          { hex: randomText(next, 10), text: randomText(next, 20) },
+        ]),
+      ),
+      faults:
+        next() < 0.2
+          ? null
+          : Array.from({ length: Math.floor(next() * 8) }, (_value, index) => ({
+              code: `P${String(1000 + index)}`,
+              status: randomText(next, 3),
+            })),
+      freeze_frames: Object.fromEntries(
+        Array.from({ length: Math.floor(next() * 3) }, (_value, index) => [
+          `P${String(1000 + index)}`,
+          randomText(next, 30),
+        ]),
+      ),
+    }));
+    return {
+      v: 1,
+      kind: "scan",
+      createdAt,
+      data: {
+        taken: randomText(next, 25),
+        profile: { name: `profile${String(seed)}` },
+        adapter: { label: randomText(next, 20) },
+        redacted: next() < 0.5,
+        units,
+      },
+    };
+  }
+  const signals = Array.from({ length: Math.floor(next() * 5) }, (_item, index) => ({
+    signal: `signal ${String(index)}`,
+    unit: "rpm",
+    count: 10,
+    numericCount: 10,
+    min: Math.round(next() * 100) / 10,
+    max: 100 + Math.round(next() * 100) / 10,
+    mean: null,
+    firstAt: 5,
+    lastAt: 50,
+    series: Array.from({ length: Math.floor(next() * 40) }, (_value, point): [number, number] => [
+      point * 10,
+      Math.round(next() * 1e4) / 100,
+    ]),
+  }));
+  return {
+    v: 1,
+    kind: "run-summary",
+    createdAt,
+    data: {
+      run: {
+        profile: "p",
+        adapter: "a",
+        startedAt: 5,
+        stoppedAt: next() < 0.5 ? null : 99,
+        notes: randomText(next, 30),
+      },
+      signals,
+    },
+  };
+}
+
+async function encoded(
+  envelope: ShareEnvelope,
+  codec: ShareCodec,
+  redactVin = false,
+): Promise<string> {
+  const result = await encodeShare(envelope, codec, { redactVin });
+  if (!result.ok) throw new Error(result.error.message);
+  return result.value.fragment;
+}
+
+function payload(fragment: string): string {
+  return fragment.slice(fragment.indexOf(".") + 1);
+}
+
+/** A fragment whose payload is `json` compressed as given, bypassing the encoder's own checks. */
+function forged(json: string): string {
+  return `share=1.${toBase64Url(new Uint8Array(deflateRawSync(Buffer.from(json))))}`;
+}
+
+const codecs: readonly (readonly [string, ShareCodec])[] = [
+  ["zlib", zlibShareCodec],
+  ["streams", streamShareCodec],
+];
+
+describe.each(codecs)("the %s codec", (_name, codec) => {
+  it("round trips a scan and a run summary", async () => {
+    for (const envelope of [scanEnvelope(), runEnvelope()]) {
+      const result = await decodeShare(await encoded(envelope, codec), codec);
+      expect(result).toEqual({ ok: true, value: envelope });
+    }
+  });
+
+  it("round trips random envelopes", async () => {
+    for (let seed = 1; seed <= 150; seed++) {
+      const envelope = randomEnvelope(seed);
+      const result = await decodeShare(await encoded(envelope, codec), codec);
+      expect(result, `seed ${String(seed)}`).toEqual({ ok: true, value: envelope });
+    }
+  });
+
+  it("writes the same link for the same envelope however the keys were ordered", async () => {
+    const one = scanEnvelope();
+    const reordered: ShareEnvelope = {
+      data: scanData(),
+      createdAt: one.createdAt,
+      kind: "scan",
+      v: 1,
+    };
+    expect(await encoded(reordered, codec)).toBe(await encoded(one, codec));
+  });
+
+  it("stops inflating a bomb past the decoded limit", async () => {
+    const bomb = forged(`"${"a".repeat(MAX_DECODED_BYTES * 8)}"`);
+    expect(bomb.length).toBeLessThan(MAX_ENCODED_LENGTH);
+    const result = await decodeShare(bomb, codec);
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "too-large", stage: "decoded", limit: MAX_DECODED_BYTES, exact: false },
+    });
+  });
+
+  it("reports hostile input as errors and never throws", async () => {
+    const good = await encoded(scanEnvelope(), codec);
+    const cases: readonly (readonly [string, string, string])[] = [
+      ["empty", "", "malformed"],
+      ["not a share", "other=1.abc", "malformed"],
+      ["no version", "share=abc", "malformed"],
+      ["future version", `share=2.${payload(good)}`, "unsupported-version"],
+      ["bad base64", "share=1.!!!!", "malformed"],
+      ["impossible base64 length", "share=1.A", "malformed"],
+      ["truncated", good.slice(0, Math.floor(good.length / 2)), "malformed"],
+      ["not deflate", `share=1.${toBase64Url(Uint8Array.of(1, 2, 3, 4, 5, 6, 7, 8))}`, "malformed"],
+      ["not json", forged("{not json"), "malformed"],
+      ["not an object", forged("[1,2]"), "invalid"],
+      [
+        "non ASCII bytes",
+        `share=1.${toBase64Url(new Uint8Array(deflateRawSync(Buffer.from("é"))))}`,
+        "malformed",
+      ],
+      [
+        "envelope version",
+        forged(JSON.stringify({ ...scanEnvelope(), v: 2 })),
+        "unsupported-version",
+      ],
+      [
+        "envelope kind",
+        forged(JSON.stringify({ ...scanEnvelope(), kind: "firmware" })),
+        "unsupported-kind",
+      ],
+      ["extra envelope field", forged(JSON.stringify({ ...scanEnvelope(), extra: 1 })), "invalid"],
+      [
+        "extra data field",
+        forged(JSON.stringify({ ...scanEnvelope(), data: { ...scanData(), extra: 1 } })),
+        "invalid",
+      ],
+      ["wrong type", forged(JSON.stringify({ ...scanEnvelope(), createdAt: "now" })), "invalid"],
+      ["deep nesting", forged("[".repeat(100_000)), "malformed"],
+    ];
+    for (const [name, fragment, code] of cases) {
+      const result = await decodeShare(fragment, codec);
+      expect(result.ok, name).toBe(false);
+      if (!result.ok) expect(result.error.code, name).toBe(code);
+    }
+  });
+
+  it("rejects prototype pollution keys at every level", async () => {
+    const polluted = JSON.stringify(scanEnvelope()).replace(
+      '"identification":{"VIN"',
+      '"identification":{"__proto__":{"hex":"","text":""},"VIN"',
+    );
+    expect(polluted).toContain("__proto__");
+    for (const fragment of [
+      forged(polluted),
+      forged(`{"__proto__":{"polluted":true},"v":1,"kind":"scan","createdAt":1,"data":{}}`),
+      forged(JSON.stringify(scanEnvelope()).replace('"P0001":"00 11 22"', '"constructor":"x"')),
+    ]) {
+      const result = await decodeShare(fragment, codec);
+      expect(result.ok).toBe(false);
+    }
+    expect(Reflect.get({}, "polluted")).toBeUndefined();
+  });
+
+  it("refuses an oversize link before reading it", async () => {
+    const result = await decodeShare(`share=1.${"A".repeat(MAX_ENCODED_LENGTH)}`, codec);
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "too-large", stage: "encoded", limit: MAX_ENCODED_LENGTH, exact: true },
+    });
+  });
+
+  it("refuses to write an envelope over the decoded limit, naming the size and the limit", async () => {
+    const big = scanData({
+      units: [{ ...engineUnit(), notes: Array.from({ length: 100 }, () => "x".repeat(4000)) }],
+    });
+    const result = await encodeShare(scanEnvelope(big), codec);
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "too-large", stage: "decoded", limit: MAX_DECODED_BYTES },
+    });
+    if (!result.ok) {
+      expect(result.error.message).toMatch(/limit is 262144/);
+      expect(result.error.message).toMatch(/export the file/);
+    }
+  });
+
+  it("refuses to write a link over the encoded limit", async () => {
+    const next = random(7);
+    const noisy = Array.from({ length: 60 }, () =>
+      Array.from({ length: 3500 }, () => String.fromCharCode(33 + Math.floor(next() * 90))).join(
+        "",
+      ),
+    );
+    const data = scanData({ units: [{ ...engineUnit(), notes: noisy.slice(0, 50) }] });
+    const result = await encodeShare(scanEnvelope(data), codec);
+    expect(result).toMatchObject({ ok: false, error: { code: "too-large", stage: "encoded" } });
+  });
+
+  it("refuses an envelope that does not match its schema", async () => {
+    const result = await encodeShare({ ...scanEnvelope(), createdAt: -1 }, codec);
+    expect(result).toMatchObject({ ok: false, error: { code: "invalid" } });
+  });
+
+  it("blanks the VIN, serial numbers and every other copy of them when asked", async () => {
+    const link = await encoded(scanEnvelope(), codec, true);
+    const result = await decodeShare(link, codec);
+    if (!result.ok || result.value.kind !== "scan") throw new Error("not a scan");
+    const text = JSON.stringify(result.value);
+    expect(text).not.toContain(VIN);
+    expect(text).not.toContain("SN-12345");
+    expect(text).not.toContain("AABBCCDD");
+    expect(result.value.data.redacted).toBe(true);
+    const engine = result.value.data.units[0];
+    expect(engine?.identification.VIN).toEqual({ hex: "", text: "" });
+    expect(engine?.identification["software version"]?.text).toBe("build for [redacted]");
+    expect(engine?.notes).toEqual(["read [redacted] ok"]);
+    expect(engine?.faults).toEqual(scanData().units[0]?.faults);
+  });
+
+  it("keeps the VIN when not asked to blank it", async () => {
+    const result = await decodeShare(await encoded(scanEnvelope(), codec), codec);
+    expect(JSON.stringify(result)).toContain(VIN);
+  });
+});
+
+describe("the two codecs", () => {
+  it("read each other's links", async () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const envelope = randomEnvelope(seed);
+      const written = await encoded(envelope, zlibShareCodec);
+      expect(await decodeShare(written, streamShareCodec)).toEqual({ ok: true, value: envelope });
+      const other = await encoded(envelope, streamShareCodec);
+      expect(await decodeShare(other, zlibShareCodec)).toEqual({ ok: true, value: envelope });
+    }
+  });
+});
+
+describe("base64url", () => {
+  it("round trips every length and rejects what is not its alphabet", () => {
+    const next = random(3);
+    for (let length = 0; length < 40; length++) {
+      const bytes = Uint8Array.from({ length }, () => Math.floor(next() * 256));
+      const text = toBase64Url(bytes);
+      expect(text).toMatch(/^[A-Za-z0-9_-]*$/);
+      expect(fromBase64Url(text)).toEqual(bytes);
+    }
+    expect(fromBase64Url("ab+/")).toBeUndefined();
+    expect(fromBase64Url("abcde")).toBeUndefined();
+    expect(fromBase64Url("QR")).toBeUndefined();
+  });
+});
+
+describe("canonical JSON", () => {
+  it("sorts keys and writes only ASCII", () => {
+    expect(canonicalJson({ b: 1, a: { d: "é", c: [2, { z: 1, y: 2 }] } })).toBe(
+      '{"a":{"c":[2,{"y":2,"z":1}],"d":"\\u00e9"},"b":1}',
+    );
+  });
+});
+
+describe("links", () => {
+  it("replaces any fragment already on the base and finds a share in a whole link or a hash", () => {
+    const link = shareLink("https://example.com/obd/#old", "share=1.abc");
+    expect(link).toBe("https://example.com/obd/#share=1.abc");
+    expect(fragmentOfLink(link)).toBe("share=1.abc");
+    expect(fragmentOfLink("#share=1.abc")).toBe("share=1.abc");
+    expect(fragmentOfLink("https://example.com/obd/#other")).toBeUndefined();
+    expect(fragmentOfLink("https://example.com/obd/")).toBeUndefined();
+  });
+});
+
+describe("redaction", () => {
+  it("blanks labels that name a VIN or a serial number and no others", () => {
+    expect(
+      ["VIN", "vin number", "Vehicle Identification Number", "serial number"].map(
+        isIdentifyingLabel,
+      ),
+    ).toEqual([true, true, true, true]);
+    expect(["software version", "part number", "identification"].some(isIdentifyingLabel)).toBe(
+      false,
+    );
+  });
+
+  it("changes nothing else about the scan", () => {
+    const original = scanData();
+    const redacted = redactScan(original);
+    expect(redacted.units[1]).toEqual(original.units[1]);
+    expect(redacted.units[0]?.faults).toEqual(original.units[0]?.faults);
+    expect(original.units[0]?.identification.VIN?.text).toBe(VIN);
+  });
+});
+
+describe("a saved scan", () => {
+  const saved = {
+    tool: "obd-read",
+    taken: "2026-11-15T10:00:00+00:00",
+    profile: { name: "mercedes-w211", status: "x" },
+    adapter: { identity: "ELM327 v1.5", description: null, stn_identity: null, voltage: "12.4V" },
+    units: scanData().units,
+    transcript: [`> 0902`, `< ${VIN}`],
+  };
+
+  it("is shared without its transcript or adapter address", () => {
+    const result = scanShareData(saved);
+    if (!result.ok) throw new Error(result.error.message);
+    expect(JSON.stringify(result.value)).not.toContain("0902");
+    expect(result.value.adapter).toEqual({ label: "ELM327 v1.5" });
+    expect(result.value.units).toEqual(scanData().units);
+  });
+
+  it("rejects what is not a scan report or holds a forbidden key", () => {
+    expect(scanShareData({ tool: "other" }).ok).toBe(false);
+    expect(scanShareData(null).ok).toBe(false);
+    const hostile: unknown = JSON.parse(
+      JSON.stringify(saved).replace(
+        '"freeze_frames":{"P0001"',
+        '"freeze_frames":{"__proto__":"x","P0001"',
+      ),
+    );
+    expect(scanShareData(hostile).ok).toBe(false);
+  });
+
+  it("is stored in the form compare and describe read, marked as shared", () => {
+    const report = sharedScanReport(scanData());
+    expect(report.origin).toBe("shared");
+    const parsed = parseScan(JSON.stringify(report), "shared");
+    expect(parsed.units.get("engine")?.faults?.get("P0001")).toEqual(["2F"]);
+    expect(report.transcript).toEqual([]);
+  });
+
+  it("is described for the command line, saying whether the VIN was removed", () => {
+    const lines = describeSharedScan(redactScan(scanData()), 1_790_000_000_000);
+    expect(lines[0]).toMatch(/^shared scan \(taken 2026-11-15/);
+    expect(lines).toContain("VIN and serial numbers were removed before sharing");
+    expect(lines).toContain("  fault P0001 status 2F");
+    expect(lines).toContain("    freeze frame 00 11 22");
+    expect(lines.join("\n")).not.toContain(VIN);
+  });
+});
+
+describe("a run summary", () => {
+  it("thins a long series to the bound, keeping the first and last readings", () => {
+    const run = {
+      id: "r",
+      profile: "p",
+      adapter: "a",
+      startedAt: 1000,
+      stoppedAt: 99_000,
+      notes: "",
+    };
+    const samples = Array.from({ length: 5000 }, (_item, index) => ({
+      runId: "r",
+      signal: "speed",
+      unit: "km/h",
+      timestamp: 1000 + index * 10,
+      value: index % 7 === 0 ? "n/a" : index,
+    }));
+    const aggregate = {
+      signal: "speed",
+      unit: "km/h",
+      count: 5000,
+      numericCount: 4285,
+      min: 1,
+      max: 4999,
+      mean: 2500.123_456,
+      firstAt: 1000,
+      lastAt: 50_990,
+    };
+    const summary = runSummaryShareData(run, [aggregate], samples.toReversed());
+    const series = summary.signals[0]?.series ?? [];
+    expect(series).toHaveLength(MAX_SERIES_POINTS);
+    expect(series[0]).toEqual([10, 1]);
+    expect(series.at(-1)).toEqual([49_990, 4999]);
+    expect(
+      series.every(([time], index) => index === 0 || time > (series[index - 1]?.[0] ?? 0)),
+    ).toBe(true);
+    expect(summary.signals[0]?.mean).toBe(2500.1235);
+  });
+
+  it("thins to at most the limit", () => {
+    expect(thin([1, 2, 3], 5)).toEqual([1, 2, 3]);
+    expect(thin([1, 2, 3, 4, 5, 6], 3)).toEqual([1, 4, 6]);
+    expect(thin([1, 2, 3], 1)).toEqual([1]);
+  });
+
+  it("stays under the practical link length for a typical run", async () => {
+    const run = {
+      id: "r",
+      profile: "mercedes-w211",
+      adapter: "ble://vLinker",
+      startedAt: 0,
+      stoppedAt: 600_000,
+      notes: "",
+    };
+    const next = random(11);
+    const names = ["engine speed", "coolant temperature", "vehicle speed", "throttle"];
+    const samples = names.flatMap((signal) =>
+      Array.from({ length: 600 }, (_item, index) => ({
+        runId: "r",
+        signal,
+        unit: "u",
+        timestamp: index * 1000,
+        value: Math.round(next() * 1000) / 10,
+      })),
+    );
+    const aggregates = names.map((signal) => ({
+      signal,
+      unit: "u",
+      count: 600,
+      numericCount: 600,
+      min: 0,
+      max: 100,
+      mean: 50,
+      firstAt: 0,
+      lastAt: 599_000,
+    }));
+    const summary = runSummaryShareData(run, aggregates, samples);
+    const result = await encodeShare(
+      { v: 1, kind: "run-summary", createdAt: 1, data: summary },
+      zlibShareCodec,
+    );
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.value.fragment.length).toBeLessThan(MAX_ENCODED_LENGTH);
+  });
+});

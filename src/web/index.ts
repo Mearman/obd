@@ -24,3 +24,4 @@ export * from "../service/storage-link.js";
 export * from "../service/transport-link.js";
 export * from "./worker-host.js";
 export * from "./usb.js";
+export * from "./share-codec.js";
