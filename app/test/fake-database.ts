@@ -31,6 +31,8 @@ export function readySession(control: DatabaseControl = fakeControl()): Database
   return {
     connection: Promise.resolve({ storage: new MemoryStorage(), control }),
     subscribe: () => () => undefined,
+    busy: () => false,
+    subscribeBusy: () => () => undefined,
     close: () => undefined,
   };
 }
@@ -39,5 +41,11 @@ export function readySession(control: DatabaseControl = fakeControl()): Database
 export function unavailableSession(reason: "in-use" | "unsupported"): DatabaseSession {
   const connection = Promise.reject(new DatabaseUnavailableError(reason, `database ${reason}`));
   connection.catch(() => undefined);
-  return { connection, subscribe: () => () => undefined, close: () => undefined };
+  return {
+    connection,
+    subscribe: () => () => undefined,
+    busy: () => false,
+    subscribeBusy: () => () => undefined,
+    close: () => undefined,
+  };
 }

@@ -242,4 +242,53 @@ describe("sharing the database between tabs", () => {
     second.shared.close();
     await expect(listed).rejects.toBeInstanceOf(SessionClosedError);
   });
+
+  describe("busy, which an update waits for", () => {
+    it("holds while a follower's write runs on the leader, in both tabs, and clears once it answers", async () => {
+      const origin = new FakeOrigin();
+      const first = origin.tab("first");
+      await storageOf(first);
+      const second = origin.tab("second");
+      const secondStorage = await storageOf(second);
+      await vi.waitFor(() => {
+        expect(first.shared.busy() || second.shared.busy()).toBe(false);
+      });
+
+      origin.database.gate = { methods: new Set(["createRun"]), place: "before" };
+      const created = secondStorage.createRun(RUN);
+      await vi.waitFor(() => {
+        expect(origin.database.waiting).toBe(1);
+      });
+      expect(second.shared.busy()).toBe(true);
+      // The leader serves the call: a reload of the leader now would leave the follower not knowing whether it was saved.
+      expect(first.shared.busy()).toBe(true);
+
+      origin.database.gate = undefined;
+      origin.database.releaseHeld();
+      await created;
+      await vi.waitFor(() => {
+        expect(first.shared.busy()).toBe(false);
+        expect(second.shared.busy()).toBe(false);
+      });
+    });
+
+    it("tells its listeners when it changes", async () => {
+      const origin = new FakeOrigin();
+      const tab = origin.tab("tab");
+      const storage = await storageOf(tab);
+      const changes: boolean[] = [];
+      tab.shared.subscribeBusy(() => changes.push(tab.shared.busy()));
+      await storage.listRuns();
+      expect(changes).toContain(true);
+      expect(changes.at(-1)).toBe(false);
+    });
+
+    it("is not busy while waiting for a tab that cannot share, so such a tab can still update", async () => {
+      const origin = new FakeOrigin(20);
+      origin.locks.hold("older-version", DATABASE_LOCK);
+      const tab = origin.tab("tab");
+      await expect(tab.shared.connection).rejects.toMatchObject({ reason: "in-use" });
+      expect(tab.shared.busy()).toBe(false);
+    });
+  });
 });

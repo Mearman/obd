@@ -8,6 +8,8 @@
  * When the leader goes away the browser releases its lock and grants it to the next queued worker, whose tab becomes the leader, opens the database and announces itself; a new leader therefore always means the old one is gone. Each follower then sends its unanswered calls to the new leader. A call the old leader never acknowledged never ran, so it is sent again whatever it does. A call it acknowledged but did not answer may have run, so it is sent again once only when running it twice leaves the same data ({@link REPEATABLE}); otherwise it fails with {@link HandoverError}, never silently lost and never stored twice.
  *
  * After every write the leader tells every tab, itself included, that the data changed, so lists elsewhere are read again.
+ *
+ * A tab reports itself busy while a call it made is in flight, or while its own connection runs a call for any tab, so the updater never reloads a tab in the middle of a write or while it serves another tab's call.
  */
 import { StorageError, type Storage } from "obd-read";
 import { remoteStorage, serveStorage, type SupportedMessagePort } from "obd-read/web";
@@ -200,6 +202,10 @@ export interface SharedDatabase {
   readonly connection: Promise<DatabaseConnection>;
   /** Calls `listener` after any tab's write. Returns the unsubscribe. */
   subscribe(listener: () => void): () => void;
+  /** Whether a call is in flight: one this tab made, wherever it runs, or one this tab runs for another while it leads. A reload now could lose it, so the updater waits. */
+  busy(): boolean;
+  /** Calls `listener` whenever {@link busy} may have changed. Returns the unsubscribe. */
+  subscribeBusy(listener: () => void): () => void;
   /** Stops taking part: pending calls reject with {@link SessionClosedError} and the channel closes. The caller ends the worker, which releases the lock. */
   close(): void;
 }
@@ -224,6 +230,34 @@ export function shareDatabase(options: TabShareOptions): SharedDatabase {
   /** Leader side: the virtual ports of other tabs' calls being served, by call id. */
   const served = new Map<string, VirtualPort>();
   const listeners = new Set<() => void>();
+  /** This tab's own calls that have not settled, wherever they run. */
+  let ownCalls = 0;
+  /** Calls running on this tab's own connection while it leads, other tabs' included. */
+  let localCalls = 0;
+  /** Other tabs' calls this tab accepted and has not yet answered. Counted from acceptance, not from when the call reaches the connection, so a reload can never fall between the two. */
+  let servedCalls = 0;
+  const busyListeners = new Set<() => void>();
+  const busyChanged = (): void => {
+    for (const listener of [...busyListeners]) listener();
+  };
+  /** Counts `work` in `which` until it settles. */
+  const counted = <T>(which: "own" | "local", work: Promise<T>): Promise<T> => {
+    const step = (by: number): void => {
+      if (which === "own") ownCalls += by;
+      else localCalls += by;
+      busyChanged();
+    };
+    step(1);
+    work.then(
+      () => {
+        step(-1);
+      },
+      () => {
+        step(-1);
+      },
+    );
+    return work;
+  };
 
   const post = (message: TabMessage): void => {
     if (!closed) channel.postMessage(message);
@@ -241,7 +275,7 @@ export function shareDatabase(options: TabShareOptions): SharedDatabase {
   /** This tab's own connection, which exists only once it leads. Writes through it announce a change. */
   const local = new Promise<DatabaseConnection>((resolve, reject) => {
     resolveLocal = (connection) => {
-      resolve(observeWrites(connection, changed));
+      resolve(observeCalls(connection, changed, (work) => counted("local", work)));
     };
     rejectLocal = reject;
   });
@@ -250,6 +284,7 @@ export function shareDatabase(options: TabShareOptions): SharedDatabase {
   const setLeader = (next: string): void => {
     if (leader === next) return;
     leader = next;
+    busyChanged();
     for (const call of [...pending]) call.route();
   };
 
@@ -262,86 +297,89 @@ export function shareDatabase(options: TabShareOptions): SharedDatabase {
     work: (target: Target, repeat: boolean) => Promise<T>,
   ): Promise<T> {
     const repeatable = REPEATABLE[operation];
-    return new Promise<T>((resolve, reject) => {
-      /** The call in flight on a leader in another tab. */
-      let attempt: { readonly call: string; readonly to: string } | undefined;
-      let repeat = false;
-      const finish = (outcome: () => void): void => {
-        pending.delete(entry);
-        if (attempt !== undefined) {
-          calls.delete(attempt.call);
-          post({ kind: "done", call: attempt.call, to: attempt.to });
-          attempt = undefined;
-        }
-        outcome();
-      };
-      const entry: Pending = {
-        route: () => {
-          const previous = attempt === undefined ? undefined : calls.get(attempt.call);
-          if (attempt !== undefined) calls.delete(attempt.call);
-          attempt = undefined;
-          previous?.port.disconnect();
-          if (closed) {
-            finish(() => {
-              reject(new SessionClosedError("The database session was closed."));
-            });
-            return;
+    return counted(
+      "own",
+      new Promise<T>((resolve, reject) => {
+        /** The call in flight on a leader in another tab. */
+        let attempt: { readonly call: string; readonly to: string } | undefined;
+        let repeat = false;
+        const finish = (outcome: () => void): void => {
+          pending.delete(entry);
+          if (attempt !== undefined) {
+            calls.delete(attempt.call);
+            post({ kind: "done", call: attempt.call, to: attempt.to });
+            attempt = undefined;
           }
-          if (previous?.accepted === true) {
-            if (!repeatable || repeat) {
+          outcome();
+        };
+        const entry: Pending = {
+          route: () => {
+            const previous = attempt === undefined ? undefined : calls.get(attempt.call);
+            if (attempt !== undefined) calls.delete(attempt.call);
+            attempt = undefined;
+            previous?.port.disconnect();
+            if (closed) {
               finish(() => {
-                reject(
-                  new HandoverError(
-                    "The tab that held the database closed before it answered, so it is not known whether this was saved.",
-                  ),
-                );
+                reject(new SessionClosedError("The database session was closed."));
               });
               return;
             }
-            repeat = true;
-          }
-          if (leader === undefined) return;
-          if (leader === id) {
-            finish(() => {
-              const again = repeat;
-              void local
-                .then((connection) => work(route.local(connection), again))
-                .then(resolve, reject);
+            if (previous?.accepted === true) {
+              if (!repeatable || repeat) {
+                finish(() => {
+                  reject(
+                    new HandoverError(
+                      "The tab that held the database closed before it answered, so it is not known whether this was saved.",
+                    ),
+                  );
+                });
+                return;
+              }
+              repeat = true;
+            }
+            if (leader === undefined) return;
+            if (leader === id) {
+              finish(() => {
+                const again = repeat;
+                void local
+                  .then((connection) => work(route.local(connection), again))
+                  .then(resolve, reject);
+              });
+              return;
+            }
+            nextCall += 1;
+            const call = `${id}/${String(nextCall)}`;
+            const to = leader;
+            let first = true;
+            const port = virtualPort((payload) => {
+              post({ kind: "frame", call, service: route.service, from: id, to, first, payload });
+              first = false;
             });
-            return;
-          }
-          nextCall += 1;
-          const call = `${id}/${String(nextCall)}`;
-          const to = leader;
-          let first = true;
-          const port = virtualPort((payload) => {
-            post({ kind: "frame", call, service: route.service, from: id, to, first, payload });
-            first = false;
-          });
-          calls.set(call, { port, accepted: false });
-          const current = { call, to };
-          attempt = current;
-          work(route.remote(port), repeat).then(
-            (value) => {
-              if (attempt === current) {
-                finish(() => {
-                  resolve(value);
-                });
-              }
-            },
-            (error: unknown) => {
-              if (attempt === current) {
-                finish(() => {
-                  reject(asError(error));
-                });
-              }
-            },
-          );
-        },
-      };
-      pending.add(entry);
-      entry.route();
-    });
+            calls.set(call, { port, accepted: false });
+            const current = { call, to };
+            attempt = current;
+            work(route.remote(port), repeat).then(
+              (value) => {
+                if (attempt === current) {
+                  finish(() => {
+                    resolve(value);
+                  });
+                }
+              },
+              (error: unknown) => {
+                if (attempt === current) {
+                  finish(() => {
+                    reject(asError(error));
+                  });
+                }
+              },
+            );
+          },
+        };
+        pending.add(entry);
+        entry.route();
+      }),
+    );
   }
 
   /** Serves a call another tab sent this tab while it leads. */
@@ -352,7 +390,16 @@ export function shareDatabase(options: TabShareOptions): SharedDatabase {
       return;
     }
     if (!frame.first) return;
+    // Storage and control calls are request and answer: the first frame back is the answer, error or not.
+    let answered = false;
+    servedCalls += 1;
+    busyChanged();
     const port = virtualPort((payload) => {
+      if (!answered) {
+        answered = true;
+        servedCalls -= 1;
+        busyChanged();
+      }
       post({
         kind: "frame",
         call: frame.call,
@@ -450,6 +497,14 @@ export function shareDatabase(options: TabShareOptions): SharedDatabase {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
+      };
+    },
+    // A call made before any tab has led waits for a leader that may never come (an older tab holding the lock cannot answer), so it holds nothing a reload would lose.
+    busy: () => localCalls > 0 || servedCalls > 0 || (leader !== undefined && ownCalls > 0),
+    subscribeBusy(listener) {
+      busyListeners.add(listener);
+      return () => {
+        busyListeners.delete(listener);
       };
     },
     close() {
@@ -560,40 +615,46 @@ function sharedControl(dispatch: Dispatch): DatabaseControl {
   };
 }
 
-/** The leader's own connection, announcing a change after each write succeeds. */
-function observeWrites(connection: DatabaseConnection, changed: () => void): DatabaseConnection {
-  const after = async <T>(work: Promise<T>): Promise<T> => {
-    const value = await work;
-    changed();
-    return value;
-  };
+/** The leader's own connection, counting every call while it runs (`track`) and announcing a change after each write succeeds. */
+function observeCalls(
+  connection: DatabaseConnection,
+  changed: () => void,
+  track: <T>(work: Promise<T>) => Promise<T>,
+): DatabaseConnection {
+  const after = <T>(work: Promise<T>): Promise<T> =>
+    track(
+      work.then((value) => {
+        changed();
+        return value;
+      }),
+    );
   const { storage: s, control: c } = connection;
   return {
     storage: {
       createRun: (input) => after(s.createRun(input)),
       stopRun: (runId, stoppedAt) => after(s.stopRun(runId, stoppedAt)),
       setRunNotes: (runId, notes) => after(s.setRunNotes(runId, notes)),
-      getRun: (runId) => s.getRun(runId),
-      listRuns: (query) => s.listRuns(query),
+      getRun: (runId) => track(s.getRun(runId)),
+      listRuns: (query) => track(s.listRuns(query)),
       deleteRun: (runId) => after(s.deleteRun(runId)),
       appendSamples: (samples) => after(s.appendSamples(samples)),
-      readSamples: (query) => s.readSamples(query),
-      aggregate: (query) => s.aggregate(query),
+      readSamples: (query) => track(s.readSamples(query)),
+      aggregate: (query) => track(s.aggregate(query)),
       saveScanReport: (input) => after(s.saveScanReport(input)),
-      getScanReport: (reportId) => s.getScanReport(reportId),
-      listScanReports: (query) => s.listScanReports(query),
+      getScanReport: (reportId) => track(s.getScanReport(reportId)),
+      listScanReports: (query) => track(s.listScanReports(query)),
       deleteScanReport: (reportId) => after(s.deleteScanReport(reportId)),
       saveProfile: (profile) => after(s.saveProfile(profile)),
-      getProfile: (name) => s.getProfile(name),
-      listProfiles: () => s.listProfiles(),
+      getProfile: (name) => track(s.getProfile(name)),
+      listProfiles: () => track(s.listProfiles()),
       saveCapture: (capture, origin) => after(s.saveCapture(capture, origin)),
-      getCapture: (captureId) => s.getCapture(captureId),
-      listCaptures: (query) => s.listCaptures(query),
+      getCapture: (captureId) => track(s.getCapture(captureId)),
+      listCaptures: (query) => track(s.listCaptures(query)),
       deleteCapture: (captureId) => after(s.deleteCapture(captureId)),
     },
     control: {
-      info: () => c.info(),
-      exportFile: () => c.exportFile(),
+      info: () => track(c.info()),
+      exportFile: () => track(c.exportFile()),
       importFile: (bytes) => after(c.importFile(bytes)),
     },
   };
