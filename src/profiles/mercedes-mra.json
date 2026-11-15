@@ -1,0 +1,40 @@
+{
+  "notes": "Mercedes-Benz C-Class W205, E-Class W213 and S-Class W222 (the MRA rear-wheel-drive platform), the units the OBD socket answers on 11-bit identifiers.\n\nThe source is the OBDb response records (CC-BY-SA-4.0; only the request header, response header and service are used here, never a signal definition): each is the request and reply a car returned to an OBDb user, filed by US model year, which OBDb's generation dates map to a chassis. The model year is all a record says about the car; no market, engine or VIN.\n\nThe protocol and session are UDS and its default session 0x01. That is an inference from the replies, which answer two-byte data identifiers with service 22 and never service 21; no source opened says these units speak UDS or accept 10 01, and no record shows a session being opened. A unit that refuses it is reported in its scan notes.\n\nThe same cars also answer the legislated OBD requests on 29-bit identifiers (functional 18DB33F1), which this profile does not carry. Some sources describe W222 and later facelifted W213 cars as DoIP cars; the 2016 S-Class record shows at least one W222 answering on the CAN pins.\n\nLeft out: the 0x624 request with a reply on 0x5A4 that OBDb's make-level file reads, which no Mercedes record answered; replies on 0x7E8 to requests sent to 0x7E5 by a 2015 C 180 and a 2016 E-Class, which do not fit a 0x7E5 unit; and everything behind the central gateway, for which no source opened gives identifiers. Treat every row as unconfirmed until obd-read probe shows the unit answering.",
+  "name": "mercedes-mra",
+  "description": "Mercedes-Benz C-Class W205, E-Class W213 and S-Class W222 (MRA), UDS units on 11-bit CAN",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 1
+  },
+  "units": {
+    "engine": {
+      "description": "Engine control unit",
+      "request": 2016,
+      "response": 2024,
+      "source": "OBDb response record: a 2018 model-year E-Class (https://github.com/OBDb/Mercedes-Benz-E-Class/blob/main/tests/test_cases/2018/command_support.yaml), W213 by OBDb's generation dates, answered 22 2017, 22 2030, 22 2071 and 22 2095 sent to 0x7E0 with replies on 0x7E8. One car. Not read from a car by this project."
+    },
+    "transmission": {
+      "description": "Transmission control unit",
+      "request": 2017,
+      "response": 2025,
+      "source": "OBDb response record: the same 2018 E-Class (https://github.com/OBDb/Mercedes-Benz-E-Class/blob/main/tests/test_cases/2018/command_support.yaml) answered 22 0230 sent to 0x7E1 with a reply on 0x7E9, and did not answer 21 30, 21 34 or 22 0234. One car. Not read from a car by this project."
+    },
+    "esp": {
+      "description": "Unit answering wheel speeds and accelerations on 0x7E2 (brake control, by what OBDb reads from it; not named in the source)",
+      "request": 2018,
+      "response": 2026,
+      "source": "OBDb response records: 22 2001 and 22 2002 sent to 0x7E2 answered on 0x7EA by C-Class cars of model years 2017, 2018 and 2019 (https://github.com/OBDb/Mercedes-Benz-C-Class/blob/main/tests/test_cases/2017/command_support.yaml, https://github.com/OBDb/Mercedes-Benz-C-Class/blob/main/tests/test_cases/2018/command_support.yaml, https://github.com/OBDb/Mercedes-Benz-C-Class/blob/main/tests/test_cases/2019/command_support.yaml; W205 by OBDb's dates), E-Class cars of 2018 to 2021 (https://github.com/OBDb/Mercedes-Benz-E-Class/blob/main/tests/test_cases/2018/command_support.yaml, https://github.com/OBDb/Mercedes-Benz-E-Class/blob/main/tests/test_cases/2019/command_support.yaml, https://github.com/OBDb/Mercedes-Benz-E-Class/blob/main/tests/test_cases/2020/command_support.yaml, https://github.com/OBDb/Mercedes-Benz-E-Class/blob/main/tests/test_cases/2021/command_support.yaml; W213) and a 2016 S-Class (https://github.com/OBDb/Mercedes-Benz-S-Class/blob/main/tests/test_cases/2016/command_support.yaml; W222). Not read from a car by this project."
+    },
+    "unit-7e5": {
+      "description": "Unit on 0x7E5 that OBDb reads the 12 V and high-voltage battery values from; not named in the source",
+      "request": 2021,
+      "response": 2029,
+      "source": "OBDb response records: 22 2005 and 22 6050, 6053, 6071 and 6075 sent to 0x7E5 answered on 0x7ED by E-Class cars of model years 2018 to 2021 (https://github.com/OBDb/Mercedes-Benz-E-Class/blob/main/tests/test_cases/2018/command_support.yaml, https://github.com/OBDb/Mercedes-Benz-E-Class/blob/main/tests/test_cases/2019/command_support.yaml, https://github.com/OBDb/Mercedes-Benz-E-Class/blob/main/tests/test_cases/2020/command_support.yaml, https://github.com/OBDb/Mercedes-Benz-E-Class/blob/main/tests/test_cases/2021/command_support.yaml; W213), and the same identifiers by a 2024 EQV (https://github.com/OBDb/Mercedes-Benz-EQV/blob/main/tests/test_cases/2024/command_support.yaml; W447). Whether the unit is the same on a car without a high-voltage battery is not stated. Not read from a car by this project."
+    }
+  }
+}
