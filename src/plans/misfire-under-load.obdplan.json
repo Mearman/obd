@@ -1,0 +1,68 @@
+{
+  "format": "obd-read-plan",
+  "version": 1,
+  "name": "misfire-under-load",
+  "title": "Misfire counters under revs",
+  "description": "An idle baseline, a minute at steady revs and three quick blips, with the misfire counters and the fault codes read before and after each phase, so a rise in a cylinder's count is tied to the phase. The person works the pedal with the car parked, handbrake on, in neutral or P, in a ventilated space; that loads the engine far less than driving, so a misfire that shows only on the road may not show here. Many diesel engines report no misfire monitor, and the counters then read as empty.",
+  "source": "The legislated misfire monitor results of mode 06 (SAE J1979): monitor A1 for the whole engine and A2 to AD for each cylinder, with the average count over the last ten driving cycles and the count of the latest cycle, as src/core/obd.ts reads them. Counts may only update at the end of a driving cycle, so an unchanged count within this plan does not prove there was no misfire.",
+  "needs": { "values": "all" },
+  "phases": [
+    {
+      "id": "idle-baseline",
+      "title": "Idle baseline",
+      "instruction": "Parked, handbrake on, in neutral or P, ventilated: start the engine if it is not running and let it idle without touching the pedal.",
+      "reads": {
+        "start": ["misfire-counters", "stored-codes", "pending-codes"],
+        "end": ["misfire-counters", "stored-codes", "pending-codes"]
+      },
+      "start": {
+        "when": { "kind": "value", "value": "engine-speed", "op": ">", "than": 300, "for": 3 },
+        "timeout": 120,
+        "onTimeout": "fail"
+      },
+      "end": { "when": { "kind": "elapsed", "seconds": 60 }, "timeout": 90, "onTimeout": "skip" }
+    },
+    {
+      "id": "steady-revs",
+      "title": "Steady revs",
+      "instruction": "Still parked, handbrake on, in neutral or P: hold the engine between 2000 and 2500 rpm with the pedal until told to stop.",
+      "reads": {
+        "start": ["misfire-counters"],
+        "end": ["misfire-counters", "stored-codes", "pending-codes"]
+      },
+      "end": {
+        "when": {
+          "kind": "value",
+          "value": "engine-speed",
+          "op": "between",
+          "min": 2000,
+          "max": 2500,
+          "for": 60
+        },
+        "timeout": 240,
+        "onTimeout": "skip"
+      }
+    },
+    {
+      "id": "blip",
+      "title": "Quick blip",
+      "instruction": "Parked, handbrake on, in neutral or P: press the pedal briskly until the engine passes 3000 rpm, then release it at once and let it settle.",
+      "sample": { "values": ["engine-speed"], "every": "fastest" },
+      "repeat": { "times": 3 },
+      "reads": {
+        "start": ["misfire-counters"],
+        "end": ["misfire-counters", "stored-codes", "pending-codes"]
+      },
+      "start": {
+        "when": { "kind": "value", "value": "engine-speed", "op": ">", "than": 3000 },
+        "timeout": 60,
+        "onTimeout": "skip"
+      },
+      "end": {
+        "when": { "kind": "value", "value": "engine-speed", "op": "<", "than": 1200, "for": 2 },
+        "timeout": 30,
+        "onTimeout": "skip"
+      }
+    }
+  ]
+}
