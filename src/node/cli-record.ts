@@ -8,21 +8,35 @@ import type { Elm } from "../core/elm.js";
 import { OptionError } from "../core/options.js";
 import { confirmPrompt } from "../core/plan-condition.js";
 import {
+  PLAN_FILE_SUFFIX,
   PlanError,
-  describeCondition,
+  describePlanVersion,
+  planIdentity,
   parsePlan,
   parsePlanText,
   type Plan,
-  type PlanPhase,
 } from "../core/plan.js";
 import {
   PlanRunner,
-  describeWait,
   type PlanEvent,
   type PlanResult,
   type ReadResult,
 } from "../core/plan-runner.js";
 import { exportRunDelimitedText, exportRunJson } from "../core/run-export.js";
+import {
+  decodeShare,
+  describeLinkLength,
+  encodeShare,
+  fragmentOfLink,
+  shareLink,
+} from "../core/share.js";
+import { describePlan, planEnvelope } from "../core/share-plan.js";
+import { zlibShareCodec } from "./share-codec.js";
+
+/** The app's address a plan link points at unless `--base` gives another. */
+const DEFAULT_APP_ADDRESS = "https://mearman.github.io/obd/";
+
+export { describePlan } from "../core/share-plan.js";
 import type { Dialect } from "../core/tabular.js";
 import { MemoryStorage } from "../core/testing/memory-storage.js";
 import type { LineSink } from "../core/unit-access.js";
@@ -77,42 +91,6 @@ export function asksToConfirm(plan: Plan): boolean {
   );
 }
 
-function iterationsOf(phase: PlanPhase): string {
-  const repeat = phase.repeat;
-  if (repeat === undefined) return "";
-  return "times" in repeat
-    ? `, ${String(repeat.times)} times`
-    : `, until ${describeCondition(repeat.until)}, at most ${String(repeat.max)} times`;
-}
-
-/** The lines `plan show` prints for one plan. */
-export function describePlan(plan: Plan): string[] {
-  const lines = [
-    `${plan.name}: ${plan.title}`,
-    plan.description,
-    `source: ${plan.source}`,
-    `values: ${plan.needs.values === "all" ? "every value the car supports" : plan.needs.values.join(", ")}`,
-  ];
-  if (plan.needs.profile !== undefined) lines.push(`profile: ${plan.needs.profile}`);
-  plan.phases.forEach((phase, index) => {
-    lines.push("");
-    lines.push(`phase ${String(index + 1)}: ${phase.id}, ${phase.title}${iterationsOf(phase)}`);
-    lines.push(`  ${phase.instruction}`);
-    const every =
-      phase.sample.every === "fastest"
-        ? "as fast as the adapter allows"
-        : `every ${String(phase.sample.every)} s`;
-    lines.push(`  samples ${phase.sample.values?.join(", ") ?? "the plan's values"} ${every}`);
-    if (phase.start !== undefined) lines.push(`  starts when ${describeWait(phase.start)}`);
-    lines.push(`  ends when ${describeWait(phase.end)}`);
-    if (phase.reads.start.length > 0)
-      lines.push(`  reads at start: ${phase.reads.start.join(", ")}`);
-    if (phase.reads.end.length > 0) lines.push(`  reads at end: ${phase.reads.end.join(", ")}`);
-    if (phase.watchCodes) lines.push("  watches the fault code lists throughout");
-  });
-  return lines;
-}
-
 /**
  * Runs `plan list`, `plan show` or `plan validate`.
  *
@@ -123,8 +101,57 @@ export async function planCommand(
   io: PlanIo,
   subcommand: string,
   targets: readonly string[],
+  options: { readonly base?: string | undefined; readonly output?: string | undefined } = {},
 ): Promise<number> {
   switch (subcommand) {
+    case "share": {
+      const [target] = targets;
+      if (target === undefined) throw new OptionError("name a plan to share");
+      const plan = await loadPlan(io.directory, target);
+      const encoded = await encodeShare(planEnvelope(plan, Date.now()), zlibShareCodec);
+      if (!encoded.ok)
+        throw new PlanError([encoded.error.message], target, "cannot share the plan");
+      const link = shareLink(options.base ?? DEFAULT_APP_ADDRESS, encoded.value.fragment);
+      io.out(link);
+      io.err(`${describePlanVersion(planIdentity(plan))}; ${describeLinkLength(link.length)}\n`);
+      return 0;
+    }
+    case "import": {
+      const [link] = targets;
+      if (link === undefined) throw new OptionError("give a plan link to import");
+      const fragment = fragmentOfLink(link);
+      if (fragment === undefined) {
+        throw new PlanError(["it has no #share= fragment"], "link", "not a share link");
+      }
+      const decoded = await decodeShare(fragment, zlibShareCodec);
+      if (!decoded.ok) {
+        const { error } = decoded;
+        throw new PlanError(
+          error.code === "invalid" && error.problems !== undefined
+            ? error.problems
+            : [error.message],
+          "link",
+          "cannot read the link",
+        );
+      }
+      const envelope = decoded.value;
+      if (envelope.kind !== "plan" && envelope.kind !== "plan-result") {
+        throw new PlanError([`it carries a ${envelope.kind}`], "link", "not a plan link");
+      }
+      const plan = envelope.data.plan;
+      const output = options.output ?? `${plan.name}${PLAN_FILE_SUFFIX}`;
+      try {
+        await writeNewFile(
+          io.directory,
+          output,
+          new TextEncoder().encode(`${JSON.stringify(plan, null, 2)}\n`),
+        );
+      } catch (error) {
+        throw new PlanError([fileErrorText(error, output)], output, "cannot write the plan");
+      }
+      io.out(`wrote ${output}: ${plan.name}, ${describePlanVersion(planIdentity(plan))}`);
+      return 0;
+    }
     case "list":
       for (const name of builtinPlans()) {
         io.out(`${name}: ${parsePlan(builtinPlanData(name), name).title}`);

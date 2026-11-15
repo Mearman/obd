@@ -17,7 +17,15 @@ import {
 import { decodeCapture, decodedLines, type DecodeTarget } from "./decode.js";
 import { DefinitionError, readDefinitions } from "./definitions.js";
 import { formatValue } from "./legislated.js";
-import { RunImportError, runTableDocument } from "./run-export.js";
+import { PLAN_FORMAT, PlanError, parsePlan } from "./plan.js";
+import { planOfRun } from "./plan-runner.js";
+import { RunImportError, runExportSchema, runTableDocument } from "./run-export.js";
+import {
+  describePlan,
+  describeSharedPlanResult,
+  planEnvelope,
+  runShareEnvelope,
+} from "./share-plan.js";
 import { TabularError } from "./tabular.js";
 import type { ObdScan } from "./obd-scan.js";
 import {
@@ -147,7 +155,13 @@ export class ShareLinkError extends Error {
 }
 
 function unwrap<T>(result: ShareResult<T>, label: string): T {
-  if (!result.ok) throw new ShareLinkError(`${label}: ${result.error.message}`);
+  if (!result.ok) {
+    const { error } = result;
+    const problems = error.code === "invalid" ? (error.problems ?? []) : [];
+    throw new ShareLinkError(
+      problems.length > 1 ? `${label}: ${problems.join("; ")}` : `${label}: ${error.message}`,
+    );
+  }
   return result.value;
 }
 
@@ -156,12 +170,21 @@ function documentEnvelope(document: unknown, path: string, createdAt: number): S
   const format: unknown =
     typeof document === "object" && document !== null ? Reflect.get(document, "format") : undefined;
   if (format === "obd-read-run") {
-    return {
-      v: 1,
-      kind: "run-summary",
-      createdAt,
-      data: unwrap(runExportShareData(document), path),
-    };
+    const summary = unwrap(runExportShareData(document), path);
+    const parsed = runExportSchema.safeParse(document);
+    // runExportShareData accepted it, so it parses; a run that recorded its plan shares as a plan result.
+    if (parsed.success && planOfRun(parsed.data.samples) !== undefined) {
+      return runShareEnvelope(parsed.data.run, parsed.data.samples, createdAt);
+    }
+    return { v: 1, kind: "run-summary", createdAt, data: summary };
+  }
+  if (format === PLAN_FORMAT) {
+    try {
+      return planEnvelope(parsePlan(document, path), createdAt);
+    } catch (error) {
+      if (error instanceof PlanError) throw new ShareLinkError(error.message);
+      throw error;
+    }
   }
   if (format === OBD_REPORT_FORMAT) {
     return {
@@ -308,6 +331,19 @@ export async function openShareLink(
   if (fragment === undefined)
     throw new ShareLinkError("not a share link: it has no #share= fragment");
   const envelope = unwrap(await decodeShare(fragment, codec), "share link");
+  if (envelope.kind === "plan") {
+    return [
+      `shared plan, from a link; link made ${new Date(envelope.createdAt).toISOString()}`,
+      "it only reads: no step clears, writes or actuates",
+      ...describePlan(envelope.data.plan),
+    ];
+  }
+  if (envelope.kind === "plan-result") {
+    return [
+      `shared data, not read from an adapter; link made ${new Date(envelope.createdAt).toISOString()}`,
+      ...describeSharedPlanResult(envelope.data, envelope.createdAt),
+    ];
+  }
   if (envelope.kind === "run-summary") return describeSharedRun(envelope.data, envelope.createdAt);
   if (envelope.kind === "capture") {
     const { capture } = envelope.data;

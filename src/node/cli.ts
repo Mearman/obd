@@ -1043,11 +1043,17 @@ async function dispatch(io: CliIo, args: ParsedArgs): Promise<number> {
       return planCommand(
         io,
         String(args.path[1]),
-        args.path[1] === "show"
+        args.path[1] === "show" || args.path[1] === "share"
           ? [args.text("target")]
           : args.path[1] === "validate"
             ? args.texts("targets")
-            : [],
+            : args.path[1] === "import"
+              ? [args.text("link")]
+              : [],
+        {
+          base: args.path[1] === "share" ? args.text("base") : undefined,
+          output: args.path[1] === "import" ? args.optionalText("output") : undefined,
+        },
       );
     default:
       return carCommand(io, args, String(name));

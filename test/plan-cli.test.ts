@@ -11,6 +11,8 @@ import {
   simulatedLiveCar,
 } from "../src/core/index.js";
 import { run, type CliIo } from "../src/node/cli.js";
+import { zlibShareCodec } from "../src/node/share-codec.js";
+import { uncheckedFragment } from "./support/hostile-share.js";
 
 const directories: string[] = [];
 
@@ -97,6 +99,13 @@ function shortPlan(options: { confirm?: boolean; long?: boolean } = {}): string 
 }
 
 const ADAPTER = ["--adapter", "simulator://generic-obd2"];
+
+/** The short plan as an object, for a test that changes a field of it. */
+function planObject(): object {
+  const parsed: unknown = JSON.parse(shortPlan());
+  if (typeof parsed !== "object" || parsed === null) throw new Error("not an object");
+  return parsed;
+}
 
 describe("obd-read plan", () => {
   it("lists the shipped plans with their titles", async () => {
@@ -281,5 +290,95 @@ describe("obd-read record", () => {
     );
     expect(exported.run.stoppedAt).not.toBeNull();
     expect(planPhases(exported.samples).map((phase) => phase.outcome)).toEqual(["aborted"]);
+  });
+});
+
+describe("sharing plans and their results", () => {
+  it("shares a plan as a link that opens read-only and imports as a plan file", async () => {
+    const directory = await workspace();
+    await writeFile(join(directory, "short.obdplan.json"), shortPlan());
+    const shared = await cli(["plan", "share", "short.obdplan.json"], directory);
+    expect(shared.status).toBe(0);
+    expect(shared.opened).toBe(0);
+    const [link] = shared.lines;
+    expect(link).toMatch(/^https:\/\/mearman\.github\.io\/obd\/#share=2\./);
+    if (link === undefined) throw new Error("no link");
+
+    const opened = await cli(["share", "--open", link], directory);
+    expect(opened.status).toBe(0);
+    expect(opened.opened).toBe(0);
+    expect(opened.lines[0]).toMatch(/^shared plan, from a link/);
+    expect(opened.lines).toContain("it only reads: no step clears, writes or actuates");
+    expect(opened.lines).toContain("short: Short test plan");
+    expect(opened.lines.some((line) => /^version: revision 1, [0-9a-f]{12}$/.test(line))).toBe(
+      true,
+    );
+
+    // The original file is in the way, so an import without --output refuses to overwrite it.
+    const refused = await cli(["plan", "import", link], directory);
+    expect(refused.status).toBe(1);
+    const imported = await cli(
+      ["plan", "import", link, "--output", "copy.obdplan.json"],
+      directory,
+    );
+    expect(imported.status).toBe(0);
+    expect(imported.lines[0]).toMatch(/^wrote copy\.obdplan\.json: short, revision 1, /);
+    const validated = await cli(["plan", "validate", "copy.obdplan.json"], directory);
+    expect(validated.lines).toEqual(["copy.obdplan.json: valid plan short, 1 phases"]);
+  });
+
+  it("shares a recorded plan run as a plan result carrying the whole plan", async () => {
+    const directory = await workspace();
+    await writeFile(join(directory, "short.obdplan.json"), shortPlan());
+    const recorded = await cli(
+      ["record", ...ADAPTER, "--plan", "short.obdplan.json", "--output", "run.json"],
+      directory,
+    );
+    expect(recorded.status).toBe(0);
+    const shared = await cli(["share", "run.json"], directory);
+    expect(shared.status).toBe(0);
+    const [link] = shared.lines;
+    if (link === undefined) throw new Error("no link");
+    const opened = await cli(["share", "--open", link], directory);
+    expect(opened.status).toBe(0);
+    expect(opened.lines[1]).toMatch(
+      /^shared plan result for short \(Short test plan\), revision 1, [0-9a-f]{12}$/,
+    );
+    expect(opened.lines.some((line) => line.startsWith("phase idle, Idle: completed, from "))).toBe(
+      true,
+    );
+    expect(opened.lines.some((line) => line.startsWith("  stored-codes at the start"))).toBe(true);
+    expect(opened.lines).toContain(
+      "code P0420 appeared in the stored list at 0.0 s (there from the start)",
+    );
+    expect(opened.lines).toContain("the plan:");
+    expect(opened.lines).toContain("  short: Short test plan");
+    // The plan inside the result imports like a plan link.
+    const imported = await cli(
+      ["plan", "import", link, "--output", "back.obdplan.json"],
+      directory,
+    );
+    expect(imported.status).toBe(0);
+  });
+
+  it("refuses a plan link whose plan is invalid, listing every problem", async () => {
+    const directory = await workspace();
+    const fragment = await uncheckedFragment(
+      "plan",
+      {
+        v: 1,
+        kind: "plan",
+        createdAt: 0,
+        data: { plan: { ...planObject(), needs: { values: ["engine-sped"] } } },
+      },
+      zlibShareCodec,
+    );
+    const link = `https://example.com/#${fragment}`;
+    const opened = await cli(["share", "--open", link], directory);
+    expect(opened.status).toBe(1);
+    expect(opened.lines.join("\n")).toMatch(/unknown value engine-sped; valid values: /);
+    const imported = await cli(["plan", "import", link], directory);
+    expect(imported.status).toBe(1);
+    expect(imported.lines.join("\n")).toMatch(/unknown value engine-sped/);
   });
 });

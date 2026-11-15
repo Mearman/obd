@@ -1,5 +1,5 @@
 /**
- * Sharing results as a link: a scan, a generic OBD-II report, a run summary or a raw capture packed into the URL fragment.
+ * Sharing results as a link: a scan, a generic OBD-II report, a run summary, a raw capture, a recording plan or the result of recording one, packed into the URL fragment.
  *
  * A link is `<app address>#share=2.<payload>`. Its content is a versioned envelope `{v, kind, createdAt, data}`. The payload is a head written as canonical JSON (keys sorted, ASCII only), for a capture followed by its exchanges packed into columns of bytes (`capture-pack.ts`): a capture's head holds its other fields by position with no field names, any other kind's holds the whole envelope. A raw capture so costs a fraction of its JSON size. The whole is compressed with raw deflate and written as unpadded base64url. A link of the first form, `#share=1.<payload>`, is the whole envelope's canonical JSON compressed the same way; it is still read. Both forms decode to exactly the envelope that was encoded. The data sits in the fragment, which a browser never sends to a server, so only whoever holds the link can read it.
  *
@@ -31,6 +31,12 @@ import { runExportSchema } from "./run-export.js";
 import type { UnitReportData } from "./service.js";
 import type { Json, Run, Sample, SignalAggregate } from "./storage.js";
 import { asciiOfHex, isIdentifyingLabel, scrub, secretSpellings, vinsIn } from "./identifying.js";
+import { canonicalJson } from "./canonical-json.js";
+import { FAULT_LISTS } from "./fault-history.js";
+import { MAX_REPEAT, PLAN_READS, planDigest, planSchema } from "./plan.js";
+import { PHASE_OUTCOMES } from "./plan-runner.js";
+
+export { canonicalJson } from "./canonical-json.js";
 
 export { isIdentifyingLabel, redactVinShapes } from "./identifying.js";
 export {
@@ -101,7 +107,12 @@ export type ShareError =
   | { readonly code: "malformed"; readonly message: string }
   | { readonly code: "unsupported-version"; readonly message: string }
   | { readonly code: "unsupported-kind"; readonly message: string }
-  | { readonly code: "invalid"; readonly message: string };
+  | {
+      readonly code: "invalid";
+      readonly message: string;
+      /** Every problem the schema found, each with its path; the message names the first. */
+      readonly problems?: readonly string[];
+    };
 
 /** A value or the reason there is none. */
 export type ShareResult<T> =
@@ -133,6 +144,14 @@ function failure(
   message: string,
 ): ShareResult<never> {
   return { ok: false, error: { code, message } };
+}
+
+/** An `invalid` failure naming the schema's first problem and listing every one. */
+function invalidIssues(error: z.ZodError): ShareResult<never> {
+  return {
+    ok: false,
+    error: { code: "invalid", message: describeIssue(error), problems: issueLines(error) },
+  };
 }
 
 /** Object keys that would change an object's prototype or shadow what every object has. */
@@ -303,8 +322,126 @@ export const obdReportShareSchema = z.strictObject({
 /** What one generic OBD-II report shares. */
 export type ObdReportShareData = z.output<typeof obdReportShareSchema>;
 
+/** The data of a `plan` link: one recording plan, validated by the same schema as a plan file, so a plan from a link names only legislated values, waits only with a timeout and reads only through read-only services. */
+export const planShareSchema = z.strictObject({ plan: planSchema });
+
+/** What one plan link shares. */
+export type PlanShareData = z.output<typeof planShareSchema>;
+
+/** The most passes of phases a plan result carries: every phase of the longest plan repeated the most times it may. */
+export const MAX_SHARED_PASSES = 1000;
+
+/** The most fault code changes a plan result carries. */
+export const MAX_CODE_EVENTS = 2000;
+
+const unitCodesSchema = z.strictObject({
+  unit: z.string().max(40),
+  codes: z.array(z.string().max(20)).max(500),
+});
+
+/** One read a shared phase took, as the runner stored it, with its time as milliseconds since the run started. */
+const sharedReadSchema = z.strictObject({
+  read: z.enum(PLAN_READS),
+  when: z.enum(["start", "end"]),
+  at: timeSchema,
+  result: z.discriminatedUnion("kind", [
+    z.strictObject({
+      kind: z.literal("codes"),
+      list: z.enum(FAULT_LISTS),
+      units: z.array(unitCodesSchema).max(64),
+    }),
+    z.strictObject({
+      kind: z.literal("freeze-frame"),
+      units: z
+        .array(
+          z.strictObject({
+            unit: z.string().max(40),
+            code: z.string().max(20).nullable(),
+            values: z.record(keySchema, textSchema),
+          }),
+        )
+        .max(64),
+    }),
+    z.strictObject({
+      kind: z.literal("misfire-counters"),
+      units: z
+        .array(
+          z.strictObject({
+            unit: z.string().max(40),
+            monitors: z
+              .array(
+                z.strictObject({
+                  monitor: z.number().int(),
+                  averageLastTenCycles: z.number().nullable(),
+                  lastCycle: z.number().nullable(),
+                }),
+              )
+              .max(64),
+          }),
+        )
+        .max(64),
+    }),
+    z.strictObject({ kind: z.literal("failed"), error: textSchema }),
+  ]),
+});
+
+/** One pass of one phase in a plan result: which phase, when it started and ended (milliseconds since the run started), how it ended and the reads it took. */
+const sharedPhaseSchema = z.strictObject({
+  phase: z.string().max(200),
+  title: textSchema,
+  iteration: z.number().int().min(1).max(MAX_REPEAT),
+  start: timeSchema,
+  end: timeSchema,
+  outcome: z.enum(PHASE_OUTCOMES),
+  reads: z.array(sharedReadSchema).max(2 * PLAN_READS.length),
+});
+
+/** The data of a `plan-result` link: which version of a plan was recorded, the run's summary, each phase's pass with its reads, and every fault code that appeared or cleared. Times are milliseconds since the run started, as the run summary's series are. */
+export const planResultShareSchema = z
+  .strictObject({
+    /** The plan that was recorded, whole, so the link reads without it: validated as a plan file is. */
+    plan: planSchema,
+    /** The plan's {@link planDigest}, shown with its revision as the version label; it must match the plan. */
+    planHash: z.string().regex(/^[0-9a-f]{64}$/, "a SHA-256 digest as lower-case hex"),
+    /** Whether VIN-shaped words in the notes and the freeze frames were replaced before the link was written. */
+    redacted: z.boolean(),
+    run: runSummaryShareSchema,
+    phases: z.array(sharedPhaseSchema).max(MAX_SHARED_PASSES),
+    codeEvents: z
+      .array(
+        z.strictObject({
+          at: timeSchema,
+          list: z.enum(FAULT_LISTS),
+          code: z.string().max(20),
+          change: z.enum(["appeared", "cleared"]),
+          /** The code was already there when the list was first read. */
+          atStart: z.boolean(),
+        }),
+      )
+      .max(MAX_CODE_EVENTS),
+  })
+  .superRefine((data, context) => {
+    if (planDigest(data.plan) !== data.planHash) {
+      context.addIssue({
+        code: "custom",
+        path: ["planHash"],
+        message: "the digest does not match the plan the link carries",
+      });
+    }
+  });
+
+/** What one plan result shares. */
+export type PlanResultShareData = z.output<typeof planResultShareSchema>;
+
 /** The kinds of result a link carries. */
-export const SHARE_KINDS = ["scan", "obd-report", "run-summary", "capture"] as const;
+export const SHARE_KINDS = [
+  "scan",
+  "obd-report",
+  "run-summary",
+  "capture",
+  "plan",
+  "plan-result",
+] as const;
 
 /** A link's content: the version, what kind of result it is, when it was made and the result. */
 export const shareEnvelopeSchema = z.discriminatedUnion("kind", [
@@ -331,6 +468,18 @@ export const shareEnvelopeSchema = z.discriminatedUnion("kind", [
     kind: z.literal("capture"),
     createdAt: timeSchema,
     data: captureShareSchema,
+  }),
+  z.strictObject({
+    v: z.literal(SHARE_VERSION),
+    kind: z.literal("plan"),
+    createdAt: timeSchema,
+    data: planShareSchema,
+  }),
+  z.strictObject({
+    v: z.literal(SHARE_VERSION),
+    kind: z.literal("plan-result"),
+    createdAt: timeSchema,
+    data: planResultShareSchema,
   }),
 ]);
 
@@ -434,40 +583,68 @@ export function redactObdReport(data: ObdReportShareData): ObdReportShareData {
   };
 }
 
-/** The envelope with its identifying values removed: a scan, a generic OBD-II report and a capture are redacted, a run summary has none and is returned as it is. */
+/** Every VIN-shaped word in a plan result: in the run's notes and in the freeze frames its phases read. */
+function planResultIdentifyingValues(data: PlanResultShareData): string[] {
+  const found = new Set<string>(vinsIn(data.run.run.notes));
+  for (const pass of data.phases) {
+    for (const read of pass.reads) {
+      if (read.result.kind !== "freeze-frame") continue;
+      for (const unit of read.result.units) {
+        for (const value of Object.values(unit.values))
+          for (const word of vinsIn(value)) found.add(word);
+      }
+    }
+  }
+  return [...found];
+}
+
+/** A copy of the plan result with every VIN-shaped word in its notes and freeze frames replaced. */
+export function redactPlanResult(data: PlanResultShareData): PlanResultShareData {
+  const secrets = secretSpellings(planResultIdentifyingValues(data));
+  return {
+    ...data,
+    redacted: true,
+    run: { ...data.run, run: { ...data.run.run, notes: scrub(data.run.run.notes, secrets) } },
+    phases: data.phases.map((pass) => ({
+      ...pass,
+      reads: pass.reads.map((read) =>
+        read.result.kind === "freeze-frame"
+          ? {
+              ...read,
+              result: {
+                ...read.result,
+                units: read.result.units.map((unit) => ({
+                  ...unit,
+                  values: Object.fromEntries(
+                    Object.entries(unit.values).map(([name, value]) => [
+                      name,
+                      scrub(value, secrets),
+                    ]),
+                  ),
+                })),
+              },
+            }
+          : read,
+      ),
+    })),
+  };
+}
+
+/** The envelope with its identifying values removed: a scan, a generic OBD-II report, a capture and a plan result are redacted; a run summary and a plan have none and are returned as they are. */
 export function redactEnvelope(envelope: ShareEnvelope): ShareEnvelope {
   switch (envelope.kind) {
+    case "plan-result":
+      return { ...envelope, data: redactPlanResult(envelope.data) };
     case "scan":
       return { ...envelope, data: redactScan(envelope.data) };
     case "obd-report":
       return { ...envelope, data: redactObdReport(envelope.data) };
     case "capture":
       return { ...envelope, data: redactCaptureShare(envelope.data) };
+    case "plan":
     case "run-summary":
       return envelope;
   }
-}
-
-function sorted(value: unknown): Json {
-  if (Array.isArray(value)) return value.map(sorted);
-  if (typeof value === "object" && value !== null) {
-    return Object.fromEntries(
-      Object.entries(value)
-        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-        .map(([key, item]) => [key, sorted(item)]),
-    );
-  }
-  if (value === null || typeof value === "boolean" || typeof value === "number") return value;
-  if (typeof value === "string") return value;
-  throw new TypeError("a share envelope holds only JSON values");
-}
-
-/** JSON with every object's keys sorted and every character outside printable ASCII written as `\uXXXX`, so the same envelope is always the same bytes. */
-export function canonicalJson(value: unknown): string {
-  return JSON.stringify(sorted(value)).replace(
-    /[^\x20-\x7e]/g,
-    (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`,
-  );
 }
 
 function asciiBytes(text: string): Uint8Array {
@@ -667,7 +844,7 @@ export async function encodeShare(
   const forbidden = forbiddenKey(envelope);
   if (forbidden !== undefined) return failure("invalid", `the key ${forbidden} is not allowed`);
   const parsed = shareEnvelopeSchema.safeParse(envelope);
-  if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
+  if (!parsed.success) return invalidIssues(parsed.error);
   const checked = parsed.data;
   const chosen: ShareEnvelope = options.redactVin === true ? redactEnvelope(checked) : checked;
   const decodedBytes = canonicalJson(chosen).length;
@@ -679,6 +856,15 @@ export async function encodeShare(
     return tooLarge("encoded", fragment.length, true, MAX_ENCODED_LENGTH);
   }
   return { ok: true, value: { fragment, decodedBytes, packedBytes: payload.length } };
+}
+
+/** Every problem in a schema error, each with its path, as `parsePlan` writes them. */
+function issueLines(error: z.ZodError): string[] {
+  return error.issues.map((issue) =>
+    issue.path.length === 0
+      ? issue.message
+      : `${issue.path.map(String).join(".")}: ${issue.message}`,
+  );
 }
 
 function describeIssue(error: z.ZodError): string {
@@ -728,7 +914,7 @@ function checkedEnvelope(value: unknown): ShareResult<ShareEnvelope> {
     return failure("unsupported-kind", "the envelope kind is not supported");
   }
   const parsed = shareEnvelopeSchema.safeParse(value);
-  if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
+  if (!parsed.success) return invalidIssues(parsed.error);
   return { ok: true, value: parsed.data };
 }
 
@@ -1359,6 +1545,30 @@ function plural(count: number, noun: string, nouns = `${noun}s`): string {
  * What a link made from this envelope carries, one plain sentence per kind of content, for a person to read before sharing. Redact first ({@link redactScan}) to describe a link that will have its VIN removed.
  */
 export function shareContents(envelope: ShareEnvelope): string[] {
+  if (envelope.kind === "plan") {
+    const { plan } = envelope.data;
+    return [
+      `The plan ${plan.name}, ${plan.title}${plan.revision === undefined ? "" : ` at revision ${String(plan.revision)}`}: its description, safety text and source.`,
+      `${plural(plan.phases.length, "phase")}, each with its instruction, what it samples, what it reads and when it ends.`,
+      "No readings and nothing about your car: whoever opens the link records the plan on their own adapter.",
+    ];
+  }
+  if (envelope.kind === "plan-result") {
+    const { plan, planHash, run, phases, codeEvents, redacted } = envelope.data;
+    const present = planResultIdentifyingValues(envelope.data).length;
+    return [
+      `The whole plan that was recorded, ${plan.name} at revision ${String(plan.revision ?? 1)}, digest ${planHash.slice(0, 12)}, so the link reads without it.`,
+      `${plural(phases.length, "phase pass", "phase passes")} with start, end, outcome and the reads each took.`,
+      `${plural(codeEvents.length, "fault code change")} with when each was seen.`,
+      `${plural(run.signals.length, "signal")} with count, minimum, maximum and mean, and at most ${String(MAX_SERIES_POINTS)} readings of each over time; profile ${run.run.profile}, adapter ${run.run.adapter}.`,
+      present > 0
+        ? `VIN-shaped text in the notes or freeze frames: included (${plural(present, "value")}).`
+        : redacted
+          ? "VIN-shaped text in the notes and freeze frames: removed."
+          : "No VIN was found in the notes or freeze frames.",
+      "Not included: the other readings of the run and the adapter's address.",
+    ];
+  }
   if (envelope.kind === "run-summary") {
     const { run, signals } = envelope.data;
     return [

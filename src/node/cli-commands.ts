@@ -496,7 +496,8 @@ export const COMMANDS: readonly CommandSpec[] = [
   ),
   {
     name: "plan",
-    summary: "list, show and validate recording plans without connecting (TypeScript only)",
+    summary:
+      "list, show, validate, share and import recording plans without connecting (TypeScript only)",
     args: [],
     subcommands: [
       { name: "list", summary: "list the shipped plans", args: [] },
@@ -504,6 +505,26 @@ export const COMMANDS: readonly CommandSpec[] = [
         name: "show",
         summary: "print a plan's phases, instructions and conditions",
         args: [positional("target", "a shipped plan name or a .obdplan.json file")],
+      },
+      {
+        name: "share",
+        summary:
+          "print a link that sends a plan to someone to record; the results come back as a plan-result link",
+        args: [
+          positional("target", "a shipped plan name or a .obdplan.json file"),
+          option("--base", "string", "the app's address", {
+            default: "https://mearman.github.io/obd/",
+          }),
+        ],
+      },
+      {
+        name: "import",
+        summary:
+          "write the plan a plan link or a plan-result link carries to a new .obdplan.json file",
+        args: [
+          positional("link", "a plan link or a plan-result link"),
+          option("--output", "string", "the new plan file to write; default: <name>.obdplan.json"),
+        ],
       },
       {
         name: "validate",
