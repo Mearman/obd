@@ -24,17 +24,17 @@ Pin 8 is also the usual DoIP activation line ([IME-Actia DoIP overview](https://
 
 The five legislated signalling protocols ([Wikipedia, On-board diagnostics](https://en.wikipedia.org/wiki/On-board_diagnostics)):
 
-| ELM number | Protocol | Notes |
-|---|---|---|
-| 1 | SAE J1850 PWM, 41.6 kbit/s | Used by Ford. Pins 2 and 10. |
-| 2 | SAE J1850 VPW, 10.4 kbit/s | Used by GM. Pin 2 only. |
-| 3 | ISO 9141-2, 5-baud init, 10.4 kbaud | Chrysler, European and Asian vehicles. K-line pin 7. |
-| 4 | ISO 14230-4 KWP2000, 5-baud init | K-line pin 7. |
-| 5 | ISO 14230-4 KWP2000, fast init | K-line pin 7. |
-| 6 | ISO 15765-4 CAN, 11-bit ID, 500 kbit/s | Pins 6 and 14. |
-| 7 | ISO 15765-4 CAN, 29-bit ID, 500 kbit/s | Pins 6 and 14. |
-| 8 | ISO 15765-4 CAN, 11-bit ID, 250 kbit/s | Pins 6 and 14. |
-| 9 | ISO 15765-4 CAN, 29-bit ID, 250 kbit/s | Pins 6 and 14. |
+| ELM number | Protocol                               | Notes                                                |
+| ---------- | -------------------------------------- | ---------------------------------------------------- |
+| 1          | SAE J1850 PWM, 41.6 kbit/s             | Used by Ford. Pins 2 and 10.                         |
+| 2          | SAE J1850 VPW, 10.4 kbit/s             | Used by GM. Pin 2 only.                              |
+| 3          | ISO 9141-2, 5-baud init, 10.4 kbaud    | Chrysler, European and Asian vehicles. K-line pin 7. |
+| 4          | ISO 14230-4 KWP2000, 5-baud init       | K-line pin 7.                                        |
+| 5          | ISO 14230-4 KWP2000, fast init         | K-line pin 7.                                        |
+| 6          | ISO 15765-4 CAN, 11-bit ID, 500 kbit/s | Pins 6 and 14.                                       |
+| 7          | ISO 15765-4 CAN, 29-bit ID, 500 kbit/s | Pins 6 and 14.                                       |
+| 8          | ISO 15765-4 CAN, 11-bit ID, 250 kbit/s | Pins 6 and 14.                                       |
+| 9          | ISO 15765-4 CAN, 29-bit ID, 250 kbit/s | Pins 6 and 14.                                       |
 
 The ELM numbering (and the A, B, C user protocols for SAE J1939 and user CAN) is from the [ELM327 datasheet](https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf), Figure 2. The J1850 manufacturer attributions come from Wikipedia and describe historical practice, not a rule a tool should rely on.
 
@@ -68,35 +68,35 @@ All K-line details above are from the [ELM327 datasheet](https://www.elmelectron
 
 All from the [ELM327 datasheet](https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf) unless stated.
 
-| Command | Purpose |
-|---|---|
-| `ATZ` | Reset all. Also restores header and filter defaults. |
-| `ATE0` | Echo off. |
-| `ATL0` | Linefeeds off (common companion, not in the required list). |
-| `ATS0` | Print spaces off, shortens output. |
-| `ATH1` | Show header bytes (CAN ID) in responses. Needed to see which ECU answered. |
-| `ATSP n`, `ATSP An`, `ATSP0` | Set protocol, set protocol with auto fallback, automatic. Persisted to EEPROM. |
-| `ATTP n`, `ATTP An` | Try protocol without persisting (unless memory `ATM1` is on). |
-| `ATDP`, `ATDPN` | Describe the current protocol by name or number. |
-| `ATSH xyz` / `ATSH xxyyzz` / `ATSH wwxxyyzz` | Set request header: 3 hex digits for an 11-bit CAN ID, 3 bytes for J1850 and ISO, 4 bytes for a 29-bit CAN ID. Use for physical addressing. |
-| `ATCRA hhh` / `ATCRA hhhhhhhh` | Set the CAN receive address filter to one ID. `ATCRA` with no argument resets. `ATAR` auto-sets the receive address from the header. |
-| `ATCF`, `ATCM` | Lower-level CAN filter and mask (mask bit 1 means the bit must match). |
-| `ATFCSH hhh` / `ATFCSH hhhhhhhh` | CAN flow-control header (the ID the adapter uses when it sends flow control). |
-| `ATFCSD [1-5 bytes]` | CAN flow-control data bytes; the rest are filler. |
-| `ATFCSM h` | Flow-control mode: 0 fully automatic (default), 1 fully user-defined, 2 user-defined data bytes only. Modes 1 and 2 error unless the needed data or ID has been set. |
-| `ATCFC0` / `ATCFC1` | Automatic CAN flow control off/on (default on). Off is useful when experimenting with non-OBD CAN. |
-| `ATST hh` | Response timeout in units of 4 ms (CAN with `CTM5`: 20 ms). `00` is special. Adaptive timing (`ATAT0/1/2`, default 1) never exceeds this. |
-| `ATCAF1` / `ATCAF0` | CAN auto-formatting on (default): the adapter builds PCI bytes when sending and strips them, plus unused padding, when receiving; multi-frame replies print as a length line plus numbered segments (`0:`, `1:` and so on). Off gives raw frames; it still pads transmitted frames to eight bytes but adds no PCI byte. With `ATH1` the printed form reverts to mostly as-received. |
-| `ATIIA hh` | ISO slow-init address (default `$33`). |
-| `ATSW hh` | Wakeup interval, units of 20 ms. |
-| `ATWM [1-6 bytes]` | Wakeup message bytes. |
-| `ATPC` | Protocol close. |
-| `ATBI` | Bypass initialisation. The datasheet says it is for ECU simulators and demonstrators, not routine OBD use; a read-only tool should not use it. |
-| `ATAT0/1/2`, `ATR0/1` | Adaptive timing and whether to wait for responses (with `R0` no response is awaited). |
-| `ATCEA [hh]` | CAN extended addressing: insert `hh` as the first data byte, and filter received frames on it. `ATCEA` alone turns it off. |
-| `ATFE`, `ATD` | Forget events (such as a fatal CAN error that blocks CAN searching); set defaults. |
-| `ATRV` | Read input voltage. Useful as a sanity check that the adapter sees the vehicle battery. |
-| `ATDM1`, `ATMA`, `ATMR`, `ATMT` | Monitoring commands; listen-only use, may flood the buffer (see pitfalls). |
+| Command                                      | Purpose                                                                                                                                                                                                                                                                                                                                                                             |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ATZ`                                        | Reset all. Also restores header and filter defaults.                                                                                                                                                                                                                                                                                                                                |
+| `ATE0`                                       | Echo off.                                                                                                                                                                                                                                                                                                                                                                           |
+| `ATL0`                                       | Linefeeds off (common companion, not in the required list).                                                                                                                                                                                                                                                                                                                         |
+| `ATS0`                                       | Print spaces off, shortens output.                                                                                                                                                                                                                                                                                                                                                  |
+| `ATH1`                                       | Show header bytes (CAN ID) in responses. Needed to see which ECU answered.                                                                                                                                                                                                                                                                                                          |
+| `ATSP n`, `ATSP An`, `ATSP0`                 | Set protocol, set protocol with auto fallback, automatic. Persisted to EEPROM.                                                                                                                                                                                                                                                                                                      |
+| `ATTP n`, `ATTP An`                          | Try protocol without persisting (unless memory `ATM1` is on).                                                                                                                                                                                                                                                                                                                       |
+| `ATDP`, `ATDPN`                              | Describe the current protocol by name or number.                                                                                                                                                                                                                                                                                                                                    |
+| `ATSH xyz` / `ATSH xxyyzz` / `ATSH wwxxyyzz` | Set request header: 3 hex digits for an 11-bit CAN ID, 3 bytes for J1850 and ISO, 4 bytes for a 29-bit CAN ID. Use for physical addressing.                                                                                                                                                                                                                                         |
+| `ATCRA hhh` / `ATCRA hhhhhhhh`               | Set the CAN receive address filter to one ID. `ATCRA` with no argument resets. `ATAR` auto-sets the receive address from the header.                                                                                                                                                                                                                                                |
+| `ATCF`, `ATCM`                               | Lower-level CAN filter and mask (mask bit 1 means the bit must match).                                                                                                                                                                                                                                                                                                              |
+| `ATFCSH hhh` / `ATFCSH hhhhhhhh`             | CAN flow-control header (the ID the adapter uses when it sends flow control).                                                                                                                                                                                                                                                                                                       |
+| `ATFCSD [1-5 bytes]`                         | CAN flow-control data bytes; the rest are filler.                                                                                                                                                                                                                                                                                                                                   |
+| `ATFCSM h`                                   | Flow-control mode: 0 fully automatic (default), 1 fully user-defined, 2 user-defined data bytes only. Modes 1 and 2 error unless the needed data or ID has been set.                                                                                                                                                                                                                |
+| `ATCFC0` / `ATCFC1`                          | Automatic CAN flow control off/on (default on). Off is useful when experimenting with non-OBD CAN.                                                                                                                                                                                                                                                                                  |
+| `ATST hh`                                    | Response timeout in units of 4 ms (CAN with `CTM5`: 20 ms). `00` is special. Adaptive timing (`ATAT0/1/2`, default 1) never exceeds this.                                                                                                                                                                                                                                           |
+| `ATCAF1` / `ATCAF0`                          | CAN auto-formatting on (default): the adapter builds PCI bytes when sending and strips them, plus unused padding, when receiving; multi-frame replies print as a length line plus numbered segments (`0:`, `1:` and so on). Off gives raw frames; it still pads transmitted frames to eight bytes but adds no PCI byte. With `ATH1` the printed form reverts to mostly as-received. |
+| `ATIIA hh`                                   | ISO slow-init address (default `$33`).                                                                                                                                                                                                                                                                                                                                              |
+| `ATSW hh`                                    | Wakeup interval, units of 20 ms.                                                                                                                                                                                                                                                                                                                                                    |
+| `ATWM [1-6 bytes]`                           | Wakeup message bytes.                                                                                                                                                                                                                                                                                                                                                               |
+| `ATPC`                                       | Protocol close.                                                                                                                                                                                                                                                                                                                                                                     |
+| `ATBI`                                       | Bypass initialisation. The datasheet says it is for ECU simulators and demonstrators, not routine OBD use; a read-only tool should not use it.                                                                                                                                                                                                                                      |
+| `ATAT0/1/2`, `ATR0/1`                        | Adaptive timing and whether to wait for responses (with `R0` no response is awaited).                                                                                                                                                                                                                                                                                               |
+| `ATCEA [hh]`                                 | CAN extended addressing: insert `hh` as the first data byte, and filter received frames on it. `ATCEA` alone turns it off.                                                                                                                                                                                                                                                          |
+| `ATFE`, `ATD`                                | Forget events (such as a fatal CAN error that blocks CAN searching); set defaults.                                                                                                                                                                                                                                                                                                  |
+| `ATRV`                                       | Read input voltage. Useful as a sanity check that the adapter sees the vehicle battery.                                                                                                                                                                                                                                                                                             |
+| `ATDM1`, `ATMA`, `ATMR`, `ATMT`              | Monitoring commands; listen-only use, may flood the buffer (see pitfalls).                                                                                                                                                                                                                                                                                                          |
 
 Notes:
 
@@ -124,18 +124,18 @@ The STN interpreter ICs implement the ELM327 command set and add `ST` commands t
 
 Names per [Wikipedia, OBD-II PIDs](https://en.wikipedia.org/wiki/OBD-II_PIDs):
 
-| Mode | Name | Read-only? |
-|---|---|---|
-| 01 | Show current data | Yes |
-| 02 | Show freeze frame data | Yes |
-| 03 | Show stored diagnostic trouble codes | Yes |
-| 04 | Clear DTCs and stored values | No. Clears freeze frames and readiness. Out of scope; a read-only tool must never send it. |
-| 05 | Oxygen sensor monitoring test results | Yes, but non-CAN only (on CAN the data moved to mode 06) |
-| 06 | Other component or system monitoring test results | Yes |
-| 07 | Show pending DTCs | Yes |
-| 08 | Control operation of on-board component or system | No. Out of scope. |
-| 09 | Request vehicle information (VIN, calibration IDs, CVN) | Yes |
-| 0A | Permanent DTCs | Yes |
+| Mode | Name                                                    | Read-only?                                                                                 |
+| ---- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 01   | Show current data                                       | Yes                                                                                        |
+| 02   | Show freeze frame data                                  | Yes                                                                                        |
+| 03   | Show stored diagnostic trouble codes                    | Yes                                                                                        |
+| 04   | Clear DTCs and stored values                            | No. Clears freeze frames and readiness. Out of scope; a read-only tool must never send it. |
+| 05   | Oxygen sensor monitoring test results                   | Yes, but non-CAN only (on CAN the data moved to mode 06)                                   |
+| 06   | Other component or system monitoring test results       | Yes                                                                                        |
+| 07   | Show pending DTCs                                       | Yes                                                                                        |
+| 08   | Control operation of on-board component or system       | No. Out of scope.                                                                          |
+| 09   | Request vehicle information (VIN, calibration IDs, CVN) | Yes                                                                                        |
+| 0A   | Permanent DTCs                                          | Yes                                                                                        |
 
 Modes 04 and 08 are the only ones outside read-only use in the set; this project's own rule is also not to clear codes before their history and freeze frame have been captured, because mode 04 destroys that evidence.
 

@@ -8,19 +8,19 @@ Statements with a URL were read at that URL. Statements tagged "unconfirmed" are
 
 ## Era map
 
-| Era (approximate) | Physical layer | Protocol | Notes |
-|---|---|---|---|
-| Early 1990s to roughly the early 2000s | K-line (ISO 9141 physical layer), per-module wake-up | KWP1281 (also called KW1281, standardised later as SAE J2818) | Module addressed by a one-byte address word sent at 5 baud |
-| Late 1990s to mid 2000s | K-line | KWP2000 (ISO 14230) | Same wake-up family; same address words |
-| Early 2000s to mid 2010s | CAN (ISO 11898) via the gateway | KWP2000 messages inside TP 2.0 (VW's transport, SAE J2819) | Not ISO-TP; a channel is opened per module |
-| Mid 2000s onward, dominant on 2010s platforms | CAN | UDS (ISO 14229) over ISO-TP (ISO 15765-2) | Per-module CAN ID pairs; Ross-Tech calls these UDS/ODX modules |
-| Newest platforms | Automotive Ethernet on the OBD connector | UDS over DoIP (ISO 13400) | Needs an Ethernet-capable interface |
+| Era (approximate)                             | Physical layer                                       | Protocol                                                      | Notes                                                          |
+| --------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------- |
+| Early 1990s to roughly the early 2000s        | K-line (ISO 9141 physical layer), per-module wake-up | KWP1281 (also called KW1281, standardised later as SAE J2818) | Module addressed by a one-byte address word sent at 5 baud     |
+| Late 1990s to mid 2000s                       | K-line                                               | KWP2000 (ISO 14230)                                           | Same wake-up family; same address words                        |
+| Early 2000s to mid 2010s                      | CAN (ISO 11898) via the gateway                      | KWP2000 messages inside TP 2.0 (VW's transport, SAE J2819)    | Not ISO-TP; a channel is opened per module                     |
+| Mid 2000s onward, dominant on 2010s platforms | CAN                                                  | UDS (ISO 14229) over ISO-TP (ISO 15765-2)                     | Per-module CAN ID pairs; Ross-Tech calls these UDS/ODX modules |
+| Newest platforms                              | Automotive Ethernet on the OBD connector             | UDS over DoIP (ISO 13400)                                     | Needs an Ethernet-capable interface                            |
 
 The era boundaries are approximate and overlap by platform: a single car can carry modules on different protocols. Ross-Tech notes that mid-2010 and later Golf-family cars use UDS protocol rear-door modules as slaves of the front-door addresses ([Ross-Tech wiki, Golf/Golf Plus 5K](https://wiki.ross-tech.com/wiki/index.php/VW_Golf/Golf_Plus_%285K/52%29)), and that Ross-Tech's own tooling treats UDS/ODX modules as a distinct class that does not support traditional measuring blocks or adaptation channel numbers ([Ross-Tech wiki, Control Module Maps](https://wiki.ross-tech.com/wiki/index.php/Control_Module_Maps)). The year ranges in the table are unconfirmed: no source read states exact model-year cut-offs, and they differ by model and market.
 
 ## Module addressing (the "address word")
 
-VAG tooling addresses each control module by a one-byte hexadecimal logical address, the same number Ross-Tech shows as the controller number and which corresponds to the number used by VAG-1551/1552 tools ([Ross-Tech VCDS-Lite manual](https://www.ross-tech.com/vcds-lite/manual/select.html)). A Ross-Tech wiki vehicle page for the Golf VII lists, among others: 01 Engine, 02 Auto Trans (DSG), 03 ABS Brakes, 05 Access/Start Authorization, 08 Auto HVAC, 09 Central Electronics, 15 Airbags, 16 Steering Wheel, 17 Instrument Cluster, 19 CAN Gateway, 2B Steering Column Lock, 42 Door Electronics Driver, 44 Steering Assist, 52 Door Electronics Passenger, 55 Headlight Aim Control, 5F Information Electronics, 75 Telematics and A9 Structure-Borne Sound ([Ross-Tech wiki, VW Golf VII](https://wiki.ross-tech.com/wiki/index.php/VW_Golf_VII_(5G/AU))). The same address means the same function across platforms in general, but the set of modules present varies per car (unconfirmed as a universal rule: only the Golf VII page was read).
+VAG tooling addresses each control module by a one-byte hexadecimal logical address, the same number Ross-Tech shows as the controller number and which corresponds to the number used by VAG-1551/1552 tools ([Ross-Tech VCDS-Lite manual](https://www.ross-tech.com/vcds-lite/manual/select.html)). A Ross-Tech wiki vehicle page for the Golf VII lists, among others: 01 Engine, 02 Auto Trans (DSG), 03 ABS Brakes, 05 Access/Start Authorization, 08 Auto HVAC, 09 Central Electronics, 15 Airbags, 16 Steering Wheel, 17 Instrument Cluster, 19 CAN Gateway, 2B Steering Column Lock, 42 Door Electronics Driver, 44 Steering Assist, 52 Door Electronics Passenger, 55 Headlight Aim Control, 5F Information Electronics, 75 Telematics and A9 Structure-Borne Sound ([Ross-Tech wiki, VW Golf VII](<https://wiki.ross-tech.com/wiki/index.php/VW_Golf_VII_(5G/AU)>)). The same address means the same function across platforms in general, but the set of modules present varies per car (unconfirmed as a universal rule: only the Golf VII page was read).
 
 Addresses are hexadecimal, not decimal: a KW1281 forum thread records the cluster address being 17 hex, not decimal 17, as the cause of a failed init ([blafusel.de forum](https://www.blafusel.de/phpbb/viewtopic.php?p=1662)).
 
@@ -134,7 +134,7 @@ Implications for a read-only tool, partly inference: expect some modules to be u
 
 ## Open projects and references
 
-- Ross-Tech wiki: [SFD](https://wiki.ross-tech.com/wiki/index.php/SFD), [Control Module Maps](https://wiki.ross-tech.com/wiki/index.php/Control_Module_Maps), per-model module lists such as [Golf VII](https://wiki.ross-tech.com/wiki/index.php/VW_Golf_VII_(5G/AU)); the [VCDS tour pages](https://www.ross-tech.com/vcds/tour/dtc_screen.php) document fault code, measuring block and advanced measuring behaviour. VCDS itself is closed.
+- Ross-Tech wiki: [SFD](https://wiki.ross-tech.com/wiki/index.php/SFD), [Control Module Maps](https://wiki.ross-tech.com/wiki/index.php/Control_Module_Maps), per-model module lists such as [Golf VII](<https://wiki.ross-tech.com/wiki/index.php/VW_Golf_VII_(5G/AU)>); the [VCDS tour pages](https://www.ross-tech.com/vcds/tour/dtc_screen.php) document fault code, measuring block and advanced measuring behaviour. VCDS itself is closed.
 - [PyVCDS](https://github.com/MartijnD92/PyVCDS): Python VWTP 2.0 and KWP2000 on SocketCAN, UDS planned, ELM327 unsupported.
 - [vwradio kwp1281_tool](https://github.com/mnaberez/vwradio/blob/main/kwp1281_tool/README.md): firmware-based KWP1281 interface with a documented transcript.
 - [blafusel.de KW1281 page](http://www.blafusel.de/obd/obd2_kw1281.html): German, hobbyist, partly unverified; the most readable block-level description found.

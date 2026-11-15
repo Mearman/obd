@@ -8,12 +8,12 @@ Claims carry an inline source. Anything inferred, or confirmed only by a single 
 
 ## Era overview
 
-| Era (approximate) | Physical layer at the OBD port | Application protocol | ELM327 stock firmware |
-|---|---|---|---|
-| Pre-2000s (round 20-pin connector on many cars) | K-line | DS2 (9600 baud, even parity), some ECUs KWP2000 | No DS2 |
-| Late 1990s to mid-2000s (16-pin OBD-II) | K-line on pin 7, sometimes with a second K-line | DS2, KWP2000 (BMW-FAST), ISO 9141 for emissions | Emissions modes only (unconfirmed for BMW-specific services, see below) |
-| Mid-2000s onward (E-series with D-CAN) | D-CAN on pins 6 and 14, 500 kbit/s | KWP2000 over CAN or UDS, BMW extended addressing | Yes, via user-defined CAN protocol |
-| F-series and newer | D-CAN and Ethernet (ENET cable, pin 8 activation line) | UDS over CAN or HSFZ | CAN only; Ethernet not through an ELM327 |
+| Era (approximate)                               | Physical layer at the OBD port                         | Application protocol                             | ELM327 stock firmware                                                   |
+| ----------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
+| Pre-2000s (round 20-pin connector on many cars) | K-line                                                 | DS2 (9600 baud, even parity), some ECUs KWP2000  | No DS2                                                                  |
+| Late 1990s to mid-2000s (16-pin OBD-II)         | K-line on pin 7, sometimes with a second K-line        | DS2, KWP2000 (BMW-FAST), ISO 9141 for emissions  | Emissions modes only (unconfirmed for BMW-specific services, see below) |
+| Mid-2000s onward (E-series with D-CAN)          | D-CAN on pins 6 and 14, 500 kbit/s                     | KWP2000 over CAN or UDS, BMW extended addressing | Yes, via user-defined CAN protocol                                      |
+| F-series and newer                              | D-CAN and Ethernet (ENET cable, pin 8 activation line) | UDS over CAN or HSFZ                             | CAN only; Ethernet not through an ELM327                                |
 
 Mini shares the BMW tooling and the same diagnostic stack in the generations built on BMW platforms (EDIABAS and Deep OBD cover Mini; unconfirmed per model, as no source lists Mini chassis codes in the pages read).
 
@@ -80,15 +80,15 @@ Deep OBD states that standard ELM327 adapters work with BMW D-CAN only (March 20
 
 BMW addresses are assigned per bus and chassis family, not globally, and no single source read lists them all. Treat the table as unconfirmed starting values and read the real list from the SGBD or from an ECU scan.
 
-| Module | Address | Status |
-|---|---|---|
-| Tester | 0xF1 | Confirmed by https://thesecretingredient.neocities.org/bmw and https://emdzej.github.io/ediabasx-docs/reference/interfaces/xenet32-analysis.html |
-| DME (engine) | 0x12 | Confirmed as the DME in the write-up above; the F-series list at https://github.com/jokinawa/bmw-f also gives 0x12 for DME2 |
-| EGS (gearbox) | 0x18 | Unconfirmed: not found in any page read |
-| DSC (stability) | 0x34 | Unconfirmed: the F-series list at https://github.com/jokinawa/bmw-f gives 0x29 for DSC, so the value differs by generation |
-| KOMBI (cluster) | 0x60 | Unconfirmed: not found in any page read; the I-Bus address 0x80 for the cluster at https://github.com/piersholt/wilhelm-docs is a different bus |
-| ZGM or JBE gateway | not established | Unconfirmed: no address found |
-| Functional broadcast over ENET | 0xDF | https://emdzej.github.io/ediabasx-docs/reference/interfaces/xenet32-analysis.html |
+| Module                         | Address         | Status                                                                                                                                           |
+| ------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tester                         | 0xF1            | Confirmed by https://thesecretingredient.neocities.org/bmw and https://emdzej.github.io/ediabasx-docs/reference/interfaces/xenet32-analysis.html |
+| DME (engine)                   | 0x12            | Confirmed as the DME in the write-up above; the F-series list at https://github.com/jokinawa/bmw-f also gives 0x12 for DME2                      |
+| EGS (gearbox)                  | 0x18            | Unconfirmed: not found in any page read                                                                                                          |
+| DSC (stability)                | 0x34            | Unconfirmed: the F-series list at https://github.com/jokinawa/bmw-f gives 0x29 for DSC, so the value differs by generation                       |
+| KOMBI (cluster)                | 0x60            | Unconfirmed: not found in any page read; the I-Bus address 0x80 for the cluster at https://github.com/piersholt/wilhelm-docs is a different bus  |
+| ZGM or JBE gateway             | not established | Unconfirmed: no address found                                                                                                                    |
+| Functional broadcast over ENET | 0xDF            | https://emdzej.github.io/ediabasx-docs/reference/interfaces/xenet32-analysis.html                                                                |
 
 The ISTA control-unit list at https://www.mvwautotechniek.nl/en/bmw-ista-list-of-control-units-and-legend names control units and may help to build a table (not opened for addresses).
 
@@ -118,13 +118,13 @@ The ISTA control-unit list at https://www.mvwautotechniek.nl/en/bmw-ista-list-of
 
 ## Capability summary for obd-read
 
-| Era | Stock ELM327 | STN or other | Notes |
-|---|---|---|---|
-| DS2 K-line | No (needs even parity and DS2 framing) | Unconfirmed: the STN command reference was not opened | Use a K+DCAN or replacement-firmware route |
-| KWP2000 K-line | Standard OBD modes only; BMW services unconfirmed | Unconfirmed | Replacement firmware lists K-line support |
-| D-CAN with extended address | Yes with ATSH, ATCEA, ATFCSH, ATFCSD, ATFCSM, ATCRA, on suitable hardware | Unconfirmed | One ECU per configuration; clones often fail |
-| Ethernet (HSFZ) | No | Only specific vendor firmware | Use D-CAN, or a direct HSFZ client |
-| DoIP | No | Only specific vendor firmware | Mentioned for completeness; no BMW source here ties it to cars |
+| Era                         | Stock ELM327                                                              | STN or other                                          | Notes                                                          |
+| --------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------- |
+| DS2 K-line                  | No (needs even parity and DS2 framing)                                    | Unconfirmed: the STN command reference was not opened | Use a K+DCAN or replacement-firmware route                     |
+| KWP2000 K-line              | Standard OBD modes only; BMW services unconfirmed                         | Unconfirmed                                           | Replacement firmware lists K-line support                      |
+| D-CAN with extended address | Yes with ATSH, ATCEA, ATFCSH, ATFCSD, ATFCSM, ATCRA, on suitable hardware | Unconfirmed                                           | One ECU per configuration; clones often fail                   |
+| Ethernet (HSFZ)             | No                                                                        | Only specific vendor firmware                         | Use D-CAN, or a direct HSFZ client                             |
+| DoIP                        | No                                                                        | Only specific vendor firmware                         | Mentioned for completeness; no BMW source here ties it to cars |
 
 ## Out of scope
 
@@ -144,6 +144,7 @@ Latest Wayback Machine snapshot found for each cited page. Pages with no snapsho
 - https://github.com/piersholt/wilhelm-docs
 
 ## (http://web.archive.org/web/20260102111000/https://github.com/piersholt/wilhelm-docs)
+
 - https://github.com/piersholt/wilhelm-docs#ki-bus (http://web.archive.org/web/20260102111000/https://github.com/piersholt/wilhelm-docs)
 - https://github.com/uholeschak/ediabaslib (http://web.archive.org/web/20260621070412/https://github.com/uholeschak/ediabaslib)
 - https://os.mbed.com/users/openobc/code/e36obd/docs/tip/DS2_8h_source.html (http://web.archive.org/web/20241029173029/https://os.mbed.com/users/openobc/code/e36obd/docs/tip/DS2_8h_source.html)
@@ -151,16 +152,19 @@ Latest Wayback Machine snapshot found for each cited page. Pages with no snapsho
 - https://uholeschak.github.io/ediabaslib/docs/AdapterTypes.html
 
 ### (http://web.archive.org/web/20260310192206/https://uholeschak.github.io/ediabaslib/docs/AdapterTypes.html)
+
 - https://uholeschak.github.io/ediabaslib/docs/Deep_OBD_for_BMW_and_VAG.html (http://web.archive.org/web/20260615203124/https://uholeschak.github.io/ediabaslib/docs/Deep_OBD_for_BMW_and_VAG.html)
 - https://uholeschak.github.io/ediabaslib/docs/Documentation.html (http://web.archive.org/web/20260310185831/https://uholeschak.github.io/ediabaslib/docs/Documentation.html)
 - https://uholeschak.github.io/ediabaslib/docs/Replacement_firmware_for_ELM327.html
 
 ### (http://web.archive.org/web/20260310192909/https://uholeschak.github.io/ediabaslib/docs/Replacement_firmware_for_ELM327.html)
+
 - https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf (http://web.archive.org/web/20261108174631/https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf)
 - https://www.quantexlab.com/en/develop/elm327.html (http://web.archive.org/web/20260711113833/https://quantexlab.com/en/develop/elm327.html)
 - https://www.quantexlab.com/en/develop/elm327.html
 
 ### (http://web.archive.org/web/20260711113833/https://quantexlab.com/en/develop/elm327.html)
+
 - https://www.quantexlab.com/en/develop/elm327_hsfz.html (http://web.archive.org/web/20260519001549/https://quantexlab.com/en/develop/elm327_hsfz.html)
 
 No snapshot found:

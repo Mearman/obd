@@ -96,16 +96,16 @@ The tool should therefore never infer the protocol from make and year: probe wit
 
 ## Per-make summary for implementation
 
-| Make | Standard J1979 via ELM327 | Enhanced data via ELM327 | Native protocol needing other hardware |
-|---|---|---|---|
-| Toyota/Lexus | Yes, K-line or CAN | CAN hybrids: mode 21/22 with module header, car-specific | Techstream-style K-line enhanced data (undocumented here) |
-| Honda/Acura | Yes | Engine data only in most reports; beyond that unconfirmed | HDS-style K-line modules and the gateway |
-| Nissan/Infiniti | Yes | Leaf via Car-CAN frames and 79B/7BB | Consult I and II (cable) |
-| Mazda | Yes | Mode 22, 7E0 and other headers, per car | MS-CAN modules (unconfirmed) |
-| Subaru | Yes (mode 01, ECU ID) | SSM-CAN A8 reads not shown to work on stock ELM327 | SSM1 and SSM2 K-line (reflashed or K-line cable) |
-| Mitsubishi | Yes | Not documented in sources opened | MUT-II, MUT-III (libmut with OpenPort) |
-| Suzuki | Yes (expected) | None found | None found |
-| Hyundai/Kia/Genesis | Yes | EV and hybrid battery: 7E4, 7E2 and others with 21/22 | GDS, Hi-Scan (undocumented here) |
+| Make                | Standard J1979 via ELM327 | Enhanced data via ELM327                                  | Native protocol needing other hardware                    |
+| ------------------- | ------------------------- | --------------------------------------------------------- | --------------------------------------------------------- |
+| Toyota/Lexus        | Yes, K-line or CAN        | CAN hybrids: mode 21/22 with module header, car-specific  | Techstream-style K-line enhanced data (undocumented here) |
+| Honda/Acura         | Yes                       | Engine data only in most reports; beyond that unconfirmed | HDS-style K-line modules and the gateway                  |
+| Nissan/Infiniti     | Yes                       | Leaf via Car-CAN frames and 79B/7BB                       | Consult I and II (cable)                                  |
+| Mazda               | Yes                       | Mode 22, 7E0 and other headers, per car                   | MS-CAN modules (unconfirmed)                              |
+| Subaru              | Yes (mode 01, ECU ID)     | SSM-CAN A8 reads not shown to work on stock ELM327        | SSM1 and SSM2 K-line (reflashed or K-line cable)          |
+| Mitsubishi          | Yes                       | Not documented in sources opened                          | MUT-II, MUT-III (libmut with OpenPort)                    |
+| Suzuki              | Yes (expected)            | None found                                                | None found                                                |
+| Hyundai/Kia/Genesis | Yes                       | EV and hybrid battery: 7E4, 7E2 and others with 21/22     | GDS, Hi-Scan (undocumented here)                          |
 
 ## Design implications for obd-read
 

@@ -151,6 +151,7 @@ No snapshot found:
 - https://github.com/fesch/CanZE/issues/504.
 
 Cheap-adapter
+
 - https://jan-jansen.readthedocs.io/en/latest/volvo-diagnostic.html
 - https://jonesrh.info/volvo850/elm327_volvo_850_svc70_scan.html
 - https://www.evoscan.com/technical-vehicle-manuals/132
@@ -161,9 +162,11 @@ Cheap-adapter
 - https://py-obdii.readthedocs.io/en/latest/api/modes/mode_at.html.
 
 Hardware
+
 - https://saabwisonline.com/9-3-9400/1998/2-engine/trionic-t5-obdii/technical-description/diagnostics-communication.
 
 Later
+
 - https://saabwisonline.com/9-3-9400/2002/3-electrical-system/bus-and-diagnostics-communication/technical-description/diagnostics-communication
 - https://saabwisonline.com/9-5-9650/2011/3-electrical-system/bus-and-diagnostics-communication/technical-description/data-link-communications-description-and-operation
 - https://targatelematics.com/wp-content/uploads/2025/12/ARTEL_InstallationManual_Kit1R_generico_REV01_09.10.2025.pdf
@@ -174,6 +177,7 @@ Later
 - https://www.scantool.net/scantool/downloads/103/elm327dsh.pdf.
 
 The
+
 - https://www.vehicleservicepros.com/service-repair/the-garage/blogs/blog/21238728/snapon-diagnostics-mid-speed-can-bus-failure-on-a-volvo-xc60
 
 ## Links that did not load when checked

@@ -35,12 +35,14 @@ Summary: American-origin vehicles are reachable by a read-only tool in two tiers
 ## Ford and Lincoln
 
 ### Buses by era
+
 - Pre-2008: J1850 PWM (41.6 kbit/s, pins 2 and 10) on Ford passenger cars and light trucks, with CAN arriving on some models before the mandate. Protocol 1 in the ELM327 list. Protocol detail from [Wikipedia, On-board diagnostics](https://en.wikipedia.org/wiki/On-board_diagnostics).
 - HS-CAN on pins 6 and 14 at 500 kbit/s is the OBD-II CAN. The FORScan forum confirms Ford HS-CAN on pins 6 and 14 and MS-CAN on pins 3 and 11 ([FORScan forum](https://forum.forscan.org/viewtopic.php?p=4)). Many Ford and Mazda models from about 2003 to 2004 have MS-CAN, per the same thread.
 - MS-CAN bit rate: a hobbyist report mentions 125 kbit/s on pins 3 and 11 ([Arduino forum](https://forum.arduino.cc/t/arduino-uno-canbus-shield-ms-can-hs-can/62618)), and the ELM327's User1 CAN default of 125 kbaud matches it, but the same forum also lists 250 kbit/s as a question mark. Treat 125 kbit/s as likely and unconfirmed against a Ford service document.
 - Newer Ford hybrids and plug-in hybrids: the FORScan thread above reports HS2-CAN replacing MS-CAN on the DLC, with conflicting posts about whether it sits on pins 3 and 11 or 8 and 12, and no settled answer on which models. Detect, do not assume.
 
 ### Module addressing and services
+
 - PCM on 0x7E0 is reported by Ford owners' forums ([Mustang Source](https://themustangsource.com/forums/f726/can-bus-how-our-cars-modules-communicate-529879)), and a 2023 F-150 service bulletin lists PCM 7E0, BECM 7E4, SOBDMC 7E6 and ABS 760 ([NHTSA TSB](https://static.nhtsa.gov/odi/tsbs/2024/MC-10251477-0001.pdf)). Response IDs follow the ISO 15765-4 rule of request plus 8 (so PCM 0x7E8, ABS 0x768 per a RaceChrono forum user, [RaceChrono](https://racechrono.com/forum/discussion/comment/12814)); the TCM on 0x7E1 is unconfirmed, as no Ford source I opened states it.
 - Ford enhanced data is a manufacturer extension of OBD service 0x22 (read by identifier) with two-byte PIDs, described by community sources as proprietary ([Ford-Trucks forum](https://www.ford-trucks.com/forums/1579756-extended-can-pid-codes-mode-22-obd2.html)). Whether a given module uses UDS-conformant framing or an older Ford set varies by era: unconfirmed for any specific year.
 - FORScan is the community reference for Ford and Mazda module lists and works through ELM327, OBDLink and vLinker adapters ([FORScan forum, compatibility table](https://forum.forscan.org/viewtopic.php?p=95958); [community adapter summary](https://community.cyanlabs.net/t/forscan-supported-adapters-protocols-and-platforms/5487)). FORScan is closed software; an open tool should read its published module and PID knowledge only where licensing allows, and never copy its tables wholesale.
@@ -49,6 +51,7 @@ Summary: American-origin vehicles are reachable by a read-only tool in two tiers
 ## GM, Chevrolet, Cadillac, Buick, GMC, Opel and Vauxhall
 
 ### Buses by era
+
 - Pre-2008: J1850 VPW (10.4 kbit/s, pin 2) on GM, protocol 2 in the ELM327 list ([Wikipedia](https://en.wikipedia.org/wiki/On-board_diagnostics)). GM's enhanced diagnostic language on VPW is "Class 2"; the term appears in a GM service document on Corvette serial data ([Corvette Forum attachment](https://www.corvetteforum.com/forums/attachments/c6-corvette-zr1-and-z06/48068162d1488321898-scm-seat-class-2-serial-data-aab-data-link.description-2008..pdf)), which I did not read in full, so the Class 2 service set is not summarised here.
 - GMLAN is GM's application and diagnostic layer on CAN: standardised as SAE J2411 for single-wire use, with ISO 15765-2 transport ([Wikipedia, GMLAN](https://en.wikipedia.org/wiki/General_Motors_Local_Area_Network)). The Wikipedia page flags itself as needing citations.
 - Pin 1 carries GM's single-wire CAN (SAE J2411, GMW3089) at 33.3 kbit/s in normal operation, per a pinout quoted in a search summary ([CarModder](https://www.carmodder.com/viewtopic.php?p=18424)), and the same forum says pin 1 can also carry other buses depending on model year, so detect, do not assume. The higher-rate programming mode of SW-CAN is a flashing matter and out of scope.
@@ -56,6 +59,7 @@ Summary: American-origin vehicles are reachable by a read-only tool in two tiers
 - The Saab and Vauxhall/Opel Astra J workshop pages describe GMLAN buses and gateway layout for those platforms ([Saab 9-4X data link](https://saabwisonline.com/9-4x/2011/3-electrical-system/bus-and-diagnostics-communication/technical-description/data-link-communications-description-and-operation), [Vauxhall Astra J](https://workshop-manuals.com/vauxhall/astra-j/power_and_signal_distribution/data_communications/description_and_operation/data_link_communications_description_and_operation/)); I did not extract bus speeds from them.
 
 ### Addressing and services
+
 - GMLAN diagnostic services are not UDS. The open `gocan` library's GMLAN package lists them: 0x10 InitiateDiagnosticOperation, 0x1A ReadDataByIdentifier, 0x20 ReturnToNormalMode, 0x23 ReadMemoryByAddress, 0x27 SecurityAccess, 0x28 DisableNormalCommunication, 0x2C DynamicallyDefineMessage, 0x3B WriteDataByIdentifier, 0x3E TesterPresent, 0xA9 ReadDiagnosticInformation, 0xAA ReadDataByPacketIdentifier and 0xAE DeviceControl ([gocan GMLAN package](https://pkg.go.dev/github.com/roffe/gocan/pkg/gmlan)). For read-only work the relevant ones are 0x1A, 0xA9 and 0xAA; everything else writes, programs, actuates or unlocks, and is out of scope.
 - The same package names the all-nodes functional request ID 0x101 with extended address 0xFE. It gives no per-module request and response IDs. The common ECM and TCM IDs (for example 0x7E0 and 0x7E2) are unconfirmed: no source I opened lists them for GM.
 - Later GM platforms moved diagnostics towards UDS; a trade article titled "The Changing Face of CAN Bus Diagnostics on General Motors Vehicles" exists ([diag.net discussion](https://diag.net/discussion/sl7lwcabhw9vycqlxwjvedpekd)) but I only saw its title, so the transition years are unconfirmed.
