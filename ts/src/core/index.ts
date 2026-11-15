@@ -31,3 +31,4 @@ export * from "./openlog.js";
 export * from "./battery.js";
 export * from "./rawcan.js";
 export * from "./slcan.js";
+export * from "./monitor.js";
