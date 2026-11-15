@@ -228,8 +228,8 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
     ? "It never goes to the adapter."
     : alreadySaved
       ? "This link was saved to this device earlier, so it has not been saved again. It never goes to the adapter."
-      : autoSave
-        ? "It is saved to this device automatically, marked as shared, once it is ready. It never goes to the adapter."
+      : autoSave && state.status === "opening"
+        ? "It is saved to this device automatically, marked as shared, once the database is open. It never goes to the adapter."
         : "Nothing in it has been saved. It never goes to the adapter.";
   return (
     <div className={page}>
