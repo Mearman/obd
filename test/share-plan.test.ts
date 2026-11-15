@@ -18,6 +18,7 @@ import {
   redactEnvelope,
   runShareEnvelope,
   sha256Hex,
+  sharedPlanResultSamples,
   shareContents,
   type PhaseRecord,
   type Plan,
@@ -369,6 +370,18 @@ describe("plan result links", () => {
       zlibShareCodec,
     );
     expect(decoded.ok).toBe(false);
+  });
+
+  it("saves a shared result as samples that share back as the same plan result", () => {
+    const envelope = runShareEnvelope(RUN, runSamples(plan()), T0);
+    if (envelope.kind !== "plan-result") throw new Error("not a plan result");
+    const saved = sharedPlanResultSamples(envelope.data, "copy");
+    expect(planOfRun(saved)?.plan).toEqual(plan());
+    const again = runShareEnvelope(RUN, saved, T0);
+    if (again.kind !== "plan-result") throw new Error("not a plan result");
+    expect(again.data.phases).toEqual(envelope.data.phases);
+    expect(again.data.codeEvents).toEqual(envelope.data.codeEvents);
+    expect(again.data.planHash).toBe(envelope.data.planHash);
   });
 
   it("shares a run with no recorded plan as a run summary", () => {
