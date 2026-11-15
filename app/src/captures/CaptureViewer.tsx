@@ -7,6 +7,7 @@ import {
   scanShareFromUnits,
   type Capture,
   type DecodedCaptureData,
+  type Origin,
   type ShareEnvelope,
 } from "obd-read";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
@@ -16,6 +17,7 @@ import { useProfiles } from "../profiles/ProfilesProvider";
 import { error, muted, row, stack } from "../screens/screen.css";
 import { ShareDialog } from "../share/ShareDialog";
 import { Button, Card, Select, download } from "../ui";
+import { OriginBadge } from "../origin/OriginBadge";
 import { DecodedView } from "./DecodedView";
 import { GENERIC_CHOICE, chosenProfile, useDecodeChoices } from "./decode-choices";
 
@@ -48,9 +50,12 @@ function captureEnvelope(capture: Capture): ShareEnvelope {
  */
 export function CaptureViewer({
   id,
+  origin,
   onClose,
 }: {
   readonly id: string;
+  /** Where the capture came from, for its badge; undefined until the list has been read. */
+  readonly origin: Origin | undefined;
   readonly onClose: () => void;
 }) {
   const { service } = useDiagnostics();
@@ -118,6 +123,11 @@ export function CaptureViewer({
   return (
     <Card title={title}>
       <div className={stack}>
+        {origin !== undefined && (
+          <p>
+            <OriginBadge origin={origin} />
+          </p>
+        )}
         {capture !== undefined && (
           <p className={muted}>
             {new Date(capture.startedAt).toLocaleString("en-GB", { timeZone: "UTC" })} UTC, from{" "}

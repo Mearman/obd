@@ -1,0 +1,160 @@
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { sharedScanReport, type ScanShareData } from "obd-read";
+import { describe, expect, it } from "vitest";
+import { App } from "../src/App";
+import type { BrowserSupport } from "../src/connect/support";
+import { createTestService, renderApp } from "./render";
+import { simulatedCapture } from "./simulated-capture";
+
+const CHROME: BrowserSupport = {
+  family: "chromium",
+  capabilities: {
+    webSerial: true,
+    webBluetooth: true,
+    webUsb: true,
+    secureContext: true,
+    usable: true,
+    issues: [],
+  },
+};
+
+const SHARED_SCAN: ScanShareData = {
+  taken: "2026-11-15T10:00:00+00:00",
+  profile: { name: "mercedes-w211" },
+  adapter: { label: "ELM327 v1.5" },
+  redacted: true,
+  units: [
+    {
+      unit: "engine",
+      description: "Engine control",
+      request_id: "7E0",
+      response_id: "7E8",
+      answered: true,
+      notes: [],
+      identification: {},
+      faults: [{ code: "P0420", status: "2F" }],
+      freeze_frames: {},
+    },
+  ],
+};
+
+async function choose(label: string, option: string): Promise<void> {
+  await userEvent.click(screen.getByRole("combobox", { name: label }));
+  await userEvent.click(await screen.findByRole("option", { name: option }));
+}
+
+describe("the origin of stored data", () => {
+  it("badges each capture with its origin, filters by it and shows it in the viewer", async () => {
+    const service = createTestService();
+    const capture = await simulatedCapture();
+    await service.storage.saveCapture(capture, "shared");
+    await service.storage.saveCapture({ ...capture, id: "capture-own" }, "local");
+    renderApp(<App support={CHROME} />, service);
+    await userEvent.click(screen.getByRole("tab", { name: "Captures" }));
+
+    const listed = await screen.findByRole("table", { name: "Captures" });
+    await waitFor(() => {
+      expect(within(listed).getAllByRole("row")).toHaveLength(3);
+    });
+    expect(within(listed).getByText("Shared")).toBeInTheDocument();
+    expect(within(listed).getByText("Read here")).toBeInTheDocument();
+
+    await choose("Show captures", "Shared");
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole("table", { name: "Captures" })).getAllByRole("row"),
+      ).toHaveLength(2);
+    });
+    expect(
+      within(screen.getByRole("table", { name: "Captures" })).queryByText("Read here"),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: `View capture ${capture.id}` }));
+    const viewer = await screen.findByText(`Capture ${capture.id}`);
+    const card = viewer.closest("section") ?? document.body;
+    await waitFor(() => {
+      expect(within(card).getByText("Shared")).toBeInTheDocument();
+    });
+  });
+
+  it("lists saved reports on Scan with their origin, filters them, and opens one read-only", async () => {
+    const service = createTestService();
+    await service.storage.saveScanReport({
+      profile: "mercedes-w211",
+      adapter: "shared://link",
+      takenAt: Date.UTC(2026, 10, 15, 10, 0, 0),
+      label: "Shared scan",
+      report: sharedScanReport(SHARED_SCAN),
+      origin: "shared",
+    });
+    await service.storage.saveScanReport({
+      profile: "mercedes-w211",
+      adapter: "simulator://mercedes-w211",
+      takenAt: Date.UTC(2026, 10, 15, 9, 0, 0),
+      label: "Own scan",
+      report: sharedScanReport({ ...SHARED_SCAN, redacted: false }),
+    });
+    renderApp(<App support={CHROME} />, service);
+    await userEvent.click(screen.getByRole("tab", { name: "Scan" }));
+
+    const reports = await screen.findByRole("table", { name: "Saved reports" });
+    await waitFor(() => {
+      expect(within(reports).getAllByRole("row")).toHaveLength(3);
+    });
+    expect(within(reports).getByText("Shared")).toBeInTheDocument();
+    expect(within(reports).getByText("Read here")).toBeInTheDocument();
+
+    await choose("Show reports", "Read here");
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole("table", { name: "Saved reports" })).queryByText("Shared scan"),
+      ).not.toBeInTheDocument();
+    });
+    await choose("Show reports", "Shared");
+    const shared = await screen.findByRole("table", { name: "Saved reports" });
+    await waitFor(() => {
+      expect(within(shared).getByText("Shared scan")).toBeInTheDocument();
+    });
+    await userEvent.click(within(shared).getByRole("button", { name: /^View report / }));
+    const opened = await screen.findByLabelText("Saved report");
+    expect(
+      within(opened).getByText("Shared data from a link, not read from your adapter."),
+    ).toBeInTheDocument();
+    expect(within(opened).getByRole("table", { name: "Saved fault codes" })).toHaveTextContent(
+      "P0420",
+    );
+    expect(within(opened).queryByRole("button", { name: /clear|write|send/i })).toBeNull();
+  });
+
+  it("offers Resume only on an open run read here, and filters runs by origin", async () => {
+    const service = createTestService();
+    await service.storage.createRun({
+      profile: "mercedes-w211",
+      adapter: "ble://vLinker",
+      startedAt: 2000,
+      origin: "shared",
+    });
+    await service.storage.createRun({
+      profile: "mercedes-w211",
+      adapter: "ble://vLinker",
+      startedAt: 1000,
+    });
+    renderApp(<App support={CHROME} />, service);
+    await userEvent.click(screen.getByRole("tab", { name: "Runs" }));
+    const runs = await screen.findByRole("table", { name: "Collection runs" });
+    const [, sharedRow, ownRow] = within(runs).getAllByRole("row");
+    if (sharedRow === undefined || ownRow === undefined) throw new Error("two runs expected");
+    expect(within(sharedRow).getByText("Shared")).toBeInTheDocument();
+    expect(within(sharedRow).queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
+    expect(within(ownRow).getByText("Read here")).toBeInTheDocument();
+    expect(within(ownRow).getByRole("button", { name: "Resume" })).toBeInTheDocument();
+
+    await choose("Show runs", "Shared");
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole("table", { name: "Collection runs" })).getAllByRole("row"),
+      ).toHaveLength(2);
+    });
+  });
+});

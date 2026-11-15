@@ -1,4 +1,5 @@
 import {
+  allowsWrites,
   isSimulatorUrl,
   runSummaryShareData,
   type Run,
@@ -9,7 +10,9 @@ import { useCallback, useEffect, useState } from "react";
 import { profileTitle } from "../profiles/generic";
 import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
-import { Badge, Button, DataTable, download, type Column } from "../ui";
+import { OriginBadge } from "../origin/OriginBadge";
+import { ALL_ORIGINS, ORIGIN_FILTER_OPTIONS, originQuery } from "../origin/origins";
+import { Badge, Button, DataTable, Select, download, type Column } from "../ui";
 import { error, muted, page, row } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
 import { ShareDialog } from "../share/ShareDialog";
@@ -46,12 +49,13 @@ export function RunsScreen() {
   const { client } = service;
   const [rows, setRows] = useState<readonly RunRow[] | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  const [shown, setShown] = useState(ALL_ORIGINS);
   const collectingId = collection.run?.id;
 
   useEffect(() => {
     const live = { active: true };
     void (async () => {
-      const runs = await client.runs.list({});
+      const runs = await client.runs.list(originQuery(shown));
       const loaded = await Promise.all(
         runs.map(async (run) => ({
           run,
@@ -66,7 +70,7 @@ export function RunsScreen() {
     return () => {
       live.active = false;
     };
-  }, [client, runsVersion, collection.latest.length]);
+  }, [client, runsVersion, collection.latest.length, shown]);
 
   const act = useCallback(async (work: () => Promise<unknown>, failure: string) => {
     setProblem(undefined);
@@ -98,18 +102,22 @@ export function RunsScreen() {
     },
     {
       header: "Source",
-      render: ({ run }) =>
-        isSimulatorUrl(run.adapter) ? (
-          <Badge tone="simulated">Simulated</Badge>
-        ) : (
-          <Badge>Recorded</Badge>
-        ),
+      render: ({ run }) => (
+        <span className={row}>
+          <OriginBadge origin={run.origin} />
+          {isSimulatorUrl(run.adapter) ? (
+            <Badge tone="simulated">Simulated</Badge>
+          ) : (
+            <Badge>Recorded</Badge>
+          )}
+        </span>
+      ),
     },
     {
       header: "Actions",
       render: ({ run }) => (
         <span className={row}>
-          {run.stoppedAt === null && run.id !== collectingId && (
+          {allowsWrites(run.origin) && run.stoppedAt === null && run.id !== collectingId && (
             <Button
               onClick={() => void act(() => resumeCollection(run), "Could not resume the run.")}
             >
@@ -154,10 +162,18 @@ export function RunsScreen() {
           {problem}
         </p>
       )}
+      <Select
+        label="Show runs"
+        value={shown}
+        options={ORIGIN_FILTER_OPTIONS}
+        onValueChange={setShown}
+      />
       {rows === undefined ? (
         <p className={muted}>Loading runs…</p>
       ) : rows.length === 0 ? (
-        <p className={muted}>No runs yet.</p>
+        <p className={muted}>
+          {shown === ALL_ORIGINS ? "No runs yet." : "No runs of this origin."}
+        </p>
       ) : (
         <DataTable
           label="Collection runs"
