@@ -2,8 +2,10 @@
 
 import { hexNumber } from "./bytes.js";
 import { ElmError, type Elm } from "./elm.js";
+import { KLineElm } from "./kline.js";
 import { report } from "./legislated.js";
 import {
+  FUNCTIONAL_ID,
   MISFIRE_FIRST_CYLINDER,
   MISFIRE_GENERAL,
   PENDING_CODES,
@@ -15,6 +17,7 @@ import {
   readiness,
   vin,
 } from "./obd.js";
+import { DEFAULT_TESTER, KLINE_SCHEMES, type KLineScheme } from "./profile.js";
 import type { LineSink } from "./unit-access.js";
 
 /**
@@ -77,4 +80,44 @@ export async function obdReport(elm: Elm, out: LineSink): Promise<number> {
     }
   }
   return 0;
+}
+
+/** What the `obd` command is asked for: the CAN bus, or a K-line scheme instead of CAN. */
+export interface ObdCommandOptions {
+  /** The CAN identifier width, 11 or 29 bits. */
+  readonly idBits: 11 | 29;
+  /** The CAN bit rate in bit/s. */
+  readonly bitrate: number;
+  /** Read over K-line with this initialisation instead of CAN; needs a {@link KLineElm} session. */
+  readonly kline?: KLineScheme;
+}
+
+/**
+ * The `obd` command: selects the bus, addresses every emissions unit and prints {@link obdReport}.
+ * It needs no profile.
+ *
+ * @returns The exit status, always 0.
+ * @throws ElmError when a K-line scheme is asked for on a session that is not a {@link KLineElm}.
+ */
+export async function obdCommand(
+  elm: Elm,
+  options: ObdCommandOptions,
+  out: LineSink,
+): Promise<number> {
+  if (options.kline !== undefined) {
+    if (!(elm instanceof KLineElm)) {
+      throw new ElmError("a K-line read needs a K-line adapter session");
+    }
+    await elm.selectKline({
+      kind: "kline",
+      scheme: options.kline,
+      tester: DEFAULT_TESTER,
+      headerFormat: KLINE_SCHEMES[options.kline].headerFormat,
+    });
+    await elm.addressFunctional();
+  } else {
+    await elm.selectCan(options.idBits, options.bitrate);
+    await elm.addressFunctional(FUNCTIONAL_ID[options.idBits]);
+  }
+  return obdReport(elm, out);
 }

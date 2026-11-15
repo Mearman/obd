@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { DiagProtocol, READ_ONLY } from "./guard.js";
+import { pythonRepr } from "./format.js";
 import { codeTableProblems, profileCodesSchema } from "./codenames.js";
 
 /** A profile file is malformed or asks for something this tool will not send. */
@@ -278,7 +279,7 @@ export function profileUnit(profile: Profile, name: string): Unit {
   const unit = profile.units.get(name);
   if (unit === undefined) {
     throw new ProfileError([
-      `profile ${profile.name} has no unit ${JSON.stringify(name)}; it has ${[...profile.units.keys()].join(", ")}`,
+      `profile ${profile.name} has no unit ${pythonRepr(name)}; it has ${[...profile.units.keys()].join(", ")}`,
     ]);
   }
   return unit;

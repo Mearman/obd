@@ -5,6 +5,7 @@ import {
   ElmError,
   GuardError,
   KLineElm,
+  obdCommand,
   Kwp2000,
   NoResponse,
   UnitSession,
@@ -21,7 +22,8 @@ import {
   type KLineScheme,
 } from "../src/core/index.js";
 import { FakeKLineCore, fakeKLineTransport, replyLine } from "./helpers/fake-kline.js";
-import { KLINE_PROFILE, edit } from "./support/profiles.js";
+import { runProfileCommand } from "./helpers/command-rig.js";
+import { KLINE_PROFILE, edit, type Json } from "./support/profiles.js";
 
 function engine(request: Uint8Array): Uint8Array {
   const [service = 0, first = 0] = request;
@@ -179,5 +181,104 @@ describe("over a K-line bus", () => {
     await expect(permit(DiagProtocol.KWP2000, Uint8Array.of(0x2e, 0x01))).rejects.toThrow(
       GuardError,
     );
+  });
+});
+
+/** A K-line car as the profile commands see it: an engine unit and a silent-or-not brake unit. */
+const OLD_CAR: Json = {
+  name: "old-car",
+  description: "Example K-line car",
+  status: "unconfirmed",
+  bus: { kline: "kwp2000-slow" },
+  diagnostics: { protocol: "kwp2000", session: 0x81 },
+  units: {
+    engine: { description: "Engine control unit", request: 0x01, response: 0x01, source: "test" },
+    abs: { description: "Brakes", request: 0x03, response: 0x03, source: "test" },
+  },
+};
+
+describe("through the profile commands", () => {
+  async function run(
+    core: FakeKLineCore,
+    command: Parameters<typeof runProfileCommand>[0]["command"],
+    profile: Json = OLD_CAR,
+  ): Promise<{ status: number; output: string }> {
+    const { status, lines } = await runProfileCommand({
+      transport: fakeKLineTransport(core),
+      makeElm: (transport) => new KLineElm(transport),
+      profile: parseProfile(profile, "test"),
+      command,
+    });
+    return { status, output: lines.join("\n") };
+  }
+
+  it("probes: initialises each unit and reports who answers", async () => {
+    const core = new FakeKLineCore({ 0x01: engine }, new Set([0x03]));
+    const { status, output } = await run(core, { command: "probe" });
+    expect(status).toBe(0);
+    expect(output).toContain("engine (1 -> 1): answered");
+    expect(output).toContain("abs (3 -> 3): no answer");
+    expect(core.sent).toContain("ATSP4");
+    expect(core.sent.indexOf("ATIIA01")).toBeLessThan(core.sent.indexOf("ATSHC001F1"));
+    expect(core.sent.indexOf("ATSHC001F1")).toBeLessThan(core.sent.indexOf("ATSI"));
+    expect(core.sent).toContain("ATIIA03");
+    expect(core.requests).toEqual(["1081", "1A86"]);
+  });
+
+  it("reads faults and identification", async () => {
+    const { status, output } = await run(new FakeKLineCore({ 0x01: engine }), {
+      command: "faults",
+      unit: "engine",
+    });
+    expect(status).toBe(0);
+    expect(output).toContain("fault codes: 1");
+    expect(output).toContain("0123  status 60");
+    expect(output).toContain("06A906032");
+  });
+
+  it("uses ATFI and no slow address for a fast initialisation", async () => {
+    const core = new FakeKLineCore({ 0x01: engine });
+    const profile = edit(OLD_CAR, ["bus", "kline"], "kwp2000-fast");
+    expect((await run(core, { command: "ident", unit: "engine" }, profile)).status).toBe(0);
+    expect(core.sent).toContain("ATFI");
+    expect(core.sent).not.toContain("ATSI");
+    expect(core.sent.some((line) => line.startsWith("ATIIA"))).toBe(false);
+    expect(core.sent).toContain("ATSP5");
+  });
+
+  it("treats a reply that fails its checksum as an error, not data", async () => {
+    const core = new FakeKLineCore({ 0x01: engine });
+    core.corrupt = true;
+    const { output } = await run(core, { command: "probe" });
+    expect(output).toContain("engine (1 -> 1): no answer");
+    expect(output).toContain("fails its checksum");
+  });
+
+  it("still refuses writes at the guard", async () => {
+    const core = new FakeKLineCore({ 0x01: engine });
+    const { status, output } = await run(core, {
+      command: "request",
+      unit: "engine",
+      request: "2E0101",
+    });
+    expect(status).toBe(1);
+    expect(output).toContain("refused");
+    expect(core.requests).toEqual([]);
+  });
+
+  it("reads the legislated modes over K-line without a profile", async () => {
+    const core = new FakeKLineCore({});
+    // A functional request leaves the header at its default, so the fake answers from address 0.
+    core.units[0x00] = engine;
+    const elm = new KLineElm(fakeKLineTransport(core));
+    const lines: string[] = [];
+    const status = await obdCommand(
+      elm,
+      { idBits: 11, bitrate: 500_000, kline: "iso9141" },
+      (line) => lines.push(line),
+    );
+    expect(core.sent).toContain("ATSP3");
+    expect(status).toBe(0);
+    expect(lines.some((line) => line.startsWith("unit 0: warning lamp"))).toBe(true);
   });
 });

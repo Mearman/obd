@@ -21,3 +21,8 @@ export function sleep(milliseconds: number): Promise<void> {
 export function isoNow(): string {
   return new Date().toISOString().replace("Z", "+00:00");
 }
+
+/** The current UTC time as ISO 8601 to the second with a `+00:00` offset, for saved documents. */
+export function isoNowSeconds(): string {
+  return `${new Date().toISOString().slice(0, 19)}+00:00`;
+}

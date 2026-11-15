@@ -22,11 +22,14 @@ import {
   requestFor,
   responseFor,
   segment,
+  toHex,
   swapAddresses,
   type Transport,
 } from "../src/core/index.js";
+import { runProfileCommand } from "./helpers/command-rig.js";
 import { FakeCanLink, type CanResponder } from "./helpers/fake-can.js";
 import { KwpEcu } from "./helpers/fake-elm.js";
+import { loadBuiltinProfile } from "../src/profiles/index.js";
 
 /** A fake W211 on a raw CAN link. */
 class RawCar {
@@ -214,6 +217,80 @@ it("pairs request and response identifiers", () => {
   expect(requestFor(0x7e8, 11)).toBe(0x7e0);
   expect(swapAddresses(0x18daf110)).toBe(0x18da10f1);
   expect(responseFor(0x18da10f1, 29)).toBe(0x18daf110);
+});
+
+describe("a raw CAN link through the profile commands", () => {
+  const profile = loadBuiltinProfile("mercedes-w211");
+
+  async function run(
+    car: RawCar,
+    command: Parameters<typeof runProfileCommand>[0]["command"],
+  ): Promise<{ status: number; output: string }> {
+    const { status, lines } = await runProfileCommand({
+      transport: car.transport,
+      makeElm: () => new Elm(car.transport, { maxRequest: car.transport.maxRequest }),
+      profile,
+      command,
+    });
+    return { status, output: lines.join("\n") };
+  }
+
+  it("probes and reads faults", async () => {
+    const car = new RawCar();
+    const probe = await run(car, { command: "probe" });
+    expect(probe.status).toBe(0);
+    expect(probe.output).toContain("engine (7E0 -> 7E8): answered");
+    expect(probe.output).toContain("esp (784 -> 785): answered");
+    expect(probe.output).toContain("kombi (796 -> 797): no answer");
+    expect(car.link.configured).toEqual([[500_000, false]]);
+    expect(car.link.opened).toBe(true);
+    expect(car.link.closed).toBe(true);
+    const faults = await run(car, { command: "faults", unit: "esp" });
+    expect(faults.status).toBe(0);
+    expect(faults.output).toContain("5123  status 61");
+  });
+
+  it("gets flow control from the tool for multi-frame replies", async () => {
+    const car = new RawCar();
+    const { status, output } = await run(car, { command: "ident", unit: "esp" });
+    expect(status).toBe(0);
+    expect(output).toContain("A6421500000 E280CDI");
+    const control = car.link.sent.filter((frame) => (frame.data[0] ?? 0) >> 4 === 3);
+    expect(control.length).toBeGreaterThan(0);
+    expect(control.every((frame) => frame.canId === 0x784)).toBe(true);
+    expect(control[0]?.data.slice(0, 3)).toEqual(Uint8Array.of(0x30, 0, 0));
+  });
+
+  it("sends requests longer than one frame segmented", async () => {
+    const car = new RawCar();
+    const request = fromHex(`21${"00".repeat(12)}`);
+    const seen: Uint8Array[] = [];
+    car.link.responders[0x784] = (payload) => {
+      seen.push(payload);
+      return [[0x785, Uint8Array.of(0x61, 0x00)]];
+    };
+    const { status, output } = await run(car, {
+      command: "request",
+      unit: "esp",
+      request: toHex(request),
+    });
+    expect(status).toBe(0);
+    expect(seen).toEqual([request]);
+    expect(car.link.sent[0]?.data).toEqual(segment(request)[0]);
+    expect(output.endsWith("6100")).toBe(true);
+  });
+
+  it("still refuses writes before anything is sent", async () => {
+    const car = new RawCar();
+    const { status, output } = await run(car, {
+      command: "request",
+      unit: "esp",
+      request: "2E0101",
+    });
+    expect(status).toBe(1);
+    expect(output).toContain("refused");
+    expect(car.link.sent).toEqual([]);
+  });
 });
 
 describe("SLCAN", () => {

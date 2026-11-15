@@ -41,3 +41,6 @@ export * from "./testing/memory-storage.js";
 export * from "./service.js";
 export * from "./service-impl.js";
 export * from "./simulator.js";
+export * from "./ordered-json.js";
+export * from "./operations.js";
+export * from "./command-errors.js";

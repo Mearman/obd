@@ -31,3 +31,21 @@ export function formatSignificant(value: number, digits: number): string {
   }
   return trimmed(value.toFixed(digits - 1 - exponent));
 }
+
+/**
+ * Formats text as Python's `repr` does for a `str`: single quotes unless the text holds a single quote and no double quote, a backslash before the quote character used, backslashes, line breaks and tabs, and `\xNN` for other control characters.
+ */
+export function pythonRepr(text: string): string {
+  const quote = text.includes("'") && !text.includes('"') ? '"' : "'";
+  let body = "";
+  for (const character of text) {
+    const code = character.codePointAt(0) ?? 0;
+    if (character === quote || character === "\\") body += `\\${character}`;
+    else if (character === "\n") body += "\\n";
+    else if (character === "\r") body += "\\r";
+    else if (character === "\t") body += "\\t";
+    else if (code < 0x20 || code === 0x7f) body += `\\x${code.toString(16).padStart(2, "0")}`;
+    else body += character;
+  }
+  return `${quote}${body}${quote}`;
+}

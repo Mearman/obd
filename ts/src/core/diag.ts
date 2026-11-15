@@ -4,9 +4,11 @@ import { hexNumber, toHex } from "./bytes.js";
 import { ElmError, type Elm } from "./elm.js";
 import { permit, type DiagProtocol, type Token } from "./guard.js";
 
-const NEGATIVE_RESPONSE = 0x7f;
+/** The service byte of a negative response. */
+export const NEGATIVE_RESPONSE = 0x7f;
 const RESPONSE_PENDING = 0x78;
-const POSITIVE_OFFSET = 0x40;
+/** What a unit adds to a request's service byte to make the service byte of its positive reply. */
+export const POSITIVE_OFFSET = 0x40;
 
 /** Negative response codes common to KWP2000 and UDS, for readable errors. */
 export const RESPONSE_CODES: ReadonlyMap<number, string> = new Map([
