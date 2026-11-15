@@ -245,3 +245,60 @@ describe("session allowlist", () => {
     }
   });
 });
+
+describe("per-unit diagnostics", () => {
+  const mixed = edit(MINIMAL, ["units", "gearbox"], {
+    description: "Gearbox",
+    request: 0x7e1,
+    response: 0x7e9,
+    diagnostics: { protocol: "kwp2000", session: 0x81 },
+    source: "made up for the test",
+  });
+
+  it("a unit without its own diagnostics takes the profile's", () => {
+    const unit = profileUnit(parseProfile(mixed, "mixed"), "engine");
+    expect([unit.protocol, unit.session]).toEqual(["uds", 0x03]);
+  });
+
+  it("a unit with its own diagnostics keeps them beside the profile's", () => {
+    const profile = parseProfile(mixed, "mixed");
+    const unit = profileUnit(profile, "gearbox");
+    expect([unit.protocol, unit.session]).toEqual(["kwp2000", 0x81]);
+    expect([profile.protocol, profile.session]).toEqual(["uds", 0x03]);
+  });
+
+  it("a unit's session must be a read-only session of the unit's own protocol", () => {
+    // 0x03 is a read-only UDS session and not a KWP2000 one.
+    const bad = edit(mixed, ["units", "gearbox", "diagnostics", "session"], 0x03);
+    expect(() => parseProfile(bad, "mixed")).toThrow(
+      /\[units\.gearbox\.diagnostics\]: diagnostic session 0x03 is not a read-only session/,
+    );
+  });
+
+  it("a value's identifier must fit the unit's protocol, not the profile's", () => {
+    const wide = edit(mixed, ["units", "gearbox", "values"], {
+      wide: { label: "wide", identifier: 0x1234, source: "made up for the test" },
+    });
+    expect(() => parseProfile(wide, "mixed")).toThrow(
+      /\[units\.gearbox\.values\.wide\]: identifier 0x1234 does not fit a kwp2000 identifier/,
+    );
+  });
+
+  it("a unit's diagnostics name a protocol the tool supports", () => {
+    const bad = edit(mixed, ["units", "gearbox", "diagnostics", "protocol"], "obd");
+    expect(() => parseProfile(bad, "mixed")).toThrow(/protocol must be kwp2000 or uds/);
+  });
+
+  it("a K-line unit's diagnostics cannot name UDS", () => {
+    const bad = edit(KLINE_PROFILE, ["units"], {
+      engine: {
+        description: "Engine",
+        request: 0x01,
+        response: 0x02,
+        diagnostics: { protocol: "uds", session: 0x01 },
+        source: "made up for the test",
+      },
+    });
+    expect(() => parseProfile(bad, "kline")).toThrow(/a K-line bus carries kwp2000 only/);
+  });
+});
