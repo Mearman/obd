@@ -1,6 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
-const PORT = 4173;
+/**
+ * The port the preview server listens on. `OBD_READ_E2E_PORT` moves it, so two checkouts on one machine can run their checks at once; the strict port makes a clash fail instead of testing another checkout's build.
+ */
+const PORT = Number(process.env.OBD_READ_E2E_PORT ?? "4173");
 
 /**
  * Optional path to a Chromium or headless-shell binary, for a machine whose cached Playwright
@@ -23,7 +26,7 @@ export default defineConfig({
     ...(executablePath === undefined ? {} : { launchOptions: { executablePath } }),
   },
   webServer: {
-    command: "VITE_OBD_E2E=1 pnpm exec vite build && pnpm preview",
+    command: `VITE_OBD_E2E=1 pnpm exec vite build && pnpm exec vite preview --host 127.0.0.1 --port ${String(PORT)} --strictPort`,
     url: `http://127.0.0.1:${String(PORT)}`,
     reuseExistingServer: false,
     timeout: 120_000,
