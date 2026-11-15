@@ -65,6 +65,8 @@ describe("the argument parser", () => {
       "decode",
       "import-capture",
       "share",
+      "record",
+      "plan",
     ]);
   });
 

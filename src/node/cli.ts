@@ -138,6 +138,14 @@ import {
   writeNewFile,
 } from "./cli-files.js";
 import { processCentral } from "./radio.js";
+import {
+  checkRecord,
+  loadPlan,
+  planCommand,
+  recordOnSession,
+  type RecordOptions,
+} from "./cli-record.js";
+import { PlanError } from "../core/plan.js";
 import { zlibShareCodec } from "./share-codec.js";
 import type { BleCentral } from "./ble.js";
 
@@ -163,6 +171,8 @@ export interface CliIo {
   readonly listPorts: SerialPortLister;
   /** Ends `simulate` and `mqtt` when aborted, and makes other commands return status 130. */
   readonly signal?: AbortSignal;
+  /** Whether a person at a terminal can answer prompts; `record` refuses a plan with manual steps without one. Default: not. */
+  readonly interactive?: boolean;
 }
 
 /** The status a command line is stopped with by an interrupt, as the shell reports Ctrl-C. */
@@ -798,10 +808,37 @@ async function importCaptureCommand(io: CliIo, args: ParsedArgs): Promise<number
   return 0;
 }
 
-/** Runs a command that connects to an adapter. */ /** Runs a command that connects to an adapter. */
+/** What `record` will run, loaded and checked before the adapter is opened. */
+async function recordOptions(io: CliIo, args: ParsedArgs): Promise<RecordOptions> {
+  const plan = await loadPlan(io.directory, args.text("plan"));
+  const profileName = args.optionalText("profile");
+  const csv = args.optionalText("csv");
+  const tsv = args.optionalText("tsv");
+  const options: RecordOptions = {
+    plan,
+    adapter: args.text("adapter"),
+    // A profile only names what the run was recorded for; a file is read for its name.
+    ...(profileName === undefined ? {} : { profile: (await loadProfile(io, profileName)).name }),
+    output: args.text("output"),
+    // carCommand refuses --csv with --tsv, as for every command that writes a log.
+    ...(csv !== undefined
+      ? { table: { path: csv, dialect: "csv" as const } }
+      : tsv !== undefined
+        ? { table: { path: tsv, dialect: "tsv" as const } }
+        : {}),
+    yesConfirm: args.flag("yesConfirm"),
+    idBits: identifierBits(args),
+    bitrate: args.number("bitrate"),
+  };
+  await checkRecord(io, options);
+  return options;
+}
+
+/** Runs a command that connects to an adapter. */
 async function carCommand(io: CliIo, args: ParsedArgs, name: string): Promise<number> {
   const profileName = args.optionalText("profile");
-  const usesProfile = !["obd", "discover", "clear-codes", "battery"].includes(name);
+  const usesProfile = !["obd", "discover", "clear-codes", "battery", "record"].includes(name);
+  const record = name === "record" ? await recordOptions(io, args) : undefined;
   const profile =
     usesProfile && profileName !== undefined ? await loadProfile(io, profileName) : undefined;
   const kline =
@@ -832,6 +869,9 @@ async function carCommand(io: CliIo, args: ParsedArgs, name: string): Promise<nu
     switch (name) {
       case "capture":
         return captureOnSession(io, args, elm, adapter, profile);
+      case "record":
+        if (record === undefined) throw new Error("record options are loaded before connecting");
+        return recordOnSession(io, elm, record);
       case "live": {
         const unit = args.optionalText("unit");
         return liveCommand(
@@ -970,6 +1010,7 @@ function isReportable(error: unknown): error is Error {
     error instanceof ShareLinkError ||
     error instanceof CaptureError ||
     error instanceof ImportError ||
+    error instanceof PlanError ||
     (error instanceof Error && error.name === "DefinitionError")
   );
 }
@@ -997,6 +1038,16 @@ async function dispatch(io: CliIo, args: ParsedArgs): Promise<number> {
       return decodeCommand(io, args);
     case "import-capture":
       return importCaptureCommand(io, args);
+    case "plan":
+      return planCommand(
+        io,
+        String(args.path[1]),
+        args.path[1] === "show"
+          ? [args.text("target")]
+          : args.path[1] === "validate"
+            ? args.texts("targets")
+            : [],
+      );
     default:
       return carCommand(io, args, String(name));
   }
@@ -1033,8 +1084,8 @@ export async function run(argv: readonly string[], io: CliIo): Promise<number> {
     }
     throw error;
   }
-  // A capture stops itself at an interrupt and still writes what it read.
-  const cooperative = ["simulate", "mqtt", "capture"].includes(String(args.path[0]));
+  // A capture or a recording stops itself at an interrupt and still writes what it read.
+  const cooperative = ["simulate", "mqtt", "capture", "record"].includes(String(args.path[0]));
   try {
     const status = await (cooperative
       ? dispatch(io, args)
@@ -1069,6 +1120,7 @@ export function processIo(
       central: () => central,
       listPorts: listSystemSerialPorts,
       signal,
+      interactive: process.stdin.isTTY,
     },
     close: () => {
       asker?.close();
