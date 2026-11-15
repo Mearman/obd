@@ -40,7 +40,8 @@ const config: Options = {
         ],
       },
     ],
-    ["@semantic-release/release-notes-generator", { preset: "conventionalcommits" }],
+    // Angular, not conventionalcommits: the conventionalcommits preset needs conventional-changelog-writer 9, and the notes generator semantic-release bundles loads version 8, which fails on its template.
+    ["@semantic-release/release-notes-generator", { preset: "angular" }],
     "@semantic-release/github",
     // The Pages build reads the latest tag for the version it shows, and a tag made with the workflow's own token starts no workflow, so a release asks for the rebuild itself.
     ["@semantic-release/exec", { publishCmd: "gh workflow run pages.yml --ref main" }],
