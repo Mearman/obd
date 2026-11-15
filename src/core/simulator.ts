@@ -72,6 +72,8 @@ export class FakeElmCore {
   readonly stnIdentity: string | undefined;
   readonly sent: string[] = [];
   header = 0;
+  /** The CAN priority byte set with `ATCP` (the ELM327 default for 29-bit protocols is 0x18). */
+  priority = 0x18;
   idChars = 3;
   readonly longRequests: Uint8Array[] = [];
   /** The (tester identifier, unit identifier) pairs registered with `STCFCPA`. */
@@ -212,8 +214,16 @@ export class FakeElmCore {
       this.idChars = protocol === "7" || protocol === "9" ? 8 : 3;
       return "OK";
     }
+    if (line.startsWith("ATCP")) {
+      this.priority = Number.parseInt(line.slice(4), 16);
+      return "OK";
+    }
     if (line.startsWith("ATSH")) {
-      this.header = Number.parseInt(line.slice(4), 16);
+      const digits = line.slice(4);
+      const value = Number.parseInt(digits, 16);
+      // On 29-bit CAN a six-digit header is the low three bytes under the priority byte from ATCP.
+      this.header =
+        this.idChars === 8 && digits.length <= 6 ? this.priority * 2 ** 24 + value : value;
       return "OK";
     }
     if (line === "ATCEA") {
