@@ -19,6 +19,7 @@ import { ShareDialog } from "../share/ShareDialog";
 import { Button, Card, Select, download } from "../ui";
 import { OriginBadge } from "../origin/OriginBadge";
 import { PlaybackView } from "./playback/PlaybackView";
+import { DecodedDownloads } from "./DecodedDownloads";
 import { GENERIC_CHOICE, chosenProfile, useDecodeChoices } from "./decode-choices";
 
 /** The link a decoding makes: the units under a profile, or the OBD-II report under none. Only the decoded summary travels; the raw capture has its own link. */
@@ -210,6 +211,11 @@ export function CaptureViewer({
             Close
           </Button>
         </div>
+        {decoded !== undefined && capture !== undefined && (
+          <div className={row}>
+            <DecodedDownloads capture={capture} decoded={decoded} />
+          </div>
+        )}
         {importNote !== undefined && <p role="status">{importNote}</p>}
         {problem !== undefined && (
           <p role="alert" className={error}>

@@ -14,6 +14,7 @@ import { OriginBadge } from "../origin/OriginBadge";
 import { ALL_ORIGINS, ORIGIN_FILTER_OPTIONS, originQuery } from "../origin/origins";
 import { profileTitle } from "../profiles/generic";
 import { Button, Card, DataTable, Select, download, type Column } from "../ui";
+import { ReportDownloads } from "../tabular/ReportDownloads";
 import { ObdReport } from "./ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "./ScanResults";
 import { error, muted, row, stack } from "./screen.css";
@@ -160,6 +161,7 @@ export function SavedReports({
               >
                 Download JSON
               </Button>
+              <ReportDownloads report={open} />
               <Button
                 variant="ghost"
                 onClick={() => {

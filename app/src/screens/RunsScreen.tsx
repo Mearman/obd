@@ -1,4 +1,5 @@
 import {
+  EXPORT_FORMATS,
   allowsWrites,
   isSimulatorUrl,
   runSummaryShareData,
@@ -17,6 +18,7 @@ import { error, muted, page, row } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
 import { ShareDialog } from "../share/ShareDialog";
 import { RunGraphs } from "./RunGraphs";
+import { RunImport } from "./RunImport";
 
 /** A stored run with the number of samples it holds. */
 interface RunRow {
@@ -52,6 +54,8 @@ export function RunsScreen() {
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [shown, setShown] = useState(ALL_ORIGINS);
   const [graphed, setGraphed] = useState<Run | undefined>(undefined);
+  // Changes when a run is imported, so the list is read again.
+  const [imported, setImported] = useState(0);
   const collectingId = collection.run?.id;
 
   useEffect(() => {
@@ -72,7 +76,7 @@ export function RunsScreen() {
     return () => {
       live.active = false;
     };
-  }, [client, runsVersion, collection.latest.length, shown]);
+  }, [client, runsVersion, collection.latest.length, shown, imported]);
 
   const act = useCallback(async (work: () => Promise<unknown>, failure: string) => {
     setProblem(undefined);
@@ -144,7 +148,7 @@ export function RunsScreen() {
             title="Share this run's summary"
             load={() => runEnvelope(client, run)}
           />
-          {(["csv", "json"] as const).map((format) => (
+          {EXPORT_FORMATS.map((format) => (
             <Button
               key={format}
               onClick={() =>
@@ -172,6 +176,11 @@ export function RunsScreen() {
           {problem}
         </p>
       )}
+      <RunImport
+        onImported={() => {
+          setImported((count) => count + 1);
+        }}
+      />
       <Select
         label="Show runs"
         value={shown}
