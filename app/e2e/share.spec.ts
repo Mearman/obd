@@ -65,6 +65,9 @@ test("with automatic saving off a link is stored only on Save", async ({ browser
   expect(await savedReports(page)).toEqual([]);
 
   await page.getByRole("button", { name: "Save this scan" }).click();
+  await expect(page.getByText("Saved to this device, marked as shared.")).toBeVisible();
+  expect(page.url()).toContain("#share=1.");
+  await page.getByRole("button", { name: "Dismiss" }).click();
   await expect(page.getByText("Saved the shared scan", { exact: true })).toBeVisible();
   expect(page.url()).not.toContain("share=");
   await expect(page.getByRole("tablist")).toBeVisible();

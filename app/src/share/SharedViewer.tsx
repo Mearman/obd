@@ -198,8 +198,9 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
     if (state.status !== "ready") return;
     setSaving(true);
     setProblem(undefined);
-    if (await store(state.storage, envelope)) onDone(envelope.kind);
-    else setSaving(false);
+    // The viewer stays open, so the person sees it saved; Dismiss then reports the saved kind and clears the address.
+    if (await store(state.storage, envelope)) setSaved(true);
+    setSaving(false);
   }
 
   const readyEnvelope = decoded.status === "ready" ? decoded.envelope : undefined;

@@ -98,6 +98,9 @@ test("with automatic saving off a raw capture link re-decodes under the chosen p
   expect(await storedCaptures(page)).toEqual([]);
 
   await page.getByRole("button", { name: "Save this capture" }).click();
+  await expect(page.getByText("Saved to this device, marked as shared.")).toBeVisible();
+  expect(page.url()).toContain("#share=1.");
+  await page.getByRole("button", { name: "Dismiss" }).click();
   await expect(page.getByText("Saved the shared capture", { exact: true })).toBeVisible();
   expect(page.url()).not.toContain("share=");
   await expect(page.getByRole("tablist")).toBeVisible();
