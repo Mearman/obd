@@ -31,17 +31,25 @@ export default defineConfig({
         // The whole shell, the bundled profiles and the generated icons are precached. The web
         // app manifest is not globbed here: the plugin adds it, and listing it twice with two
         // revisions makes Workbox's install fail, leaving nothing cached.
-        globPatterns: ["**/*.{js,css,html,svg,png,ico,json}"],
+        // The database worker is a .js chunk and its SQLite engine a .wasm asset: both are part of
+        // the shell, so the stored data opens offline from the first reload.
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,json,wasm}"],
+        // sqlite-wasm's Worker1 and OPFS async proxy scripts are emitted because the library
+        // mentions them, but the app uses neither: the sahpool VFS runs inside database.worker.
+        globIgnores: ["**/sqlite3-worker1-*.js", "**/sqlite3-opfs-async-proxy-*.js"],
         navigateFallback: "index.html",
         cleanupOutdatedCaches: true,
       },
     }),
   ],
+  // The database worker is an ES module worker: sqlite-wasm resolves its WebAssembly file with
+  // import.meta.url, which the default IIFE worker format cannot express.
+  worker: { format: "es" },
   // Relative URLs let the static build be served from any path.
   base: "./",
   build: {
     target: "es2023",
     // The whole bundle is precached for offline use, so one chunk is the cheaper shape here.
-    chunkSizeWarningLimit: 700,
+    chunkSizeWarningLimit: 1200,
   },
 });

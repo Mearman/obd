@@ -1,4 +1,5 @@
 import { useId, useRef, useState, type ChangeEvent } from "react";
+import { DatabaseCard } from "../database/DatabaseCard";
 import { useProfiles, type ImportResult } from "../profiles/ProfilesProvider";
 import { isThemePreference } from "../theme/preference";
 import { useTheme } from "../theme/ThemeProvider";
@@ -73,6 +74,7 @@ export function SettingsScreen() {
           )}
         </div>
       </Card>
+      <DatabaseCard />
       <Card title="About collection">
         <p className={muted}>
           Collection runs while the app is open. With the screen off or the app closed, Android may

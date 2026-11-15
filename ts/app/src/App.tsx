@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { detectBrowserSupport, type BrowserSupport } from "./connect/support";
+import { DatabaseNotice } from "./database/DatabaseNotice";
 import { useDiagnostics } from "./diagnostics/DiagnosticsProvider";
 import { app, brand, header, main, nav, status } from "./App.css";
 import { ConnectScreen } from "./screens/ConnectScreen";
@@ -77,6 +78,7 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
         style={{ display: "contents" }}
       >
         <main className={main}>
+          <DatabaseNotice />
           <TabsContent value="connect">
             <ConnectScreen support={support} />
           </TabsContent>

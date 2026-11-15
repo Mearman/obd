@@ -16,14 +16,17 @@ class ResizeObserverStub {
     // Nothing to observe in jsdom.
   }
 }
-globalThis.ResizeObserver = ResizeObserverStub;
-Element.prototype.hasPointerCapture = () => false;
-Element.prototype.setPointerCapture = () => {
-  // jsdom has no layout or pointer capture.
-};
-Element.prototype.releasePointerCapture = () => {
-  // jsdom has no layout or pointer capture.
-};
-Element.prototype.scrollIntoView = () => {
-  // jsdom has no layout or pointer capture.
-};
+// Suites that opt into the node environment (the SQLite engine's) have no DOM to patch.
+if (typeof Element !== "undefined") {
+  globalThis.ResizeObserver = ResizeObserverStub;
+  Element.prototype.hasPointerCapture = () => false;
+  Element.prototype.setPointerCapture = () => {
+    // jsdom has no layout or pointer capture.
+  };
+  Element.prototype.releasePointerCapture = () => {
+    // jsdom has no layout or pointer capture.
+  };
+  Element.prototype.scrollIntoView = () => {
+    // jsdom has no layout or pointer capture.
+  };
+}
