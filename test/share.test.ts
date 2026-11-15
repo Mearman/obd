@@ -12,6 +12,7 @@ import {
   fragmentOfLink,
   fromBase64Url,
   isIdentifyingLabel,
+  redactObdReport,
   redactScan,
   runExportShareData,
   runSummaryShareData,
@@ -24,6 +25,7 @@ import {
   sharedScanReport,
   thin,
   toBase64Url,
+  type ObdReportShareData,
   type ScanShareData,
   type ShareCodec,
   type ShareEnvelope,
@@ -32,7 +34,7 @@ import { parseScan } from "../src/core/scancompare.js";
 import { streamShareCodec } from "../src/web/share-codec.js";
 import { zlibShareCodec } from "../src/node/share-codec.js";
 
-const VIN = "TESTVIN0000000001";
+const VIN = "TESTVAN0000000001";
 
 function scanData(overrides: Partial<ScanShareData> = {}): ScanShareData {
   return {
@@ -73,6 +75,63 @@ function scanData(overrides: Partial<ScanShareData> = {}): ScanShareData {
     ],
     ...overrides,
   };
+}
+
+const CALIBRATION = "CAL-ID-0000000042";
+
+function obdData(overrides: Partial<ObdReportShareData["obd"]> = {}): ObdReportShareData {
+  return {
+    taken: "2026-11-15T10:00:00+00:00",
+    adapter: { label: "ELM327 v1.5" },
+    redacted: false,
+    obd: {
+      vin: VIN,
+      units: [
+        {
+          sender: "7E8",
+          lampOn: true,
+          codeCount: 2,
+          stored: ["P0420", "P0171"],
+          pending: [],
+          permanent: null,
+          readiness: {
+            compressionIgnition: false,
+            complete: ["misfire", "catalyst"],
+            incomplete: ["evaporative system"],
+          },
+          freezeFrame: {
+            code: "P0420",
+            values: { "engine speed": "800 rpm", note: `from ${VIN}` },
+          },
+          misfire: [{ monitor: "engine", lastCycle: 0, averageLastTenCycles: null }],
+          calibrationIds: [CALIBRATION],
+        },
+      ],
+      values: [
+        { sender: "7E8", signal: "engine speed", unit: "rpm", value: 812.5 },
+        { sender: "7E8", signal: "fuel system 1 status", unit: "", value: "closed loop" },
+        { sender: "7E8", signal: "odd text", unit: "", value: `id ${VIN}` },
+      ],
+      monitorResults: [
+        {
+          sender: "7E8",
+          monitor: "oxygen sensor bank 1 sensor 1",
+          test: "07",
+          scaling: "24",
+          value: 100,
+          minimum: 0,
+          maximum: 200,
+          withinLimits: true,
+        },
+      ],
+      notes: [`read ${VIN} ok`],
+      ...overrides,
+    },
+  };
+}
+
+function obdEnvelope(data = obdData()): ShareEnvelope {
+  return { v: 1, kind: "obd-report", createdAt: 1_790_000_000_000, data };
 }
 
 function engineUnit(): ScanShareData["units"][number] {
@@ -140,9 +199,79 @@ function randomText(next: () => number, max: number): string {
   return out;
 }
 
+function randomObdEnvelope(seed: number, next: () => number, createdAt: number): ShareEnvelope {
+  const maybe = (): boolean => next() < 0.3;
+  const codes = (): string[] =>
+    Array.from({ length: Math.floor(next() * 5) }, (_value, index) => `P${String(1000 + index)}`);
+  const units = Array.from({ length: Math.floor(next() * 4) }, (_item, index) => ({
+    sender: `7E${String(index)}`,
+    lampOn: maybe() ? null : next() < 0.5,
+    codeCount: maybe() ? null : Math.floor(next() * 20),
+    stored: maybe() ? null : codes(),
+    pending: maybe() ? null : codes(),
+    permanent: maybe() ? null : codes(),
+    readiness: maybe()
+      ? null
+      : {
+          compressionIgnition: next() < 0.5,
+          complete: [randomText(next, 12)],
+          incomplete: [],
+        },
+    freezeFrame: maybe()
+      ? null
+      : {
+          code: maybe() ? null : "P0420",
+          values: Object.fromEntries(
+            Array.from({ length: Math.floor(next() * 3) }, (_value, point) => [
+              `value ${String(point)}`,
+              randomText(next, 20),
+            ]),
+          ),
+        },
+    misfire: Array.from({ length: Math.floor(next() * 3) }, () => ({
+      monitor: randomText(next, 10),
+      lastCycle: maybe() ? null : Math.round(next() * 100),
+      averageLastTenCycles: maybe() ? null : Math.round(next() * 1e3) / 10,
+    })),
+    calibrationIds: Array.from({ length: Math.floor(next() * 3) }, () => randomText(next, 16)),
+  }));
+  return {
+    v: 1,
+    kind: "obd-report",
+    createdAt,
+    data: {
+      taken: randomText(next, 25),
+      adapter: { label: randomText(next, 20) },
+      redacted: next() < 0.5,
+      obd: {
+        vin: maybe() ? null : randomText(next, 17),
+        units,
+        values: Array.from({ length: Math.floor(next() * 6) }, (_value, index) => ({
+          sender: "7E8",
+          signal: `signal ${String(index)}`,
+          unit: "rpm",
+          value: next() < 0.3 ? randomText(next, 12) : Math.round(next() * 1e5) / 100,
+        })),
+        monitorResults: Array.from({ length: Math.floor(next() * 4) }, (_value, index) => ({
+          sender: "7E8",
+          monitor: `monitor ${String(index)}`,
+          test: "0A",
+          scaling: "24",
+          value: Math.round(next() * 1e3) - 500,
+          minimum: -500,
+          maximum: 500,
+          withinLimits: next() < 0.5,
+        })),
+        notes: Array.from({ length: Math.floor(next() * 3) }, () => randomText(next, 30)),
+      },
+    },
+  };
+}
+
 function randomEnvelope(seed: number): ShareEnvelope {
   const next = random(seed);
   const createdAt = Math.floor(next() * 2_000_000_000_000);
+  if (seed % 3 === 0) return randomObdEnvelope(seed, next, createdAt);
   if (next() < 0.5) {
     const units = Array.from({ length: Math.floor(next() * 6) }, (_item, unitIndex) => ({
       unit: `unit${String(unitIndex)}`,
@@ -241,8 +370,8 @@ const codecs: readonly (readonly [string, ShareCodec])[] = [
 ];
 
 describe.each(codecs)("the %s codec", (_name, codec) => {
-  it("round trips a scan and a run summary", async () => {
-    for (const envelope of [scanEnvelope(), runEnvelope()]) {
+  it("round trips a scan, a generic OBD-II report and a run summary", async () => {
+    for (const envelope of [scanEnvelope(), obdEnvelope(), runEnvelope()]) {
       const result = await decodeShare(await encoded(envelope, codec), codec);
       expect(result).toEqual({ ok: true, value: envelope });
     }
@@ -312,6 +441,26 @@ describe.each(codecs)("the %s codec", (_name, codec) => {
         "invalid",
       ],
       ["wrong type", forged(JSON.stringify({ ...scanEnvelope(), createdAt: "now" })), "invalid"],
+      [
+        "extra OBD-II report field",
+        forged(JSON.stringify({ ...obdEnvelope(), data: { ...obdData(), extra: 1 } })),
+        "invalid",
+      ],
+      [
+        "extra OBD-II unit field",
+        forged(JSON.stringify(obdEnvelope()).replace('"sender":"7E8"', '"sender":"7E8","extra":1')),
+        "invalid",
+      ],
+      [
+        "OBD-II code that is not text",
+        forged(JSON.stringify(obdEnvelope()).replace('"P0420","P0171"', '"P0420",5')),
+        "invalid",
+      ],
+      [
+        "OBD-II report of another kind's shape",
+        forged(JSON.stringify({ ...obdEnvelope(), data: scanData() })),
+        "invalid",
+      ],
       ["deep nesting", forged("[".repeat(100_000)), "malformed"],
     ];
     for (const [name, fragment, code] of cases) {
@@ -327,7 +476,13 @@ describe.each(codecs)("the %s codec", (_name, codec) => {
       '"identification":{"__proto__":{"hex":"","text":""},"VIN"',
     );
     expect(polluted).toContain("__proto__");
+    const obdPolluted = JSON.stringify(obdEnvelope()).replace(
+      '"values":{"engine speed"',
+      '"values":{"__proto__":"x","engine speed"',
+    );
+    expect(obdPolluted).toContain("__proto__");
     for (const fragment of [
+      forged(obdPolluted),
       forged(polluted),
       forged(`{"__proto__":{"polluted":true},"v":1,"kind":"scan","createdAt":1,"data":{}}`),
       forged(JSON.stringify(scanEnvelope()).replace('"P0001":"00 11 22"', '"constructor":"x"')),
@@ -392,6 +547,23 @@ describe.each(codecs)("the %s codec", (_name, codec) => {
     expect(engine?.identification["software version"]?.text).toBe("build for [redacted]");
     expect(engine?.notes).toEqual(["read [redacted] ok"]);
     expect(engine?.faults).toEqual(scanData().units[0]?.faults);
+  });
+
+  it("blanks the VIN, calibration identifiers and every other copy of them in an OBD-II report when asked", async () => {
+    const link = await encoded(obdEnvelope(), codec, true);
+    const result = await decodeShare(link, codec);
+    if (!result.ok || result.value.kind !== "obd-report") throw new Error("not an OBD-II report");
+    const text = JSON.stringify(result.value);
+    expect(text).not.toContain(VIN);
+    expect(text).not.toContain(CALIBRATION);
+    const { data } = result.value;
+    expect(data.redacted).toBe(true);
+    expect(data.obd.vin).toBe("");
+    expect(data.obd.notes).toEqual(["read [redacted] ok"]);
+    expect(data.obd.values[2]?.value).toBe("id [redacted]");
+    expect(data.obd.units[0]?.calibrationIds).toEqual([""]);
+    expect(data.obd.units[0]?.freezeFrame?.values.note).toBe("from [redacted]");
+    expect(data.obd.units[0]?.stored).toEqual(["P0420", "P0171"]);
   });
 
   it("keeps the VIN when not asked to blank it", async () => {
@@ -662,7 +834,48 @@ describe("a scan from the service", () => {
   });
 });
 
+describe("redaction of a generic OBD-II report", () => {
+  it("leaves a report without a VIN without one and changes nothing else", () => {
+    const base = obdData({ vin: null });
+    const redacted = redactObdReport(base);
+    expect(redacted.obd.vin).toBeNull();
+    expect({ ...redacted, redacted: false }).toEqual({
+      ...base,
+      obd: {
+        ...base.obd,
+        notes: ["read [redacted] ok"],
+        units: base.obd.units.map((unit) => ({
+          ...unit,
+          calibrationIds: [""],
+          freezeFrame: {
+            code: "P0420",
+            values: { "engine speed": "800 rpm", note: "from [redacted]" },
+          },
+        })),
+        values: [
+          ...base.obd.values.slice(0, 2),
+          { sender: "7E8", signal: "odd text", unit: "", value: "id [redacted]" },
+        ],
+      },
+    });
+  });
+
+  it("finds a VIN-shaped word that no field names as the VIN", () => {
+    const redacted = redactObdReport(obdData({ vin: null }));
+    expect(JSON.stringify(redacted)).not.toContain(VIN);
+  });
+});
+
 describe("what a link carries", () => {
+  it("lists an OBD-II report's contents, saying whether the VIN is in it", () => {
+    const included = shareContents(obdEnvelope()).join("\n");
+    expect(included).toMatch(/2 stored codes, 0 pending codes and 0 permanent codes/);
+    expect(included).toMatch(/1 freeze frame, 3 current-data values with units and 1 mode 06/);
+    expect(included).toMatch(/VIN and calibration identifiers: included/);
+    const removed = shareContents(obdEnvelope(redactObdReport(obdData()))).join("\n");
+    expect(removed).toMatch(/VIN and calibration identifiers: removed/);
+  });
+
   it("lists a scan's contents, saying whether the VIN is in it", () => {
     const included = shareContents(scanEnvelope()).join("\n");
     expect(included).toContain("2 control units");
