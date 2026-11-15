@@ -77,14 +77,19 @@ export function startDatabaseSession(): DatabaseSession {
       ]),
     answerLimit: ANSWER_LIMIT_MS,
   });
+  const end = (): void => {
+    shared.close();
+    worker.terminate();
+  };
+  // A tab that cannot share holds the database, so this session can never be used. Its worker would otherwise stay queued for the lock and, once that tab goes, take the database without this page knowing; ending it leaves the lock to a usable tab, and a retry joins that tab.
+  shared.connection.catch((error: unknown) => {
+    if (error instanceof DatabaseUnavailableError && error.reason === "in-use") end();
+  });
   return {
     connection: shared.connection,
     subscribe: (listener) => shared.subscribe(listener),
     busy: () => shared.busy(),
     subscribeBusy: (listener) => shared.subscribeBusy(listener),
-    close: () => {
-      shared.close();
-      worker.terminate();
-    },
+    close: end,
   };
 }
