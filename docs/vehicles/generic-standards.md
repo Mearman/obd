@@ -1,6 +1,6 @@
 # Generic standards layer for reading any road vehicle over OBD-II
 
-This document covers the standards layer that any read-only tool (`obd-read`) needs before it touches a manufacturer-specific protocol: the J1962 connector, the five legislated OBD-II protocols and how a car is matched to one, the ELM327 and STN adapter command sets that drive them, the SAE J1979 diagnostic modes and PID support bitmaps, ISO-TP framing, the UDS and KWP2000 service and negative-response vocabularies, addressing, and the pitfalls of cheap adapters. DoIP and J2534 get a short section each. Anything inferred or not confirmed from a source I could open is tagged "unconfirmed" with the reason. Write services (clear codes, actuator control, programming, security access) are out of scope and mentioned only to say so.
+This document covers the standards layer that any tool (`obd-read`) needs before it touches a manufacturer-specific protocol: the J1962 connector, the five legislated OBD-II protocols and how a car is matched to one, the ELM327 and STN adapter command sets that drive them, the SAE J1979 diagnostic modes and PID support bitmaps, ISO-TP framing, the UDS and KWP2000 service and negative-response vocabularies, addressing, and the pitfalls of cheap adapters. DoIP and J2534 get a short section each. Anything inferred or not confirmed from a source I could open is tagged "unconfirmed" with the reason. Write services (clear codes, actuator control, programming, security access) are out of scope and mentioned only to say so.
 
 Primary sources used throughout: the [ELM327 datasheet](https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf), the [OBDLink Family Reference and Programming Manual (FRPM)](https://www.obdlink.com/frpm/) (which documents the STN command set), and the Wikipedia pages on [On-board diagnostics](https://en.wikipedia.org/wiki/On-board_diagnostics), [OBD-II PIDs](https://en.wikipedia.org/wiki/OBD-II_PIDs), [ISO 15765-2](https://en.wikipedia.org/wiki/ISO_15765-2) and [Unified Diagnostic Services](https://en.wikipedia.org/wiki/Unified_Diagnostic_Services). The SAE and ISO standards themselves are paywalled and were not read.
 
@@ -64,7 +64,7 @@ The remainder of the Wikipedia page (characters 100,000 onward) is navigation an
 
 All K-line details above are from the [ELM327 datasheet](https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf). The wire-level ISO 9141-2 and ISO 14230-2 timing (T1 to T4, P1 to P4) was not read from the standards; unconfirmed.
 
-## 3. ELM327 AT commands needed for read-only work
+## 3. ELM327 AT commands needed for reading
 
 All from the [ELM327 datasheet](https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf) unless stated.
 
@@ -91,7 +91,7 @@ All from the [ELM327 datasheet](https://www.elmelectronics.com/wp-content/upload
 | `ATSW hh`                                    | Wakeup interval, units of 20 ms.                                                                                                                                                                                                                                                                                                                                                    |
 | `ATWM [1-6 bytes]`                           | Wakeup message bytes.                                                                                                                                                                                                                                                                                                                                                               |
 | `ATPC`                                       | Protocol close.                                                                                                                                                                                                                                                                                                                                                                     |
-| `ATBI`                                       | Bypass initialisation. The datasheet says it is for ECU simulators and demonstrators, not routine OBD use; a read-only tool should not use it.                                                                                                                                                                                                                                      |
+| `ATBI`                                       | Bypass initialisation. The datasheet says it is for ECU simulators and demonstrators, not routine OBD use; a tool should not use it.                                                                                                                                                                                                                                      |
 | `ATAT0/1/2`, `ATR0/1`                        | Adaptive timing and whether to wait for responses (with `R0` no response is awaited).                                                                                                                                                                                                                                                                                               |
 | `ATCEA [hh]`                                 | CAN extended addressing: insert `hh` as the first data byte, and filter received frames on it. `ATCEA` alone turns it off.                                                                                                                                                                                                                                                          |
 | `ATFE`, `ATD`                                | Forget events (such as a fatal CAN error that blocks CAN searching); set defaults.                                                                                                                                                                                                                                                                                                  |
@@ -118,7 +118,7 @@ The STN interpreter ICs implement the ELM327 command set and add `ST` commands t
 - `STPTO ms`, `STPTOT ms`, `STPTRQ ms`: OBD response timeout, transmit timeout, and minimum gap between last response and next request (P3 for ISO 9141-2 and 14230-4).
 - `STPC`, `STPR`, `STPRS`: close the protocol, print protocol number, print protocol name.
 - `STM [n]` and `STMA [n]`: monitor with current filters, or all traffic; `STSLU`, `STSLEEP` and related commands manage low-power behaviour.
-- Writing or reprogramming facilities (periodic messaging, GPIO control, Bluetooth settings, programmable parameter writes) exist but are out of scope for this tool.
+- Writing or reprogramming facilities (periodic messaging, GPIO control, Bluetooth settings, programmable parameter writes) exist but are not covered by these notes.
 
 ## 5. SAE J1979 services (OBD-II modes 01 to 0A)
 
@@ -129,11 +129,11 @@ Names per [Wikipedia, OBD-II PIDs](https://en.wikipedia.org/wiki/OBD-II_PIDs):
 | 01   | Show current data                                       | Yes                                                                                        |
 | 02   | Show freeze frame data                                  | Yes                                                                                        |
 | 03   | Show stored diagnostic trouble codes                    | Yes                                                                                        |
-| 04   | Clear DTCs and stored values                            | No. Clears freeze frames and readiness. Out of scope; a read-only tool must never send it. |
+| 04   | Clear DTCs and stored values                            | No. Clears freeze frames and readiness. The tool sends it only through its guarded clear commands, after saving the codes. |
 | 05   | Oxygen sensor monitoring test results                   | Yes, but non-CAN only (on CAN the data moved to mode 06)                                   |
 | 06   | Other component or system monitoring test results       | Yes                                                                                        |
 | 07   | Show pending DTCs                                       | Yes                                                                                        |
-| 08   | Control operation of on-board component or system       | No. Out of scope.                                                                          |
+| 08   | Control operation of on-board component or system       | No. Not covered here.                                                                          |
 | 09   | Request vehicle information (VIN, calibration IDs, CVN) | Yes                                                                                        |
 | 0A   | Permanent DTCs                                          | Yes                                                                                        |
 
@@ -183,7 +183,7 @@ UDS is the service layer for non-emissions diagnostics on CAN-era vehicles and i
 
 ### Service IDs
 
-Read-oriented services a read-only tool may use:
+Read-oriented services:
 
 - 0x10 DiagnosticSessionControl (needed to enter an extended session on some ECUs, but a session change can alter ECU behaviour; use only the default session unless a read needs more, and treat any change as a deliberate step).
 - 0x3E TesterPresent (keep-alive).
@@ -191,7 +191,7 @@ Read-oriented services a read-only tool may use:
 - 0x22 ReadDataByIdentifier.
 - 0x23 ReadMemoryByAddress, 0x24 ReadScalingDataByIdentifier, 0x2A ReadDataByPeriodicIdentifier (read-only in effect, but check ECU behaviour).
 
-State-changing or access-granting services, out of scope: 0x11 ECUReset, 0x14 ClearDiagnosticInformation, 0x27 SecurityAccess, 0x28 CommunicationControl, 0x29 Authentication, 0x2C DynamicallyDefineDataIdentifier, 0x2E WriteDataByIdentifier, 0x2F InputOutputControlByIdentifier, 0x31 RoutineControl, 0x34 RequestDownload, 0x35 RequestUpload, 0x36 TransferData, 0x37 RequestTransferExit, 0x38 RequestFileTransfer, 0x3D WriteMemoryByAddress, 0x83 AccessTimingParameter (withdrawn in ISO 14229-1:2020), 0x84 SecuredDataTransmission, 0x85 ControlDTCSettings, 0x86 ResponseOnEvent, 0x87 LinkControl.
+State-changing or access-granting services, not covered by these notes: 0x11 ECUReset, 0x14 ClearDiagnosticInformation, 0x27 SecurityAccess, 0x28 CommunicationControl, 0x29 Authentication, 0x2C DynamicallyDefineDataIdentifier, 0x2E WriteDataByIdentifier, 0x2F InputOutputControlByIdentifier, 0x31 RoutineControl, 0x34 RequestDownload, 0x35 RequestUpload, 0x36 TransferData, 0x37 RequestTransferExit, 0x38 RequestFileTransfer, 0x3D WriteMemoryByAddress, 0x83 AccessTimingParameter (withdrawn in ISO 14229-1:2020), 0x84 SecuredDataTransmission, 0x85 ControlDTCSettings, 0x86 ResponseOnEvent, 0x87 LinkControl.
 
 ### Negative response codes (common subset)
 
@@ -202,7 +202,7 @@ State-changing or access-granting services, out of scope: 0x11 ECUReset, 0x14 Cl
 - 0x7E subFunctionNotSupportedInActiveSession, 0x7F serviceNotSupportedInActiveSession.
 - 0x81 to 0x94: condition-specific codes (rpmTooHigh, engineIsRunning, vehicleSpeedTooHigh, voltageTooLow, and so on).
 
-A read-only tool should treat 0x78 as "keep listening", 0x31 as "this ECU does not have that item", 0x11 and 0x12 as capability gaps, and 0x33 as "stop, this needs authentication we do not do".
+A tool should treat 0x78 as "keep listening", 0x31 as "this ECU does not have that item", 0x11 and 0x12 as capability gaps, and 0x33 as "stop, this needs authentication we do not do".
 
 ## 9. KWP2000 (ISO 14230)
 
@@ -211,21 +211,21 @@ KWP2000 is the K-line service layer, and also runs over CAN on some vehicles (us
 - Session and identification: 0x10 StartDiagnosticSession, 0x20 StopDiagnosticSession, 0x3E TesterPresent, 0x1A ReadECUIdentification. 0x81 StartCommunication and 0x82 StopCommunication are the link-level services used after fast init (listed in an EU regulation annex per a search summary, not opened).
 - Data: 0x21 ReadDataByLocalIdentifier, 0x22 ReadDataByCommonIdentifier, 0x23 ReadMemoryByAddress.
 - Trouble codes: 0x12 ReadFreezeFrameData, 0x13 ReadDiagnosticTroubleCodes, 0x17 ReadStatusOfDiagnosticTroubleCodes, 0x18 ReadDiagnosticTroubleCodesByStatus.
-- Out of scope: 0x11 ECUReset, 0x14 ClearDiagnosticInformation, 0x27 SecurityAccess, 0x2C and 0x30 to 0x3D write, routine and I/O control services, and 0x34 to 0x37 transfer services.
+- Not covered by these notes: 0x11 ECUReset, 0x14 ClearDiagnosticInformation, 0x27 SecurityAccess, 0x2C and 0x30 to 0x3D write, routine and I/O control services, and 0x34 to 0x37 transfer services.
 
 The IME-Actia table lists WriteDataByCommonIdentifier as 0x3E, which collides with TesterPresent; its own page looks wrong there, so ignore that row (unconfirmed).
 
 Negative responses use `7F`, the request SID and a code. Code values were not available from any source I opened. From general knowledge only, unconfirmed: KWP2000 uses codes such as 0x11 serviceNotSupported, 0x12 subFunctionNotSupported, 0x22 conditionsNotCorrect, 0x78 requestCorrectlyReceived-ResponsePending, and shares much of its numbering with UDS. Verify against ISO 14230-3 before depending on any value other than the `7F SID NRC` shape.
 
-On K-line the KWP2000 message has a header (format byte with length, optional target and source bytes), data, and a checksum. The ELM327 and STN handle the header and checksum on the OBD protocols; `STPCB0` turns off automatic checksum on the STN, which a read-only tool should not need.
+On K-line the KWP2000 message has a header (format byte with length, optional target and source bytes), data, and a checksum. The ELM327 and STN handle the header and checksum on the OBD protocols; `STPCB0` turns off automatic checksum on the STN, which a tool should not need.
 
 ## 10. DoIP (ISO 13400), short
 
-DoIP carries UDS over Ethernet. Vehicle identification uses UDP broadcasts and vehicle announcement messages (the announcement carries the VIN and the unit's diagnostic address). Diagnostics run over TCP, normally on port 13400, after a routing activation request to the gateway ([IME-Actia DoIP](https://www.ime-actia.de/en/?p=5053), [AutoPi DoIP setup](https://docs.autopi.io/developer_guides/setting-up-doip/), port number from the search summary of the AutoPi and Scapy documentation). The Ethernet interface must first be activated; pin 8 of the J1962 connector is often the activation line. Ethernet itself is on manufacturer-defined pins (AutoPi lists 3, 11, 12, 13 or 1, 9, 12, 13 in two pinouts). Routing activation types are 00 default diagnostics, 01 WWH-OBD and E0 central security per the Quantex pages (search summary only). An ELM327 or STN adapter does not speak DoIP; this needs an Ethernet adapter and is out of scope for the first version of the tool. The Wikipedia pages for DoIP returned 404, so exact payload type numbers and field layouts are unconfirmed.
+DoIP carries UDS over Ethernet. Vehicle identification uses UDP broadcasts and vehicle announcement messages (the announcement carries the VIN and the unit's diagnostic address). Diagnostics run over TCP, normally on port 13400, after a routing activation request to the gateway ([IME-Actia DoIP](https://www.ime-actia.de/en/?p=5053), [AutoPi DoIP setup](https://docs.autopi.io/developer_guides/setting-up-doip/), port number from the search summary of the AutoPi and Scapy documentation). The Ethernet interface must first be activated; pin 8 of the J1962 connector is often the activation line. Ethernet itself is on manufacturer-defined pins (AutoPi lists 3, 11, 12, 13 or 1, 9, 12, 13 in two pinouts). Routing activation types are 00 default diagnostics, 01 WWH-OBD and E0 central security per the Quantex pages (search summary only). An ELM327 or STN adapter does not speak DoIP; this needs an Ethernet adapter and is not yet implemented in the tool. The Wikipedia pages for DoIP returned 404, so exact payload type numbers and field layouts are unconfirmed.
 
 ## 11. J2534, short
 
-SAE J2534 is a PassThru API that lets one PC application drive a vendor's PassThru interface for diagnostics and ECU reprogramming across makes ([Kvaser, Introduction to SAE J2534](https://kvaser.com/about-can/can-standards/j2534/)). The API is a vendor DLL with functions such as `PassThruOpen`, `PassThruConnect`, `PassThruDisconnect`, `PassThruReadMsgs`, `PassThruWriteMsgs`, `PassThruStartMsgFilter`, `PassThruStopMsgFilter`, `PassThruIoctl` and `PassThruReadVersion`. J2534-1 covers the core API and ISO 15765 (ISO-TP) protocols; J2534-2 adds optional extensions such as J1939 and single-wire CAN; Revision 05.00 introduced a modernised API (Kvaser, via search summary). It was introduced for emissions-related reprogramming. For a read-only `obd-read` tool it is a possible alternative backend where a PassThru interface is the only adapter available, but it is Windows-DLL oriented and flashing-focused, so it is not in scope for the ELM327/STN path. Unconfirmed: whether common PassThru DLLs can be loaded from macOS or Linux; I did not check.
+SAE J2534 is a PassThru API that lets one PC application drive a vendor's PassThru interface for diagnostics and ECU reprogramming across makes ([Kvaser, Introduction to SAE J2534](https://kvaser.com/about-can/can-standards/j2534/)). The API is a vendor DLL with functions such as `PassThruOpen`, `PassThruConnect`, `PassThruDisconnect`, `PassThruReadMsgs`, `PassThruWriteMsgs`, `PassThruStartMsgFilter`, `PassThruStopMsgFilter`, `PassThruIoctl` and `PassThruReadVersion`. J2534-1 covers the core API and ISO 15765 (ISO-TP) protocols; J2534-2 adds optional extensions such as J1939 and single-wire CAN; Revision 05.00 introduced a modernised API (Kvaser, via search summary). It was introduced for emissions-related reprogramming. For the `obd-read` tool it is a possible alternative backend where a PassThru interface is the only adapter available, but it is Windows-DLL oriented and flashing-focused, so it is not in scope for the ELM327/STN path. Unconfirmed: whether common PassThru DLLs can be loaded from macOS or Linux; I did not check.
 
 ## 12. Common adapter pitfalls
 

@@ -168,14 +168,14 @@ The ISTA control-unit list at https://www.mvwautotechniek.nl/en/bmw-ista-list-of
 
 - EDIABAS is BMW's diagnostic runtime. INPA is the engineering tool that runs scripts on it, ISTA is the workshop application, and the ECU knowledge lives in SGBD description files (.prg for a variant, .grp for a group), each defining jobs and tables executed as BEST/2 bytecode: https://github.com/emdzej/ediabasx
 - The EdiabasX SGBD reference lists each SGBD with its ECU, author, revision, language, job count and table count, and links per-file pages. It notes flash-only variants, group files and coding description files (`C_*.prg`). It does not itself document addresses or protocols beyond hints in names: https://emdzej.github.io/ediabasx-docs-sgbd
-- Which SGBD matches a car is chosen from a group file's identification job, so a read-only tool needs the SGBD files for the target ECUs. The SGBD files themselves are BMW's and are not redistributed by these projects (unconfirmed: licensing of the files was not checked).
+- Which SGBD matches a car is chosen from a group file's identification job, so a tool needs the SGBD files for the target ECUs. The SGBD files themselves are BMW's and are not redistributed by these projects (unconfirmed: licensing of the files was not checked).
 
 ## Open projects and notes
 
 - EdiabasX documentation, covering interfaces, K-line, protocols and the CLI: https://emdzej.github.io/ediabasx-docs/. The source is a TypeScript port of EdiabasLib licensed under PolyForm Noncommercial 1.0.0: https://github.com/emdzej/ediabasx
 - EdiabasX SGBD reference: https://emdzej.github.io/ediabasx-docs-sgbd (source https://github.com/emdzej/ediabasx-docs-sgbd, unconfirmed: repository named on the site, not opened)
 - EdiabasLib, the .NET EDIABAS interpreter library behind Deep OBD: https://github.com/uholeschak/ediabaslib and its documentation at https://uholeschak.github.io/ediabaslib/docs/Documentation.html (adapter types, ELM327 replacement firmware, config file, ENET adapter pages)
-- Deep OBD for BMW and VAG: https://uholeschak.github.io/ediabaslib/docs/Deep_OBD_for_BMW_and_VAG.html. Deep OBD offers coding features too, which `obd-read` does not (out of scope).
+- Deep OBD for BMW and VAG: https://uholeschak.github.io/ediabaslib/docs/Deep_OBD_for_BMW_and_VAG.html. Deep OBD offers coding features too, which `obd-read` does not offer.
 - Quantex ELM327 pages for BMW addressing and HSFZ: https://www.quantexlab.com/en/develop/elm327.html and https://www.quantexlab.com/en/develop/elm327_hsfz.html
 - ELM327 datasheet: https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf
 - BimmerCode and BimmerLink: the adapters page at bimmercode.app/adapters was not reachable in this research, so no public technical notes from them are cited. App Store and retailer pages indicate that K+DCAN cables serve E-series and ENET adapters serve F and G series, but those are retail claims (unconfirmed).
@@ -209,9 +209,9 @@ Excluded, each with a deferred issue holding its revisit trigger:
 - F-series without a FEM (F01, F10 and others): no address table: https://github.com/Mearman/obd/issues/21
 - Mini: no source lists Mini units or addresses: https://github.com/Mearman/obd/issues/24
 
-## Out of scope
+## Not covered
 
-Coding, adaptation, programming and flashing (ISTA programming, E-Sys, NCS Expert, SGBD flash variants) are not part of `obd-read`. Read-only services (ReadDataByIdentifier 0x22, ReadDTCInformation 0x19 and the KWP equivalents) are the intended use. This document does not claim these services are safe on every ECU, so a tool should send only what the matching SGBD documents for the target module.
+Coding, adaptation, programming and flashing (ISTA programming, E-Sys, NCS Expert, SGBD flash variants) are not researched in these notes. The services these notes document are the reads (ReadDataByIdentifier 0x22, ReadDTCInformation 0x19 and the KWP equivalents). This document does not claim these services are safe on every ECU, so a tool should send only what the matching SGBD documents for the target module.
 
 ## Archived copies
 

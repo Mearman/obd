@@ -11,4 +11,4 @@ How to talk to vehicles through the diagnostic port with an ELM327 or STN style 
 - [japan-korea.md](japan-korea.md)
 - [europe-other.md](europe-other.md): Renault, PSA, Fiat, Volvo, Jaguar Land Rover and others.
 
-Every claim carries its source inline. Anything marked "unconfirmed" was not settled by a source that could be read, and a profile built on it must be verified at the car. These notes cover reading only; coding, adaptation and flashing are out of scope.
+Every claim carries its source inline. Anything marked "unconfirmed" was not settled by a source that could be read, and a profile built on it must be verified at the car. These notes cover reading. Writes, coding, adaptation and flashing are not researched here; what the tool sends beyond reads is described in the repository README under Writes and actuator tests.
