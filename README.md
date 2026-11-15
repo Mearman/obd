@@ -1,118 +1,97 @@
 # obd-read
 
-Read a car's diagnostics through an ELM327-style adapter, with software you can read and change.
+Read a car's diagnostics through an ELM327-style adapter, from a Node command line or from an installable, offline, responsive web app (a PWA), with software you can read and change.
 
-`obd-read` talks to the control units behind the diagnostic socket: it reads their identification, stored fault codes and freeze frames. It can also clear a unit's fault codes, after saving what it is about to erase, and send a coding or adaptation write or an actuator test that you supply byte for byte, under the safeguards in [Writes and actuator tests](#writes-and-actuator-tests). It has no security access, flashing or programming, and no setting that adds them.
+`obd-read` talks to the control units behind the diagnostic socket: it reads their identification, stored fault codes and freeze frames. It can also clear a unit's fault codes, after saving what it is about to erase, and send a coding or adaptation write or an actuator test that you supply byte for byte, under the safeguards in [Writes and actuator tests](#writes-and-actuator-tests). It is read-only by default: every request passes one guard, and it has no security access, flashing or programming and no setting that adds them. The TopScan route (TOPDON's proprietary dongle) is not supported; [issue 23](https://github.com/Mearman/obd/issues/23) records what driving one would take.
 
 ## What it needs
 
-- An adapter that implements the full ELM327 command set, reached over Bluetooth LE, a serial port (USB or classic Bluetooth) or TCP (Wi-Fi adapters), or a raw CAN adapter reached over SocketCAN or SLCAN. Cheap clones that lack the addressing commands are detected and named on connection. Standard `AT` commands are used throughout; on connection the tool also reports whether the adapter has the STN `ST` extensions, which it uses only where a plain ELM327 cannot do the job (see [Bit rates](#bit-rates) and [Requests longer than one frame](#requests-longer-than-one-frame)), in the [bus monitor](#bus-monitor), and in `battery` to read the voltage with `STVR`.
-- [uv](https://docs.astral.sh/uv/).
-- For anything beyond the legislated OBD-II reads, a vehicle profile. The profiles shipped are in [`src/obd_read/profiles`](src/obd_read/profiles).
+- Node 24 or later and [pnpm](https://pnpm.io/), for the command line and for building the app. The PWA needs only a browser.
+- An adapter that implements the full ELM327 command set, or a raw CAN adapter. Cheap clones that lack the addressing commands are detected and named on connection. On connection the tool also reports whether the adapter has the STN `ST` extensions, which it uses only where a plain ELM327 cannot do the job (see [Bit rates](#bit-rates) and [Requests longer than one frame](#requests-longer-than-one-frame)), in the bus monitor, and in `battery` to read the voltage with `STVR`.
+- For anything beyond the legislated OBD-II reads, a vehicle profile (JSON). The profiles shipped are in [`src/profiles`](src/profiles).
 
-## Getting started
+## Install and build
 
 ```sh
-uv sync
-uv run obd-read adapters
+pnpm install
+pnpm build
+node dist/node/bin.js adapters
 ```
 
-`adapters` lists the Bluetooth LE devices in range and the serial ports present. Name the adapter by URL on every other command:
+`pnpm build` compiles the package to `dist/`; the `obd-read` binary is `dist/node/bin.js`. Dependencies are installed through pnpm only, with install scripts denied (the native packages ship prebuilt binaries; [`pnpm-workspace.yaml`](pnpm-workspace.yaml) lists them). The package is private and is not published to a registry.
 
-| Link | URL |
-|---|---|
-| Bluetooth LE | `ble://<part of the device name, or its address>` |
-| Serial | `serial:///dev/tty.usbserial-1` (add `?baud=38400` to change the speed) |
-| TCP | `tcp://192.168.80.1:35000` |
-| SocketCAN (Linux) | `socketcan://can0` |
-| SLCAN serial | `slcan:///dev/ttyACM0` (add `?baud=921600` to change the speed) |
+The commands below are written as `obd-read`; run them as `node dist/node/bin.js` from a checkout, or link the binary.
 
-The first four reach an ELM327-style adapter. The last two reach a raw CAN adapter, described in [Raw CAN adapters](#raw-can-adapters).
+## Adapter URLs
+
+`adapters` lists the Bluetooth LE devices in range and the serial ports present. Name the adapter by URL on every other command, or pick it in the app.
+
+| Scheme         | Example                                                                 | Runs in      |
+| -------------- | ----------------------------------------------------------------------- | ------------ |
+| `ble`          | `ble://<part of the device name, or its address>`                       | Node only    |
+| `serial`       | `serial:///dev/tty.usbserial-1` (add `?baud=38400` to change the speed) | Node only    |
+| `tcp`          | `tcp://192.168.80.1:35000`                                              | Node only    |
+| `slcan`        | `slcan:///dev/ttyACM0` (add `?baud=921600` to change the speed)         | Node only    |
+| `socketcan`    | `socketcan://can0` (Linux only)                                         | Node only    |
+| `webserial`    | `webserial://<label>`                                                   | Browser only |
+| `webbluetooth` | `webbluetooth://<device name prefix>` (`all=1` lists every device)      | Browser only |
+| `webusb`       | `webusb://<label>` (a gs_usb adapter such as a candleLight or CANable)  | Browser only |
+
+The `ble`, `serial`, `tcp`, `webserial` and `webbluetooth` links reach an ELM327-style adapter; `slcan`, `socketcan` and `webusb` reach a raw CAN adapter, described in [Raw CAN adapters](#raw-can-adapters). Raw TCP is not available in a browser, and a browser always asks the user to pick the device in a prompt opened by a gesture: the target of a `webserial` or `webusb` URL is only a label that selects nothing.
 
 First run at a car, ignition on:
 
 ```sh
-uv run obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log first-run.log
+obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log first-run.log
 ```
 
 `probe` asks every unit in the profile to identify itself and prints which answered. Nothing else is sent.
 
+## Entry points
+
+| Entry point            | What it holds                                                                                                                                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `obd-read`             | The platform-free core: the `Transport` contract, the ELM327 session, ISO-TP, KWP2000, UDS, OBD, the guard, profiles, scans and the service contract. It imports no `node:` module and no DOM-only global. |
+| `obd-read/node`        | The Node transports (`ble`, `serial`, `tcp`, `slcan`, `socketcan`), adapter discovery and the `node:sqlite` storage. Importing it registers the transports.                                                |
+| `obd-read/web`         | The browser transports (`webserial`, `webbluetooth`, `webusb`), `capabilities()` for explaining why one is unavailable, and the worker-backed storage. Importing it registers the transports.              |
+| `obd-read/web/storage` | The storage worker protocol, importable without the browser transports.                                                                                                                                    |
+| `obd-read/profiles`    | The bundled vehicle profiles and the generic fault-code titles.                                                                                                                                            |
+
+Core never imports a platform module. Each platform entry point supplies the transports it can build and registers them with `registerTransport`; `openTransport(url)` then builds the transport an adapter URL names, and fails with a `TransportError` when no entry point serves the scheme.
+
 ## Commands
 
-| Command | What it reads |
-|---|---|
-| `adapters` | Bluetooth LE devices and serial ports. `--inspect <name>` prints one device's services and characteristics. |
-| `probe` | Which units in the profile answer. |
-| `ident <unit>` | One unit's identification. |
-| `faults <unit>` | One unit's stored fault codes and status bytes. |
-| `freeze <unit>` | The freeze frame stored with each fault code. |
-| `scan` | Identification and fault codes from every unit. `--output <path>` writes `<path>.json` and `<path>.md`; `--freeze` adds freeze frames. |
-| `obd` | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, the freeze frame, misfire counts, which monitors have completed, every current-data value the car supports, the other mode 06 monitor results and the calibration identifier. `--kline <scheme>` reads over K-line instead of CAN. |
-| `clear-codes --save <file>` | Erases the codes of every emissions unit, with no profile. See below. |
-| `live [<unit>]` | Named live values, once or repeatedly. With no unit it reads the legislated values the car supports (`--list` shows their names); with a unit and `--profile` it reads the named values the profile defines for that unit. `--values a,b` picks some, `--count` and `--interval` repeat the read, `--csv <file>` logs each sample to a new file (an existing file is never overwritten). |
-| `battery` | Logs the adapter's own voltage reading at a fixed interval (`--interval`, `--duration`), printing each sample and a summary, and writing a new CSV with `--csv <file>`. Run it before turning the key to record the dip while cranking and the charging voltage afterwards. It reads `ATRV`, or `STVR` (with `--precision` decimals) on an adapter that has the STN extensions, and needs no profile and no car bus. |
-| `mqtt` | Publishes what `live` reads, and the adapter voltage, to an MQTT broker every `--interval` seconds, with Home Assistant discovery. Needs the `mqtt` extra. See [Home Assistant and MQTT](#home-assistant-and-mqtt). |
-| `request <unit> <hex>` | One request of your choosing, for example `1A86`. Only read-only services are sent. |
-| `discover --protocol <kwp2000\|uds>` | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Only the guarded default-session request is sent, but every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
-| `simulate --profile <profile>` | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit in the profile answers with one invented fault code and holds one invented writable record (KWP2000 local identifier `99`, UDS data identifier `0199`, value `0001`), and each connection starts a fresh car, so `clear`, `write`, `restore` and `actuate` can be tried safely. It connects to nothing. |
-| `profile check <profile>...` | Validates profile files (or shipped names) without connecting to anything; exits 1 on any problem. |
-| `monitor` | Logs CAN traffic without transmitting. See [Bus monitor](#bus-monitor). |
-| `clear <unit> --save <file>` | Erases one unit's stored fault codes. See below. |
-| `compare <first> <second>` | Two saved scans side by side. Needs no adapter. See below. |
-| `describe <scan or code>...` | Names for fault codes. Needs no adapter. See below. |
-| `import-names <file> --unit <name> --output <file>` | Code and request names from a definition file you supply. Needs no adapter. See below. |
-| `write <unit> --request <hex> --read <hex> --save <file>` | Writes one coding or adaptation value you supply, after saving the value it replaces. See [Writes and actuator tests](#writes-and-actuator-tests). |
-| `restore <unit> --snapshot <file> --save <file>` | Writes back the value a `write` saved. |
-| `actuate <unit> --request <hex> --stop <hex> --seconds <n>` | Drives one actuator with a request you supply, then always sends your stop request. |
+| Command                                                     | What it reads                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adapters`                                                  | Bluetooth LE devices and serial ports. `--inspect <name>` prints one device's services and characteristics.                                                                                                                                                                                                                                                                                                                               |
+| `probe`                                                     | Which units in the profile answer.                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `ident <unit>`                                              | One unit's identification.                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `faults <unit>`                                             | One unit's stored fault codes and status bytes.                                                                                                                                                                                                                                                                                                                                                                                           |
+| `freeze <unit>`                                             | The freeze frame stored with each fault code.                                                                                                                                                                                                                                                                                                                                                                                             |
+| `scan`                                                      | Identification and fault codes from every unit. `--output <path>` writes `<path>.json` and `<path>.md`; `--freeze` adds freeze frames.                                                                                                                                                                                                                                                                                                    |
+| `obd`                                                       | Legislated OBD-II reads that need no profile: VIN, warning-lamp state, stored, pending and permanent codes, the freeze frame, misfire counts, which monitors have completed, every current-data value the car supports, the other mode 06 monitor results and the calibration identifier. `--kline <scheme>` reads over K-line instead of CAN.                                                                                            |
+| `clear-codes --save <file>`                                 | Erases the codes of every emissions unit, with no profile. See [Clearing fault codes](#clearing-fault-codes).                                                                                                                                                                                                                                                                                                                             |
+| `live [<unit>]`                                             | Named live values, once or repeatedly. With no unit it reads the legislated values the car supports (`--list` shows their names); with a unit and `--profile` it reads the named values the profile defines for that unit. `--values a,b` picks some, `--count` and `--interval` repeat the read, `--csv <file>` logs each sample to a new file (an existing file is never overwritten).                                                  |
+| `battery`                                                   | Logs the adapter's own voltage reading at a fixed interval (`--interval`, `--duration`), printing each sample and a summary, and writing a new CSV with `--csv <file>`. It reads `ATRV`, or `STVR` (with `--precision` decimals) on an adapter that has the STN extensions, and needs no profile and no car bus.                                                                                                                          |
+| `mqtt`                                                      | Publishes what `live` reads, and the adapter voltage, to an MQTT broker every `--interval` seconds, with Home Assistant discovery. See [Home Assistant and MQTT](#home-assistant-and-mqtt).                                                                                                                                                                                                                                               |
+| `request <unit> <hex>`                                      | One request of your choosing, for example `1A86`. Only read-only services are sent.                                                                                                                                                                                                                                                                                                                                                       |
+| `discover --protocol <kwp2000\|uds>`                        | For a car with no profile: asks each 11-bit CAN request identifier in `--first` to `--last` (default `0x700` to `0x7FF`) to open the default session, and lists which answer and from which identifier. `--output <file>` writes the answers as an unconfirmed draft profile, named `--name`, for `profile check`. Every silent identifier waits out the adapter's reply timeout, so narrow the range when you can. Takes no `--profile`. |
+| `simulate --profile <profile>`                              | Serves a scripted adapter and car over TCP on `127.0.0.1:35000` (`--host`, `--port`), so the tool and a profile can be tried with no car: `obd-read probe --adapter tcp://127.0.0.1:35000 --profile <profile>`. Every unit answers with one invented fault code and holds one invented writable record, and each connection starts a fresh car, so `clear`, `write`, `restore` and `actuate` can be tried safely.                         |
+| `profile check <profile>...`                                | Validates profile files (or shipped names) without connecting to anything; exits 1 on any problem.                                                                                                                                                                                                                                                                                                                                        |
+| `monitor`                                                   | Logs CAN traffic without transmitting.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `clear <unit> --save <file>`                                | Erases one unit's stored fault codes. See [Clearing fault codes](#clearing-fault-codes).                                                                                                                                                                                                                                                                                                                                                  |
+| `compare <first> <second>`                                  | Two saved scans side by side. Needs no adapter.                                                                                                                                                                                                                                                                                                                                                                                           |
+| `describe <scan or code>...`                                | Names for fault codes. Needs no adapter.                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `import-names <file> --unit <name> --output <file>`         | Code and request names from a definition file you supply. Needs no adapter.                                                                                                                                                                                                                                                                                                                                                               |
+| `write <unit> --request <hex> --read <hex> --save <file>`   | Writes one coding or adaptation value you supply, after saving the value it replaces.                                                                                                                                                                                                                                                                                                                                                     |
+| `restore <unit> --snapshot <file> --save <file>`            | Writes back the value a `write` saved.                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `actuate <unit> --request <hex> --stop <hex> --seconds <n>` | Drives one actuator with a request you supply, then always sends your stop request.                                                                                                                                                                                                                                                                                                                                                       |
 
-Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover`, `clear-codes` and `battery` take `--profile`; for `live` and `mqtt` it is optional.
+Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover`, `clear-codes` and `battery` take `--profile`; for `live` and `mqtt` it is optional. Exit statuses: 0 on success, 1 for a command that failed or reported an `error:`, 2 for arguments the parser rejects, 130 after an interrupt. A snapshot, a CSV log, a monitor log and a draft profile are created exclusively and never replaced.
 
-The `obd` command asks a car only for what it says it supports: the supported-identifier bitmaps (mode 01 identifiers 00, 20, 40 and onwards, mode 06 and mode 09) decide which values are requested. The decoding follows SAE J1979. Mode 06 test meanings other than the misfire counters differ per maker, so those results are printed with their raw value, limits and scaling identifier and marked as unconfirmed.
+The `obd` command asks a car only for what it says it supports: the supported-identifier bitmaps decide which values are requested. The decoding follows SAE J1979. Mode 06 test meanings other than the misfire counters differ per maker, so those results are printed with their raw value, limits and scaling identifier and marked as unconfirmed.
 
-Fault codes are printed as the unit reports them: hexadecimal code bytes and a status byte. `describe` adds names to them afterwards.
-
-## Comparing scans
-
-`obd-read compare before.json after.json` takes two files written by `scan --output` (or the snapshot `clear --save` writes) and prints, per unit, the fault codes that appeared, cleared or changed status, the units that started or stopped answering, and any change to a stored freeze frame or identification value. Fault codes are compared only for a unit whose codes both scans read. Units with no difference are not listed.
-
-## Naming fault codes
-
-`describe` looks codes up in three places, most specific first, and prints where each name came from:
-
-- The `[codes.<unit>]` tables of the profile, for the hexadecimal codes a unit reports. Each entry needs `text` and a `source`, and no shipped profile has entries yet because none has been confirmed against a source:
-
-  ```toml
-  [codes.esp."5123"]
-  text = "what the source says this code means"
-  source = "where it says so"
-  ```
-
-- Names imported with `import-names` and passed with `--names <file>`.
-- For SAE codes such as `P0420` (the codes `obd` prints), the generic OBD-II titles in [`src/obd_read/data/obdex-generic.tsv`](src/obd_read/data/obdex-generic.tsv). These are the English titles from [OBDex](https://github.com/foerbsnavi/OBDex), whose data is CC0 1.0, vendored rather than fetched so that the tool works offline in a garage. The file header records the bundle it came from and [`scripts/vendor_obdex.py`](scripts/vendor_obdex.py) rebuilds it.
-
-```sh
-uv run obd-read describe P0420
-uv run obd-read describe scan.json                       # uses the profile the scan recorded
-uv run obd-read describe 5123 --unit esp --profile mercedes-w211
-```
-
-A code with no entry is reported as having no description, never guessed. Generic titles are not applied to a unit's hexadecimal codes, which are the maker's own numbering.
-
-## Importing names from a definition file
-
-The complete names for a car's codes and data live in the maker's diagnostic definition files, which are not redistributable, so none is shipped here. `import-names` reads a file you already hold, at run time, and writes the names for one unit to a new file of your choosing:
-
-```sh
-uv run obd-read import-names definitions.pdx --unit esp --output esp-names.json --variant <layer name>
-uv run obd-read describe 5123 --unit esp --names esp-names.json --request "1A 86"
-```
-
-| Input | Reads |
-|---|---|
-| `.odx`, `.odx-d`, `.xml` or a `.pdx` archive (ODX, ISO 22901-1) | Each DTC's trouble code and text, and the name of each diagnostic service whose request is made of constant bytes. |
-| `.json` written by Trafo from [CaesarSuite](https://github.com/jglim/CaesarSuite) (MIT) | Each variant's `DTCs` and, by request bytes, its `DiagServices`. Convert a Mercedes `.cbf` file with Trafo first; `obd-read` does not read CBF itself and has no dependency on CaesarSuite or on odxtools. |
-
-Without `--variant` every diagnostic layer in the file is read, and a code whose text differs between layers keeps the first and is reported. Codes that are neither hexadecimal nor SAE form are skipped and listed. The names file holds text taken from the definition file, so keep it out of anything you publish. These readers were written from the ODX standard's element names and Trafo's source, and have been run only on synthetic files.
+Fault codes are printed as the unit reports them: hexadecimal code bytes and a status byte. `describe` adds names to them afterwards: the generic OBD-II titles in [`src/data/obdex-generic.json`](src/data/obdex-generic.json), which are the English titles from [OBDex](https://github.com/foerbsnavi/OBDex) (CC0 1.0), vendored rather than fetched so that the tool works offline in a garage and rebuilt by [`scripts/vendor-obdex.ts`](scripts/vendor-obdex.ts), plus names from a definition file you import with `import-names`.
 
 ## Clearing fault codes
 
@@ -126,52 +105,27 @@ Clearing erases the evidence a fault leaves behind, so `clear` does it in a fixe
 
 A unit that refuses its freeze frames is recorded as such and can still be cleared. A unit whose fault codes cannot be read is not cleared. One unit is cleared per run.
 
-### Clearing without a profile
-
-`clear-codes` is the same procedure for a car with no profile, through the legislated clear (OBD-II mode 04). Mode 04 cannot target one unit: it erases the stored codes, freeze frame and misfire data of every emissions-related unit and resets their readiness monitors, which then need a drive cycle to complete. The command says so before it asks.
-
-1. Reads the VIN, readiness, stored, pending and permanent codes, freeze frame and misfire counts. Unreadable stored or pending codes stop the run; the optional reads are recorded as not read.
-2. Writes them, with the full adapter transcript, to the `--save` file. The file must not already exist.
-3. Prints what will be erased and asks you to type `yes`. `--yes` skips the question.
-4. Sends mode 04, which the guard passes only with the clear token for that saved file.
-5. Reads the stored and pending codes and readiness again and prints them.
-
-It takes `--id-bits` and `--bitrate` like `obd`.
+`clear-codes` is the same procedure for a car with no profile, through the legislated clear (OBD-II mode 04). Mode 04 cannot target one unit: it erases the stored codes, freeze frame and misfire data of every emissions-related unit and resets their readiness monitors, which then need a drive cycle to complete. The command says so before it asks. It takes `--id-bits` and `--bitrate` like `obd`.
 
 ## Writes and actuator tests
 
-No vendor requests ship with the tool. No readable source documents the Mercedes coding, adaptation or actuator requests for the cars this was built for, so the tool carries none and invents none: you supply the exact request bytes, from your own documentation, and the tool checks their structure, not their meaning. A wrong request can disable a control unit or move a part on the car.
+No vendor requests ship with the tool. No readable source documents the Mercedes coding, adaptation or actuator requests for the cars this was built for, so the tool carries none and invents none: you supply the exact request bytes, from your own documentation, and the tool checks their structure, not their meaning. A wrong request can disable a control unit or move a part on the car. A unit may also refuse them in the session the profile opens ([issue 40](https://github.com/Mearman/obd/issues/40)).
 
-### Coding and adaptation writes
+`write` sends one write by identifier (KWP2000 `3B`, UDS `2E`). `--read` is the request that reads the same identifier (KWP2000 `21` or UDS `22`, then the identifier and nothing else). The order is fixed and stops at the first step that fails: it opens the profile's session and reads the current value (if that read fails, nothing is written); it saves the unit, address pair, protocol, both requests, the current value, a timestamp and the full adapter transcript to the `--save` file, which must not already exist; it prints the request and both values and asks you to type `yes`, with no flag that skips the question; it sends the write once; and it reads the value again and says whether it now matches, exiting 1 and naming the snapshot to restore from when it does not.
 
-`write` sends one write by identifier (KWP2000 `3B`, UDS `2E`). `--read` is the request that reads the same identifier (KWP2000 `21` or UDS `22`, then the identifier and nothing else); a read that names another identifier is refused before anything is sent. The order is fixed and stops at the first step that fails:
+`restore` writes back the value a `write` snapshot saved, to the same identifier, under the same steps. It refuses a file that is not a write snapshot, or one taken from another unit, address pair or protocol.
 
-1. Opens the profile's session and reads the current value with `--read`. If that read fails, nothing is written.
-2. Writes the unit, its address pair, the protocol, both requests, the current value, a timestamp and the full adapter transcript to the `--save` file. The file must not already exist.
-3. Prints the unit, the exact write request, the new value and the current value, and asks you to type `yes`. There is no flag that skips the question.
-4. Sends the write once, which the guard passes only with a write token for that exact request and that saved file.
-5. Reads the value again and says whether it now matches the request. A value that does not match exits 1 and names the snapshot to restore from.
+`actuate` sends one input or output control request (KWP2000 `30`, UDS `2F`) and afterwards the stop request you give with `--stop`, which must be the same service and name the same identifier. `--seconds` is capped, because an output held longer than its normal duty can overheat or sit at its end stop. It asks you to type `yes` (no flag skips it), sends the start request, holds for `--seconds` sending tester present so the unit stays in its session, and then sends the stop request whatever happened before it: a refused or silent start, an error mid-test, a timeout or an interrupt. If the stop request itself fails, the error says so, and switching the ignition off ends the test.
 
-`restore` writes back the value a `write` snapshot saved, to the same identifier. It is a write of its own, under the same steps: it reads the value it replaces, saves its own `--save` snapshot, asks for `yes` and reads back. It refuses a file that is not a write snapshot, or one taken from another unit, address pair or protocol.
+## The guard
 
-### Actuator tests
+Every request passes one guard (`permit()` in [`src/core/guard.ts`](src/core/guard.ts)) before it reaches the adapter.
 
-`actuate` sends one input or output control request (KWP2000 `30`, UDS `2F`) and, afterwards, the stop request you give with `--stop`, which must be the same service and name the same identifier; for UDS that is normally control parameter `00`, return control to the unit. `--seconds` is capped by `ACTUATION_MAX_SECONDS` in [`guard.py`](src/obd_read/guard.py): an output held longer than its normal duty can overheat or sit at its end stop, so a longer test is run again. Nothing is sent when the requests or the duration are out of bounds.
-
-1. Opens the profile's session and prints the unit and both requests, then asks you to type `yes`. There is no flag that skips the question.
-2. Sends the start request and prints the reply.
-3. Holds for `--seconds`, sending tester present every `TESTER_PRESENT_SECONDS` ([`actuate.py`](src/obd_read/actuate.py)) so the unit stays in the session the test runs in.
-4. Sends the stop request and prints the reply. This step runs whatever happened before it: a refused or silent start, an error mid-test, a timeout or Ctrl-C. Press Ctrl-C once; a second press can stop Python before the stop request is out. If the stop request itself fails, the error says so, and switching the ignition off ends the test.
-
-## What it will not send
-
-Every request passes through one guard ([`src/obd_read/guard.py`](src/obd_read/guard.py)) before it reaches the adapter.
-
-| Protocol | Read-only services allowed | Services allowed only with a token |
-|---|---|---|
-| KWP2000 | `10` (default and standard diagnostic sessions), `12`, `17`, `18`, `1A`, `21`, `3E` | `14` clear, `3B` write, `30` actuator test |
-| UDS | `10` (default and extended sessions), `19`, `22`, `3E` | `14` clear, `2E` write, `2F` actuator test |
-| OBD-II | modes `01`, `02`, `03`, `06`, `07`, `09`, `0A` | mode `04` clear |
+| Protocol | Read-only services allowed                                                          | Services allowed only with a token         |
+| -------- | ----------------------------------------------------------------------------------- | ------------------------------------------ |
+| KWP2000  | `10` (default and standard diagnostic sessions), `12`, `17`, `18`, `1A`, `21`, `3E` | `14` clear, `3B` write, `30` actuator test |
+| UDS      | `10` (default and extended sessions), `19`, `22`, `3E`                              | `14` clear, `2E` write, `2F` actuator test |
+| OBD-II   | modes `01`, `02`, `03`, `06`, `07`, `09`, `0A`                                      | mode `04` clear                            |
 
 A token is issued only by the guard, only to the command that ran the safeguards for it, in the same run:
 
@@ -179,176 +133,143 @@ A token is issued only by the guard, only to the command that ran the safeguards
 - `write` and `restore` get a write token for one exact request, once a snapshot recording that request and the value it replaces is on disk.
 - `actuate` gets a pair of tokens for its exact start and stop requests, after the confirmation.
 
-Write and actuation tokens pass one request each, once, and cannot pass any other request or service; the `request` command and every read command carry no token, so they cannot send `14`, `2E`, `2F`, `30`, `3B` or mode `04`. Everything else is refused before sending, with or without a token: security access (`27`), resets (`11`), routine control (`31`), communication control (`28`), DTC setting control (`85`), programming and other sessions, data transfer (`34` to `37`) and every service not in the table. There is no setting that turns the guard off.
+Write and actuation tokens pass one request each, once, and cannot pass any other request or service; the `request` command and every read command carry no token, so they cannot send `14`, `2E`, `2F`, `30`, `3B` or mode `04`. Everything else is refused before sending, with or without a token: security access (`27`), resets (`11`), routine control (`31`), communication control (`28`), DTC setting control (`85`), programming and other sessions, data transfer (`34` to `37`) and every service not in the table. There is no setting that turns the guard off, in Node or in the app.
 
-The request layouts the guard checks come from the ISO/DIS 14230-3 draft of 16 December 1996 for KWP2000 (tables 6.4.2.1, 7.1.2.1, 7.5.2.1 and 9.1.2.1, [as mirrored in the sv650sds wiki](https://raw.githubusercontent.com/wiki/synfinatic/sv650sds/pdfs/14230-3.pdf)) and [python-udsoncan's service implementations](https://github.com/pylessard/python-udsoncan/tree/master/udsoncan/services) for UDS. A unit may refuse a write or actuator test in the session the profile opens; the guard does not open other sessions to get round that.
+The request layouts the guard checks come from the ISO/DIS 14230-3 draft of 16 December 1996 for KWP2000 (tables 6.4.2.1, 7.1.2.1, 7.5.2.1 and 9.1.2.1, [as mirrored in the sv650sds wiki](https://raw.githubusercontent.com/wiki/synfinatic/sv650sds/pdfs/14230-3.pdf)) and [python-udsoncan's service implementations](https://github.com/pylessard/python-udsoncan/tree/master/udsoncan/services) for UDS.
+
+## Vehicle profiles
+
+A profile is a JSON file with the bus settings, the diagnostic protocol and one entry per control unit, validated by the Zod schema in [`src/core/profile.ts`](src/core/profile.ts):
+
+```json
+{
+  "name": "example-car",
+  "description": "Example chassis",
+  "status": "unconfirmed",
+  "bus": { "id_bits": 11, "bitrate": 500000 },
+  "diagnostics": { "protocol": "kwp2000", "session": 146 },
+  "units": {
+    "engine": {
+      "description": "Engine control unit",
+      "request": 2016,
+      "response": 2024,
+      "source": "where this address pair comes from"
+    }
+  }
+}
+```
+
+Identifiers and the session are plain JSON numbers (146 is `0x92`, 2016 is `0x7E0`). Read the bundled profiles in [`src/profiles`](src/profiles) for the exact field spellings, including K-line profiles, which name an initialisation scheme instead of CAN settings. Pass a shipped profile by name (`--profile mercedes-w211`) or your own by a path ending in `.json`. Every unit needs a `source`, so an address can be traced to where it was found. Run `obd-read profile check ./my-car.json` before first use: beyond what loading rejects it reports unknown keys, identifiers too wide for the bus, a request and response that are the same, an identifier shared by two units and blank sources. The app imports a profile from a local JSON file the same way. Which live values the shipped profiles define is [issue 38](https://github.com/Mearman/obd/issues/38).
 
 ## Home Assistant and MQTT
 
-`mqtt` reads the same values as `live` (the legislated ones, or a unit's profile values with `<unit> --profile`, narrowed with `--values`) and publishes each one to an MQTT broker every `--interval` seconds, together with the adapter's own voltage reading unless `--no-voltage` is given. It sends no request that `live` does not, and every request still passes the guard. The broker client is the optional `mqtt` extra ([aiomqtt](https://github.com/empicano/aiomqtt), BSD-3-Clause, on [paho-mqtt](https://github.com/eclipse-paho/paho.mqtt.python), EPL-2.0 or BSD-3-Clause), so the base install does not carry it:
+`mqtt` reads the same values as `live` and publishes each one to an MQTT broker every `--interval` seconds, together with the adapter's own voltage reading unless `--no-voltage` is given. It sends no request that `live` does not, and every request still passes the guard.
 
 ```sh
-uv sync --extra mqtt
 OBD_READ_MQTT_USER=car OBD_READ_MQTT_PASSWORD=... \
-  uv run obd-read mqtt --adapter ble://vLinker --broker-host homeassistant.local --interval 10
+  obd-read mqtt --adapter ble://vLinker --broker-host homeassistant.local --interval 10
 ```
 
-| Option | Meaning |
-|---|---|
-| `--broker-host`, `--broker-port` | The broker, port 1883 unless given. `--tls` connects over TLS with the system certificate authorities. |
-| `--topic-prefix` | Prefix of the state topics, `obd-read` by default. Each value goes to `<prefix>/<device>/<value>`, not retained. |
-| `--discovery-prefix` | Home Assistant's MQTT discovery prefix, `homeassistant` by default. |
-| `--device-id` | The Home Assistant device and topic identifier. By default it is derived from `--adapter`, so one adapter is one device across restarts. |
-| `--count` | Samples to publish; the default 0 keeps going until interrupted. |
+| Option                           | Meaning                                                                                                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `--broker-host`, `--broker-port` | The broker, port 1883 unless given. `--tls` connects over TLS with the system certificate authorities.                                   |
+| `--topic-prefix`                 | Prefix of the state topics, `obd-read` by default. Each value goes to `<prefix>/<device>/<value>`, not retained.                         |
+| `--discovery-prefix`             | Home Assistant's MQTT discovery prefix, `homeassistant` by default.                                                                      |
+| `--device-id`                    | The Home Assistant device and topic identifier. By default it is derived from `--adapter`, so one adapter is one device across restarts. |
+| `--count`                        | Samples to publish; the default 0 keeps going until interrupted.                                                                         |
 
 The broker user name and password are read only from the environment variables `OBD_READ_MQTT_USER` and `OBD_READ_MQTT_PASSWORD`. No option accepts them, so they never reach a shell history or process list, and the command never prints, logs or publishes them. A password without a user name is refused.
 
-Before the first sample the command publishes one retained discovery message per value under `<discovery prefix>/sensor/<unique id>/config`, carrying the unit of measurement, a device class where Home Assistant lists the unit for one (`°C`, `V`, `kPa` and `km/h`), a `measurement` state class for values with a unit, an `expire_after` of three intervals and the shared device. It then publishes `online` to the retained `<prefix>/<device>/availability` topic. The broker is given `offline` for that topic as its last will, so a connection lost without a clean disconnect leaves every sensor unavailable, and a normal stop publishes `offline` itself. A value that could not be read in a sample is not published, and its sensor expires.
+Before the first sample the command publishes one retained discovery message per value, carrying the unit of measurement, a device class where Home Assistant lists the unit for one, a `measurement` state class for values with a unit, an `expire_after` of three intervals and the shared device. It then publishes `online` to the retained `<prefix>/<device>/availability` topic. The broker is given `offline` for that topic as its last will, so a connection lost without a clean disconnect leaves every sensor unavailable. A value that could not be read in a sample is not published, and its sensor expires.
 
 ## Bit rates
 
-250 and 500 kbit/s use the ELM327 protocols 6 to 9. Any other rate, such as 125 kbit/s for the mid-speed bus on pins 3 and 11 of some Ford and Volvo cars, is set by `select_can` in one of two ways, and the adapter's own reply decides whether it worked:
+250 and 500 kbit/s use the ELM327 protocols 6 to 9. Any other rate, such as 125 kbit/s for the mid-speed bus on pins 3 and 11 of some Ford and Volvo cars, is set in one of two ways, and the adapter's own reply decides whether it worked:
 
 - **STN adapters:** the 500 kbit/s protocol is selected, then `STPBR <rate>` sets the rate and `STPBRR` reads back the rate in use. The manual says `STPBR` rounds to the nearest rate the hardware can generate and clamps without an error, so any difference from the requested rate is refused.
 - **Plain ELM327:** user-defined protocol B, through `ATPC`, `ATPB <options> <divisor>` and `ATSPB`. The divisor is 500 kbit/s divided by the rate, so only rates that divide 500 kbit/s into a whole number from 1 to 64 are reachable (125 kbit/s is divisor 4). Anything else is refused before a byte is sent.
 
-An adapter that rejects the command stops the run with the command named. Sources: the ELM327 datasheet (`AT PB`, `AT PC`, `AT SP`, PP 2B to 2D) and the OBDLink Family Reference and Programming Manual revision F (`STPBR`, `STPBRR`). The commands are tested against the scripted adapter only. Unconfirmed on hardware: whether `STPBR` takes effect before the protocol opens, which rates each STN model accepts, and whether a clone that accepts `ATPB` honours the divisor. The adapter's transceiver also has to be wired to the pins the bus uses: most adapters reach pins 6 and 14 only.
+An adapter that rejects the command stops the run with the command named. Sources: the ELM327 datasheet (`AT PB`, `AT PC`, `AT SP`, PP 2B to 2D) and the OBDLink Family Reference and Programming Manual revision F (`STPBR`, `STPBRR`). The adapter's transceiver also has to be wired to the pins the bus uses: most adapters reach pins 6 and 14 only.
 
 ## Requests longer than one frame
 
-A request of up to 7 bytes goes as one CAN frame on any adapter. A longer one, such as a read of several data identifiers at once, goes only through an adapter with the STN extensions: `STPX h:<id>, d:<data>` transmits it, segmented per ISO 15765-2, and turns transmit segmentation on only for that message. Addressing a unit on such an adapter also registers the unit's identifier pair with `STCFCPA`, because the adapter waits for the unit's flow-control frame and recognises it only for registered pairs. A raw CAN link (see [Raw CAN adapters](#raw-can-adapters)) segments it itself and needs no extensions. A plain ELM327 refuses a long request with a message naming the reason, since its datasheet documents no multi-frame sending; nothing is sent. The longest request is 4095 bytes, the ISO 15765-2 limit. Every long request has passed the guard like any other. Sources: the OBDLink Family Reference and Programming Manual revision F (`STPX`, `STCSEGT`, `STCFCPA`). Tested against the scripted adapter only; unconfirmed on hardware: the longest command line an adapter accepts (the manual's `l:` mode, not used here, exists for messages beyond the UART buffer), eight-digit identifiers in `h:` for 29-bit CAN, and that every STN model registers pairs for non-legislated identifiers.
+A request of up to 7 bytes goes as one CAN frame on any adapter. A longer one, such as a read of several data identifiers at once, goes only through an adapter with the STN extensions: `STPX h:<id>, d:<data>` transmits it, segmented per ISO 15765-2, and turns transmit segmentation on only for that message. Addressing a unit on such an adapter also registers the unit's identifier pair with `STCFCPA`, because the adapter waits for the unit's flow-control frame and recognises it only for registered pairs. A raw CAN link segments it itself and needs no extensions. A plain ELM327 refuses a long request with a message naming the reason, since its datasheet documents no multi-frame sending; nothing is sent. The longest request is 4095 bytes, the ISO 15765-2 limit. Sources: the OBDLink Family Reference and Programming Manual revision F (`STPX`, `STCSEGT`, `STCFCPA`).
 
 ## Raw CAN adapters
 
-A raw CAN adapter has no ELM327 interpreter: it sends and receives CAN frames. `socketcan://` and `slcan://` links present one as an ELM327 adapter to the rest of the tool, so every command works unchanged, and the ISO 15765-2 work the ELM327 does in firmware (segmenting a request, sending flow control for a long reply, reassembly) is done by [`src/obd_read/isotp.py`](src/obd_read/isotp.py). A raw link has no single-frame request limit: a request can be up to 4095 bytes, sent as a first frame and consecutive frames after the unit's flow control. The session selects bit rates on it as it does on a plain ELM327, so the rates are 250 and 500 kbit/s and 500 kbit/s divided by a whole number from 1 to 64; an SLCAN adapter further limits them to the nine rates its `S` command offers.
+A raw CAN link is presented to the session as an ELM327 adapter (`RawCanTransport`), so the same session code drives it, with the ISO 15765-2 work the ELM327 does in firmware done in core.
 
-| Link | Where | What sets the bit rate |
-|---|---|---|
-| `socketcan://<interface>` | Linux only: `can0`, `vcan0`, any CAN device the kernel exposes, including a candleLight adapter running gs_usb firmware | The interface: `ip link set can0 type can bitrate 500000`, outside this tool. |
-| `slcan://<serial device>` | Any platform with a serial port: an adapter running SLCAN firmware, including candleLight with that firmware | The bus settings of the profile (`--bitrate` for `obd`), sent to the adapter when the bus is selected. |
+- `slcan://<serial device>?baud=N` is an SLCAN adapter on a serial port.
+- `socketcan://<interface>` is a Linux SocketCAN interface (`can0`, `vcan0`, or a candleLight adapter running gs_usb firmware) reached through the optional `socketcan` package. It is a native addon that is Linux-only and is not built during `pnpm install` because install scripts are denied: on Linux run `pnpm rebuild socketcan` once (it needs a C++ toolchain), and set the interface's bit rate outside the program (`ip link set can0 type can bitrate 500000`).
+- `webusb://<label>` drives a candleLight, CANable or other gs_usb adapter directly from a browser over WebUSB, which is also the route on macOS and Windows, where there is no SocketCAN. The picker is limited to the gs_usb vendor and product ids unless `usbVendorId` and `usbProductId` are given, and `channel` selects a channel on a multi-channel adapter. The gs_usb protocol and bit-timing calculation are in [`src/core/gsusb.ts`](src/core/gsusb.ts).
 
-SocketCAN exists only on Linux. On any other platform `socketcan://` fails with a message saying so, and the rest of the tool imports and runs as usual. SLCAN framing follows the Linux kernel's SLCAN driver ([slcan-core.c](https://github.com/torvalds/linux/blob/master/drivers/net/can/slcan/slcan-core.c)); it has been checked against that source and a scripted adapter, not against a physical adapter. A candleLight adapter with gs_usb firmware has no driver here other than the Linux kernel's, so on a Mac it needs SLCAN firmware.
+## The app
 
-The raw layer is classic CAN only (no CAN FD, no remote frames) and implements only the ELM327 commands the tool sends; anything else is answered `?` as a clone adapter does. Not confirmed: that every control unit accepts frames padded with `0xCC`, the fill byte Wikipedia recommends, and the identifier a unit sends flow control for on functional (broadcast) requests, which follows the ISO 15765-4 pairing. Frames that reach the link are the request's own frames and the flow control a reply needs; the read-only guard sits above the link and is unchanged.
+[`app/`](app) is the browser app, a separate private workspace package (`obd-read-app`) that depends on the package through the workspace. It is an installable PWA built with Vite and React. Styling is vanilla-extract (a CSS-variable theme contract for light and dark, recipes and sprinkles) over Radix UI primitives, so there is no runtime style engine. The layout is mobile-first with phone, tablet and desktop breakpoints, 44 px touch targets and safe-area insets, and data tables reflow to cards on narrow screens.
 
-## Bus monitor
+The screens (Connect, Scan, Live values, Runs, Settings) talk to a small `DiagnosticsClient` interface ([`app/src/diagnostics/client.ts`](app/src/diagnostics/client.ts)). Only a simulator implements it so far: it returns fixed invented values, every screen labels them "Simulated data", and it refuses real adapters. The real diagnostic service replaces it without UI changes.
 
-`monitor` logs the frames on the bus and sends nothing. Watching a known-good tool talk to a car is the quickest way to learn the addresses and requests for a new profile.
+Build the package first, because the app imports it through its built exports, then work in the app:
 
 ```sh
-uv run obd-read monitor --adapter slcan:///dev/ttyACM0 --id 7E8 --id 7E0 --duration 60 --output bus.log
+pnpm install
+pnpm build
+pnpm --filter obd-read-app dev
 ```
 
-Each log line is a UTC time, the identifier and the data in hexadecimal. `--id`, `--block` and `--flow-control` (each repeatable, hexadecimal) choose the identifiers kept, `--count` and `--duration` stop it, and Ctrl-C stops it at any point. `--output` writes the log to a new file and refuses to overwrite one. Status messages from the adapter, such as `BUFFER FULL`, which means frames were lost, appear in the log as `#` lines.
+### Storage and the service boundary
 
-| Adapter | What the log holds | How it stays silent |
-|---|---|---|
-| Raw CAN (`slcan://`, `socketcan://`) | Every frame on the bus. | The link is opened listen-only and only its receive side reaches the monitor. SLCAN is put in listen-only mode by the tool. SocketCAN's mode belongs to the interface, so set it first: `ip link set can0 type can bitrate 500000 listen-only on`. |
-| STN extensions | What passes the adapter's own filters (`STFPA`, `STFBA`, `STFFCA`), read with `STM`. | `STCMM 0`, the monitoring mode that does not acknowledge frames. |
-| Plain ELM327 | What passes `ATCRA`, or `ATCF` and `ATCM` for several identifiers, read with `ATMA`. A block list is applied by the tool after the adapter. | Not confirmed: the sources used here do not say whether a plain ELM327 acknowledges frames while it monitors. |
+Storage is a `Storage` interface in core. Its implementations are an in-memory one, SQLite through Drizzle over `node:sqlite` in Node (`openNodeStorage`), and sqlite-wasm on the Origin Private File System in the browser, where a dedicated module worker owns the database and the page posts SQL to it (`openWorkerStorage`). Drizzle stays behind `Storage`: the SQL migrations `drizzle-kit` generates from [`src/storage/schema.ts`](src/storage/schema.ts) are embedded in `src/storage/migrations.ts` so a browser build needs no file access. After changing the schema run `pnpm storage:generate`; a test fails when the embedded module and the migration folder disagree.
 
-The only commands the monitor sends to an adapter are receive filters, the monitoring commands and `STCMM 0`; anything else is refused before it is sent. The `STFFCA` argument form is assumed to match `STFPA` and `STFBA`, which is not confirmed. A busy bus can overrun an ELM327-style adapter's buffer; the raw forms do not have that limit.
+The worker (`app/src/database/`) holds an exclusive Web Lock, installs sqlite-wasm's `opfs-sahpool` VFS (which needs no cross-origin-isolation headers), applies the migrations and asks for persistent storage. That VFS allows one connection, so a second tab or window is told the app is already open elsewhere. Settings exports the database as a `.sqlite` file and imports one, checked in a scratch database before it replaces anything.
 
-## Vehicle profiles
+The service boundary is an oRPC contract, `DiagnosticsService` in [`src/core/service.ts`](src/core/service.ts), served and consumed over a message port (`serveDiagnostics`, `connectDiagnostics`). The contract and its in-process implementation over `Storage` are in core; operations that need the OBD and live modules are declared in `pendingDiagnosticsContract` and served by nothing yet. Contract suites run the same tests against every `Storage` implementation and against the service in process and over a message port.
 
-A profile is a TOML file with the bus settings, the diagnostic protocol and one table per control unit:
+### Hosting, installing and offline behaviour
 
-```toml
-name = "example-car"
-description = "Example chassis"
-status = "unconfirmed"       # or "confirmed" once the addresses are proven on a car
+A PWA needs a secure context: serve the built app (`app/dist/`, with relative URLs so it can sit under any path) over HTTPS. `localhost` also counts as secure, which is how the end-to-end tests and `pnpm --filter obd-read-app preview` run it. Web Serial, Web Bluetooth and WebUSB are available only in a secure context.
 
-[bus]
-id_bits = 11                 # 11 or 29
-bitrate = 500000             # bit/s; see "Bit rates" for what an adapter can reach
+`vite-plugin-pwa` precaches the whole shell, the bundled profiles, the database worker and the SQLite `.wasm` file, and generates the manifest and icons from [`app/public/icon.svg`](app/public/icon.svg) at build time. After the first load the app starts and opens its stored data with no network. The app makes no runtime network requests (an ESLint rule forbids `fetch`, `XMLHttpRequest` and `WebSocket` in `app/src/`), loads no CDN scripts and no web fonts. A new service worker waits until the user chooses Reload in the update toast, so an update never interrupts a scan.
 
-[diagnostics]
-protocol = "kwp2000"         # or "uds"
-session = 0x92               # the session opened before reading
+### Background collection
 
-[units.engine]
-description = "Engine control unit"
-request = 0x7E0
-response = 0x7E8
-source = "where this address pair comes from"
-```
+No web API guarantees that a page keeps reading an adapter while the screen is off or the app is in the background. A browser may suspend or throttle a page, and a Web Serial, Web Bluetooth or WebUSB connection is held by the page, not by the service worker or the operating system. The app therefore collects only while it is open and visible, and a run can have gaps whenever the phone sleeps. A guaranteed unattended recorder is the Node command line (`live --csv`, `battery --csv`, `mqtt`) on a machine that stays on, such as a Raspberry Pi. Android Auto is not a target for the PWA.
 
-Pass a shipped profile by name or your own by path: `--profile ./my-car.toml`. Every unit needs a `source`, so an address can be traced to where it was found. Run `obd-read profile check ./my-car.toml` before first use: beyond what loading rejects it reports unknown keys, identifiers too wide for the bus, a request and response that are the same, an identifier shared by two units and blank sources.
+### Browser support
 
-### K-line profiles
+Chrome and Edge, on Android and desktop. Safari, Firefox and every iOS browser (all WebKit) have no Web Serial, Web Bluetooth or WebUSB, so the app cannot reach an adapter there; the Connect screen says why. The shell itself loads in any modern browser.
 
-A car whose units answer only on K-line (ISO 9141-2 or KWP2000 over K-line, pin 7 of the diagnostic socket) names the initialisation scheme instead of CAN settings:
+## What stays unverified until the dongle and car are together
 
-```toml
-[bus]
-kline = "kwp2000-slow"       # iso9141 (ELM327 protocol 3), kwp2000-slow (4) or kwp2000-fast (5)
-tester = 0xF1                # optional: the tester's address byte
-header_format = 0xC0         # optional: the first header byte, 0x68 for iso9141, 0xC0 for kwp2000
+Everything above the link is tested against scripted adapters and cars, fake transports and a headless Chromium. The following has not been run against real hardware, and each item has an open issue:
 
-[diagnostics]
-protocol = "kwp2000"         # a K-line bus carries kwp2000 only
-session = 0x81
-
-[units.engine]
-description = "Engine control unit"
-request = 0x01               # the unit's K-line address, also the five-baud initialisation address
-response = 0x01              # the address its replies come from
-source = "where this address comes from"
-```
-
-The adapter initialises the bus for one unit at a time: `ATIIA` sets the five-baud address for the slow schemes, `ATSH` the header, and `ATSI` or `ATFI` starts the initialisation before the first request to that unit. A unit that does not answer the initialisation is reported as silent. Every reply carries a checksum that the tool verifies, so a reply it cannot verify is an error and never data.
-
-Unconfirmed, because the sources in the [vehicle notes](docs/vehicles/generic-standards.md) do not settle them: whether the adapter prints the checksum byte with headers on (a reply it cannot verify is refused rather than guessed at), what it does with the length bits of an ISO 14230 format byte (`header_format` overrides the default), and the idle message the adapter sends to keep the bus open, which is its default `68 6A F1 01 00` and is a legislated read. The ISO 9141-2 and ISO 14230-2 wire timing is the adapter's, not the tool's. Units on a second K-line, or on pins other than 7 and 15, cannot be reached by an adapter that drives pin 7 only. Adapters with the STN extensions have further ISO commands (custom fast initialisation, initialisation address parity, inter-byte timing) that the tool does not yet use.
-
-`obd --kline iso9141|kwp2000-slow|kwp2000-fast` reads the legislated OBD-II values over K-line with no profile.
-
-The shipped profiles are `mercedes-w211` and `vag-mqb`, both marked unconfirmed. The W211 table comes from an open-source project for a different variant of the chassis, and the MQB table from a community wiki's captures of MQB cars. `probe` is how a profile is confirmed on a given car. A profile is added only where a readable source states its addresses; for a car with none, `discover` finds them.
-
-A unit can name the live values it reports, for `live`. Each is one KWP2000 local identifier (service 21) or UDS data identifier (service 22), with the bytes to use and how to scale them: the number is the bytes read big-endian (signed when `signed` is true) times `scale` plus `bias`. A value stays `unconfirmed` (the default) until its identifier has been checked on a car, and `live` says so before the first sample. The shipped profiles define none yet, because no identifier in them has a readable source.
-
-```toml
-[units.engine.values.boost]
-label = "boost pressure, actual"
-unit = "kPa"
-identifier = 0x10            # one byte for KWP2000, two for UDS
-offset = 1                   # first data byte to use after the identifier; default 0
-size = 2                     # bytes, 1 to 4; default 1
-signed = false               # default false
-scale = 0.1                  # default 1
-bias = 0                     # default 0
-source = "where this identifier and scaling come from"
-status = "unconfirmed"       # or "confirmed"
-```
-
-The [vehicle communication notes](docs/vehicles/README.md) record how to talk to other makes, with sources, for writing a new profile.
-
-## How it is built
-
-| Layer | Code | Job |
-|---|---|---|
-| Link | `transport/` | Bytes to and from the adapter: Bluetooth LE, serial, TCP. For raw CAN, frames to and from the bus (`transport/socketcan.py`, `transport/slcan.py`) with `transport/rawcan.py` and `isotp.py` presenting them as an adapter. |
-| Adapter | `elm.py`, `kline.py` | The ELM327 session: set-up, addressing, one request and its reassembled replies. `kline.py` is the same session on a K-line bus. |
-| Guard | `guard.py` | Passes or refuses each request, and issues the tokens for clears, writes and actuator tests. |
-| Protocol | `kwp2000.py`, `uds.py`, `obd.py` | Builds requests and decodes replies. |
-| Vehicle | `profile.py`, `profiles/` | What to address on a given chassis. |
-| Commands | `operations.py`, `obd_clear.py`, `writes.py`, `actuate.py`, `monitor.py`, `live.py`, `battery.py`, `mqtt.py`, `cli.py` | Reading a unit, scanning, saving, clearing, writing, restoring, actuator tests, logging the bus, live values, the voltage, publishing to a broker. |
-| Saved files | `offline.py`, `scancompare.py`, `codenames.py`, `definitions.py` | Comparing scans and naming codes, with no adapter involved. |
+- Adapter behaviours that were written from documentation: `STPBR` taking effect before the protocol opens, which bit rates each STN model accepts, whether a clone honours the `ATPB` divisor, the longest `STPX` line, eight-digit `h:` identifiers for 29-bit CAN, `STCFCPA` registration for non-legislated identifiers, the `STVR` reply format, K-line checksum and idle output, and ELM327 acknowledgement while monitoring ([issue 37](https://github.com/Mearman/obd/issues/37)). The vLinker FD+ is the intended adapter, and its real service and characteristic UUIDs are unconfirmed: Bluetooth LE adapters do not share one layout, so the tool picks the first service with both a notifying and a writable characteristic, and `?service=`, `?notify=` and `?write=` on the URL override that choice.
+- The real Web Serial, Web Bluetooth and WebUSB paths, and the installed PWA on a phone: install prompt, standalone display, offline launch, the update toast and the unsupported-browser messages on real devices ([issue 54](https://github.com/Mearman/obd/issues/54)).
+- The database worker with `opfs-sahpool` on Android Chrome, whether the installed app is granted persistent storage, and that stored runs survive the app being closed and reopened ([issue 62](https://github.com/Mearman/obd/issues/62)).
+- The `socketcan://` addon, which has been neither built nor run against a real or virtual CAN interface ([issue 53](https://github.com/Mearman/obd/issues/53)), and gs_usb over WebUSB, checked against a fake adapter only.
+- Writes, restore and actuator tests on a real car: whether a unit accepts them in the session the profile opens ([issue 40](https://github.com/Mearman/obd/issues/40)), and live value identifiers for the shipped profiles ([issue 38](https://github.com/Mearman/obd/issues/38)).
+- The `mqtt` command against a real broker and Home Assistant: it is tested against a recording stand-in for the broker connection.
 
 ## Development
 
 ```sh
-uv sync --all-extras
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy
-uv run pytest
+pnpm install
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm --filter obd-read-app lint
+pnpm --filter obd-read-app typecheck
+pnpm --filter obd-read-app test
+pnpm --filter obd-read-app build
+pnpm --filter obd-read-app e2e
 ```
 
-The tests run against the scripted adapter and car in [`src/obd_read/simulator.py`](src/obd_read/simulator.py), the same one the `simulate` command serves, including over a local TCP socket.
+CI runs the same commands. `pnpm test:parity` runs the command line against the recorded contract in [`test/golden`](test/golden): [its README](test/golden/README.md) says where the records came from, and the only differences allowed are listed in `test/parity/normalise.ts`. Two checks keep core platform-free: an ESLint `no-restricted-imports` and `no-restricted-globals` rule on `src/core/`, and `tsconfig.core.json`, which typechecks it with neither the Node nor the DOM type libraries.
 
-## What has and has not been tested
+`pnpm --filter obd-read-app e2e` builds the app, serves it with `vite preview` on localhost, and in Chromium takes screenshots of every screen at phone, tablet and desktop widths in both colour schemes into `app/screenshots/` (untracked). It asserts that nothing overflows horizontally and that every interactive element is at least 44 px, reloads offline to check the shell loads from the service worker, and drives the real database worker and OPFS (write a run, reload, reload offline, a second tab, export and import). Install the browser once with `pnpm --filter obd-read-app exec playwright install chromium`, or point `OBD_READ_CHROMIUM` at a Chromium binary you already have.
 
-Everything above the link is tested against the scripted adapter, and the `mqtt` command against a recording stand-in for the broker connection, so the aiomqtt connection and a real Home Assistant have not been exercised. The Bluetooth LE and serial links, real adapter firmware and real control units are exercised only when someone runs the tool at a car. The reply format of `STVR` is taken from the STN command set as the project issue describes it and has not been checked against an adapter, so `battery` fails with the reply it could not read when the format differs. Bluetooth LE adapters do not share one layout: the tool picks the first service that has both a notifying and a writable characteristic, and `?service=`, `?notify=` and `?write=` on the URL override that choice.
+The tests run against the scripted adapter and car in [`src/core/simulator.ts`](src/core/simulator.ts), the same one the `simulate` command serves.
 
 ## Licence
 
