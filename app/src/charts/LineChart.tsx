@@ -28,6 +28,7 @@ import {
   reading,
   slider,
   markerLabel,
+  markerLayer,
   markerLine,
   svg,
   xAxis,
@@ -182,17 +183,21 @@ export function LineChart({
               <polyline className={line} points={path} vectorEffect="non-scaling-stroke" />
             </svg>
           </div>
-          {markers.map((marker) => (
-            <div
-              key={`${String(marker.at)}-${marker.label}`}
-              className={markerLine}
-              style={{ left: `${(fraction(marker.at, span[0], span[1]) * 100).toFixed(2)}%` }}
-              title={marker.label}
-              aria-hidden="true"
-            >
-              <span className={markerLabel}>{marker.label}</span>
+          {markers.length > 0 && (
+            <div className={markerLayer} aria-hidden="true">
+              {markers.map((marker) => (
+                <div
+                  key={`${String(marker.at)}-${marker.label}`}
+                  className={markerLine}
+                  style={{ left: `${(fraction(marker.at, span[0], span[1]) * 100).toFixed(2)}%` }}
+                  title={marker.label}
+                  aria-hidden="true"
+                >
+                  <span className={markerLabel}>{marker.label}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
           {cursorLeft !== undefined && (
             <div
               className={cursorLine}

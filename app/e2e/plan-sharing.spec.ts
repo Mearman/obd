@@ -29,6 +29,20 @@ const MIN_TARGET = 44;
 const INTERACTIVE =
   'button, a[href], [role="tab"], [role="switch"], [role="slider"], summary, select, textarea, input:not([hidden]):not([type="hidden"]), label:has(> input[type="checkbox"])';
 
+/** A wider font than any the app is likely to fall back to, so a layout that fits only with this machine's fonts fails here, not on another system. */
+const WIDE_FONT =
+  "* { font-family: Verdana, sans-serif !important; letter-spacing: 0.08em !important; }";
+
+/** Checks the page fits, then checks it again with {@link WIDE_FONT}. */
+async function fitsWithAnyFont(page: Page, what: string): Promise<void> {
+  await fits(page, what);
+  const tag = await page.addStyleTag({ content: WIDE_FONT });
+  await fits(page, `${what} with a wide font`);
+  await tag.evaluate((element) => {
+    element.parentNode?.removeChild(element);
+  });
+}
+
 async function fits(page: Page, what: string): Promise<void> {
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -211,7 +225,7 @@ for (const viewport of VIEWPORTS) {
         await page.getByLabel("Phase 1 end condition, part 1: kind").selectOption("between");
         await page.getByRole("button", { name: "Add a phase" }).click();
         await page.getByText("Values the plan reads:").click();
-        await fits(page, "the plan editor");
+        await fitsWithAnyFont(page, "the plan editor");
         await page.screenshot({
           path: `screenshots/${viewport.name}-${scheme}-plan-editor.png`,
           fullPage: true,
@@ -226,7 +240,7 @@ for (const viewport of VIEWPORTS) {
         await page.goto(await resultsLink());
         await expect(page.getByText("Results of Idle, hold revs, idle, blips")).toBeVisible();
         await page.getByRole("button", { name: "Show the plan" }).click();
-        await fits(page, "the results view");
+        await fitsWithAnyFont(page, "the results view");
         await page.screenshot({
           path: `screenshots/${viewport.name}-${scheme}-plan-results.png`,
           fullPage: true,

@@ -134,6 +134,14 @@ export const compact = style({
 
 export const compactSvg = style({ display: "block", width: "100%", height: "100%" });
 
+/** Holds the phase boundaries over the plot and clips their labels to it, so a label near the right edge never widens the page. */
+export const markerLayer = style({
+  position: "absolute",
+  inset: 0,
+  overflow: "hidden",
+  pointerEvents: "none",
+});
+
 /** A phase boundary: a dashed line across the plot with its label at the top, never taking the pointer from the cursor slider. */
 export const markerLine = style({
   position: "absolute",
