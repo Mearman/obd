@@ -6,6 +6,7 @@ import {
   serveTransports,
 } from "obd-read/web";
 import type { AppService } from "../diagnostics/client";
+import { captureErrorEvent, errorStore, observeClient, reportCall } from "../report/capture";
 import { StorageSource } from "./storage-source";
 
 /** The service and what the page must keep feeding it. */
@@ -28,6 +29,10 @@ export function createPageService(): PageService {
     type: "module",
     name: "obd-read-service",
   });
+  // A script that fails to load or throws outside any call is reported; the page and the database keep running.
+  worker.addEventListener("error", (event) => {
+    captureErrorEvent(errorStore, "worker", event);
+  });
   worker.postMessage(
     {
       diagnostics: diagnostics.port1,
@@ -39,7 +44,7 @@ export function createPageService(): PageService {
   const bridge = serveTransports(transports.port2, openTransport);
   serveStorage(storageChannel.port2, storage.current);
   return {
-    client: connectDiagnostics(diagnostics.port2),
+    client: observeClient(connectDiagnostics(diagnostics.port2), reportCall(errorStore)),
     devices: {
       prepare: (adapterUrl) => bridge.prepare(adapterUrl),
       chooseSerial: () => requestSerialGrant({ filters: [] }),
