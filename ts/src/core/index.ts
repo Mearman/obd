@@ -44,3 +44,4 @@ export * from "./simulator.js";
 export * from "./ordered-json.js";
 export * from "./operations.js";
 export * from "./command-errors.js";
+export * from "./obd-clear.js";
