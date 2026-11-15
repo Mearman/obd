@@ -48,6 +48,8 @@ export interface DiagnosticsWorkerOptions {
   readonly diagnosticsPort: SupportedMessagePort;
   /** The port the page serves its transports on. */
   readonly transportPort: SupportedMessagePort;
+  /** The app's version, as captures record it. */
+  readonly toolVersion: string;
 }
 
 /** The transports a worker serves itself: Web Serial and WebUSB over the grants the page makes. */
@@ -70,6 +72,7 @@ export function startDiagnosticsWorker(options: DiagnosticsWorkerOptions): Diagn
     storage: options.storage,
     loadProfile,
     grants,
+    toolVersion: options.toolVersion,
     transports: composeTransportHosts(
       simulatorTransportHost(loadProfile),
       workerTransportHost(grants),

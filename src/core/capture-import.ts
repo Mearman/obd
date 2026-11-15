@@ -474,3 +474,39 @@ export function importSavedScan(text: string, id: string, name: string): Importe
   }
   return importTranscript(transcript, source);
 }
+
+/**
+ * Reads any record a capture can come from: a capture document, a saved scan (`scan --output`), or an adapter transcript (`--log`), told apart by content.
+ *
+ * A capture document is returned as it is, under its own id. A saved scan or a transcript is imported under `id`.
+ *
+ * @throws CaptureError for a capture document that is not valid.
+ * @throws ImportError for a saved scan or JSON document that is not one of these.
+ */
+export function importRecord(text: string, id: string, name: string): ImportedCapture {
+  if (text.length > MAX_CAPTURE_TEXT)
+    throw new ImportError(`${name}: larger than a capture may hold`);
+  const trimmed = text.trimStart();
+  if (trimmed.startsWith("{")) {
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch (error) {
+      if (error instanceof SyntaxError) throw new ImportError(`${name}: ${error.message}`);
+      throw error;
+    }
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      Reflect.get(data, "format") === CAPTURE_FORMAT
+    ) {
+      return { capture: validateCapture(data, name), unrecovered: [] };
+    }
+    return importSavedScan(text, id, name);
+  }
+  return importTranscript(text.split(/\r?\n/), {
+    id,
+    description: `transcript ${name}`,
+    profile: null,
+  });
+}

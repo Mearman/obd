@@ -10,10 +10,14 @@ Usage and times follow {@link Storage}: times are integer milliseconds since the
 
 import { asyncIteratorObject, oc } from "@orpc/contract";
 import { z } from "zod";
+import { captureStatusSchema, startCaptureInputSchema } from "./capture-jobs.js";
 import { obdScanSchema } from "./obd-scan.js";
 import { SCHEMES } from "./transport.js";
 import {
   aggregateQuerySchema,
+  captureQuerySchema,
+  captureSummarySchema,
+  storedCaptureSchema,
   runQuerySchema,
   runSchema,
   sampleQuerySchema,
@@ -209,6 +213,57 @@ export const deviceGrantSchema = z.object({
 /** A device the page's picker granted. */
 export type DeviceGrant = z.output<typeof deviceGrantSchema>;
 
+/** One of a profile's named values, decoded from a capture. */
+export const decodedValueSchema = z.object({
+  unit: nameSchema,
+  name: nameSchema,
+  label: z.string(),
+  measure: z.string(),
+  /** The number, or why the reply could not be decoded. */
+  value: z.union([z.number(), z.object({ error: z.string() })]),
+  /** The exchange it came from. */
+  seq: z.number().int().nonnegative(),
+});
+
+/** What a capture says under one profile or none, as a caller shows it. */
+export const decodedCaptureSchema = z.object({
+  /** The profile decoded with, or `null` for none. */
+  profile: z.object({ name: nameSchema, status: z.string() }).nullable(),
+  units: z.array(unitReportSchema),
+  obd: obdScanSchema.nullable(),
+  values: z.array(decodedValueSchema),
+  discovered: z.array(
+    z.object({
+      requestId: z.number().int().nonnegative(),
+      responseId: z.number().int().nonnegative(),
+      accepted: z.boolean(),
+      detail: z.string(),
+    }),
+  ),
+  /** The sequence numbers of the exchanges no reader used. */
+  undecoded: z.array(z.number().int().nonnegative()),
+  exchanges: z.number().int().nonnegative(),
+  /** The decoded capture as the `decode` command prints it. */
+  lines: z.array(z.string()),
+});
+
+/** What a capture says under one profile or none. */
+export type DecodedCaptureData = z.output<typeof decodedCaptureSchema>;
+
+/** What a caller gives to import a record as a capture: its text and a name for messages. */
+export const importCaptureInputSchema = z.object({
+  /** A capture document, a saved scan (`scan --output`) or an adapter transcript (`--log`). */
+  text: z.string(),
+  name: nameSchema,
+});
+
+/** The outcome of importing a record as a capture. */
+export const importedCaptureSchema = z.object({
+  summary: captureSummarySchema,
+  /** What the record held that could not be turned into exchanges. */
+  unrecovered: z.array(z.string()),
+});
+
 /** The operations of the service. */
 export const diagnosticsContract = {
   adapters: {
@@ -348,6 +403,34 @@ export const diagnosticsContract = {
      * Samples as they are collected, from the moment of the call until the caller stops iterating. Samples already stored are not replayed: read them with `runs.samples`. A subscriber that falls too far behind is ended with an error rather than silently losing samples.
      */
     samples: oc.input(liveSamplesInputSchema).output(asyncIteratorObject(sampleSchema)),
+  },
+  captures: {
+    /**
+     * Starts capturing everything the car offers on the open connection, through the read-only services only, and returns at once; the capture is saved when it ends. With a profile it reads every unit of the profile; with none it sweeps the `discovery` range for units. An `identifiers` sweep runs only when given. Rejects with `CONFLICT` while a capture, a collection run or a confirmation holds the adapter.
+     */
+    start: oc.input(startCaptureInputSchema).output(captureStatusSchema),
+    /** Asks a running capture to stop after the request in flight; it is saved as incomplete. Rejects with `NOT_FOUND` for an unknown id. */
+    stop: oc.input(z.object({ id: nameSchema })).output(captureStatusSchema),
+    /** A capture's status, or `null` for an id this host did not start. */
+    status: oc.input(z.object({ id: nameSchema })).output(captureStatusSchema.nullable()),
+    /** The capture's status now and at each change, ending when it ends. */
+    progress: oc
+      .input(z.object({ id: nameSchema }))
+      .output(asyncIteratorObject(captureStatusSchema)),
+    /** Stored captures without their exchanges, newest first. */
+    list: oc.input(captureQuerySchema).output(z.array(captureSummarySchema)),
+    /** One stored capture with every exchange; rejects with `NOT_FOUND` when there is none. */
+    get: oc.input(z.object({ id: nameSchema })).output(storedCaptureSchema),
+    /** Removes a stored capture. */
+    delete: oc.input(z.object({ id: nameSchema })).output(z.object({ deleted: z.boolean() })),
+    /** Keeps a capture document, or imports a saved scan or an adapter transcript as one, listing what could not be recovered. Rejects with `BAD_REQUEST` for anything else and `CONFLICT` for a capture id stored already. */
+    import: oc.input(importCaptureInputSchema).output(importedCaptureSchema),
+    /**
+     * Decodes a stored capture under a shipped or imported profile, or under none with `profile: null`. The decoding reads the profile as it is now, so an updated profile re-decodes an old capture. Nothing is sent to the car.
+     */
+    decode: oc
+      .input(z.object({ id: nameSchema, profile: nameSchema.nullable() }))
+      .output(decodedCaptureSchema),
   },
   profiles: {
     /** Validates a profile file and keeps it, replacing an imported profile of the same name. */

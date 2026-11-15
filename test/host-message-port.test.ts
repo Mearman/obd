@@ -19,6 +19,7 @@ function workerAndPage() {
     adapterTransport(simulatedLiveCar(loadBuiltinProfile("mercedes-w211"))),
   );
   const service = createDiagnosticsService({
+    toolVersion: "test",
     storage: new MemoryStorage(),
     loadProfile: (name) => Promise.resolve(loadBuiltinProfile(name)),
     transports: remoteTransportHost(transports.port2, ["webbluetooth"]),

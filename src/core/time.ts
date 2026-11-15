@@ -1,10 +1,13 @@
 /**
- * The clock and sleep the protocol layers use, declared here because the core type libraries
- * include neither `setTimeout` nor `performance`; both exist in every runtime core runs in.
+ * The clock, sleep and random identifiers the protocol layers use, declared here because the core
+ * type libraries include neither `setTimeout`, `performance` nor `crypto`; all exist in every
+ * runtime core runs in.
  */
 
 declare const setTimeout: (callback: () => void, milliseconds: number) => unknown;
 declare const clearTimeout: (handle: unknown) => void;
+// Web Crypto's `randomUUID` exists in Node 19 and later and in every browser this runs in.
+declare const crypto: { randomUUID(): string };
 
 /** The current time in milliseconds since the Unix epoch, for deadlines within one operation. */
 export function now(): number {
@@ -38,4 +41,9 @@ export function after(milliseconds: number, callback: () => void): () => void {
   return () => {
     clearTimeout(handle);
   };
+}
+
+/** Eight random hexadecimal characters, for an identifier that must not repeat across sessions. */
+export function randomSuffix(): string {
+  return crypto.randomUUID().replaceAll("-", "").slice(0, 8);
 }
