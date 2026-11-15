@@ -1,0 +1,120 @@
+{
+  "notes": "Hyundai, Kia and Genesis passenger cars, with the electric, hybrid and petrol or diesel units on the one table: Kona Electric, Niro, Ioniq, Soul EV, Ioniq 5, EV6 and GV60, and the i10, i20, i30, Ceed, Sportage, Tucson and G80. Which units a given car has depends on the model and year, so a unit that stays silent is reported as no response and is not proof that the unit is absent.\n\nThe bus is 11-bit CAN at 500 kbit/s on the diagnostic socket. Every reply identifier is the request identifier plus 8. Most units take UDS service 22 with a two-byte identifier. Units marked in their description read by an eight-bit local identifier with service 21 (the Kona sheet and OVMS read the VIN from such a unit with service 1A option 80, while this tool's identification read sends option 86, so which options a unit answers is unconfirmed), so those units carry their own diagnostics block with the KWP2000 services over CAN. Two units (the motor control unit and the battery management system) use service 22 on some cars and service 21 on others: the table takes the service most of the signal sets use, and the description and source name the exception. The sources send no session request, so the default session is the one opened; whether a unit answers a session request at all is unconfirmed.\n\nEvery address is taken as a fact from the sources named in each row: OBDb signal sets (CC-BY-SA-4.0), the OVMS poll tables (MIT), opendbc (MIT) and a shared Kona PIDs sheet. No signal definition, scaling or text was copied from them, so no unit defines named values here. Treat every row as unconfirmed until `obd-read probe` shows the unit answering on the car.\n\nSecure gateway: a tool vendor handout lists Hyundai, Kia and Genesis as fitting a secure gateway module from model year 2018, with the focus on write access and a US-oriented list. Whether reads pass the gateway on a given car is unconfirmed, so expect some of these units to stay silent.",
+  "name": "hyundai-kia-genesis",
+  "description": "Hyundai, Kia and Genesis cars (electric, hybrid and petrol or diesel), UDS and service 21 over CAN",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 1
+  },
+  "units": {
+    "engine": {
+      "description": "Engine control unit (ICE and hybrid), reads by local identifier with service 21",
+      "request": 2016,
+      "response": 2024,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb signal-set repositories for Genesis-G80, Hyundai-i10, Hyundai-i20, Hyundai-i30, Hyundai-Tucson, Kia-Ceed, Kia-Niro and Kia-Sportage (header 7E0, reply 7E8, requests 2100 to 2105, CC-BY-SA-4.0, addresses taken as facts only) under https://github.com/OBDb; recorded in docs/vehicles/japan-korea.md"
+    },
+    "transmission": {
+      "description": "Transmission control unit, reads by local identifier with service 21",
+      "request": 2017,
+      "response": 2025,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb Genesis-G80, Hyundai-i10, Hyundai-i20, Hyundai-i30, Kia-Ceed, Kia-Niro and Kia-Sportage signal sets (header 7E1, reply 7E9, requests 21A0 and 21A1, 2201A0 on some); opendbc fingerprints.py Ecu.transmission at 0x7e1 under https://github.com/commaai/opendbc (opendbc/car/hyundai, MIT); recorded in docs/vehicles/japan-korea.md"
+    },
+    "vmcu": {
+      "description": "Vehicle control unit on EVs and hybrids (VMCU), reads by local identifier with service 21",
+      "request": 2018,
+      "response": 2026,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OVMS vehicle_kianiroev (7E2/7EA, service 21 groups 01 and 02, service 1A 80 for the VIN) and vehicle_hyundai_ioniqvfl (7E2/7EA, 1A VIN) under https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (components vehicle_kianiroev, vehicle_kiasoulev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl, MIT); the Kona PIDs sheet https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA (VCU/VMCU 7E2/7EA, 2101 and 2102); OBDb Hyundai-Kona-Electric and Kia-Niro-EV (2101, 2102); Hyundai-IONIQ-5 and Kia-EV6 read it with 22 E004 instead; recorded in docs/vehicles/japan-korea.md"
+    },
+    "mcu": {
+      "description": "Motor control unit on EVs (MCU), service 22 on the cars where it was found, service 21 on others",
+      "request": 2019,
+      "response": 2027,
+      "source": "the Kona PIDs sheet https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA (MCU 7E3/7EB: 2101 shift, 2012 12 V, 1A80 VIN); OVMS vehicle_kianiroev (7E3/7EB, service 21 group 02) under https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (components vehicle_kianiroev, vehicle_kiasoulev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl, MIT); OBDb Hyundai-Kona-Electric, Hyundai-IONIQ-5 and Kia-EV6 (22 E001, 22 E009); the choice of service 22 here is the majority of the signal sets, not a finding for a given car; recorded in docs/vehicles/japan-korea.md"
+    },
+    "bms": {
+      "description": "Battery management system on EVs (BMS), service 22 on the cars where it was found, service 21 on others",
+      "request": 2020,
+      "response": 2028,
+      "source": "the Kona PIDs sheet https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA (BMS 7E4/7EC, 220101 to 220105); OVMS vehicle_kianiroev (22 0101 to 0106) and vehicle_hyundai_ioniq5 (22 0101 to 010C); vehicle_hyundai_ioniqvfl and vehicle_kiasoulev read it with service 21 instead, under https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (components vehicle_kianiroev, vehicle_kiasoulev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl, MIT); OBDb Hyundai-Kona-Electric, Hyundai-IONIQ-5 and Kia-EV6 (22 0101 to 0105); Hyundai-IONIQ-Electric and Kia-Niro-EV read it with 2101 to 2105 instead; recorded in docs/vehicles/japan-korea.md"
+    },
+    "obc": {
+      "description": "On-board charger on EVs (OBC), reads by local identifier with service 21",
+      "request": 2021,
+      "response": 2029,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "the Kona PIDs sheet https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA (OBC 7E5/7ED, 2101 and 2103); OVMS vehicle_kianiroev (7E5/7ED, service 21 groups 01 and 03) under https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (components vehicle_kianiroev, vehicle_kiasoulev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl, MIT); OBDb Hyundai-Kona-Electric (2101); Hyundai-IONIQ-5 and Kia-EV6 read it with 22 E001 instead; recorded in docs/vehicles/japan-korea.md"
+    },
+    "bcm": {
+      "description": "Body control module (BCM)",
+      "request": 1952,
+      "response": 1960,
+      "source": "the Kona PIDs sheet https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA (BCM 7A0/7A8: 22B00E, 22B00C, 22C002, 22C00B); OVMS vehicle_kianiroev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl (22 B00C, C002, C00B) under https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (components vehicle_kianiroev, vehicle_kiasoulev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl, MIT); OBDb signal sets for every car listed in the notes; recorded in docs/vehicles/japan-korea.md"
+    },
+    "igmp": {
+      "description": "Integrated gateway and power module (IGMP)",
+      "request": 1904,
+      "response": 1912,
+      "source": "the Kona PIDs sheet https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA (IGMP 770/778: 22BC03, 22BC04, 22BC07); OVMS vehicle_kianiroev and vehicle_hyundai_ioniq5 (22 BC03, BC04, BC07) under https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (components vehicle_kianiroev, vehicle_kiasoulev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl, MIT); OBDb signal sets for every car listed in the notes; recorded in docs/vehicles/japan-korea.md"
+    },
+    "aircon": {
+      "description": "Air conditioning control (HVAC)",
+      "request": 1971,
+      "response": 1979,
+      "source": "the Kona PIDs sheet https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA (AirCon 7B3/7BB: 220100, 220102); OVMS vehicle_kianiroev and vehicle_hyundai_ioniq5 (22 0100) under https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (components vehicle_kianiroev, vehicle_kiasoulev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl, MIT); opendbc values.py extra_ecus Ecu.hvac at 0x7b3 under https://github.com/commaai/opendbc (opendbc/car/hyundai, MIT); OBDb signal sets for every car listed in the notes; recorded in docs/vehicles/japan-korea.md"
+    },
+    "cluster": {
+      "description": "Instrument cluster (CLU)",
+      "request": 1990,
+      "response": 1998,
+      "source": "the Kona PIDs sheet https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA (CLU 7C6/7CE: 22B002 odometer); OVMS vehicle_kianiroev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl (22 B002) under https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (components vehicle_kianiroev, vehicle_kiasoulev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl, MIT); opendbc values.py extra_ecus Ecu.combinationMeter at 0x7c6 under https://github.com/commaai/opendbc (opendbc/car/hyundai, MIT); OBDb signal sets for every car listed in the notes; recorded in docs/vehicles/japan-korea.md"
+    },
+    "abs": {
+      "description": "ABS and ESP",
+      "request": 2001,
+      "response": 2009,
+      "source": "the Kona PIDs sheet https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA (ABS ESP 7D1/7D9: 22C101); OVMS vehicle_kianiroev (22 C101) under https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (components vehicle_kianiroev, vehicle_kiasoulev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl, MIT); opendbc fingerprints.py Ecu.abs at 0x7d1 under https://github.com/commaai/opendbc (opendbc/car/hyundai, MIT); OBDb signal sets for every car listed in the notes; recorded in docs/vehicles/japan-korea.md"
+    },
+    "eps": {
+      "description": "Electric power steering (EPS), labelled speed in the Kona sheet",
+      "request": 2004,
+      "response": 2012,
+      "source": "opendbc fingerprints.py Ecu.eps at 0x7d4 under https://github.com/commaai/opendbc (opendbc/car/hyundai, MIT); the Kona PIDs sheet https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA (7D4/7DC, 220101, labelled speed); OBDb signal sets for every car listed in the notes (22 0101; 2101 on some); recorded in docs/vehicles/japan-korea.md"
+    },
+    "tpms": {
+      "description": "Tyre pressure monitoring (TPMS), reads by local identifier with service 21",
+      "request": 2006,
+      "response": 2014,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OVMS vehicle_kiasoulev (7D6/7DE, service 21 group 06, named TMPS in the source) under https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (components vehicle_kianiroev, vehicle_kiasoulev, vehicle_hyundai_ioniq5 and vehicle_hyundai_ioniqvfl, MIT); OBDb Hyundai-Kona-Electric, Hyundai-IONIQ-Electric, Hyundai-Tucson, Kia-Niro-EV and Kia-Sportage (header 7D6, reply 7DE, 2106); recorded in docs/vehicles/japan-korea.md"
+    },
+    "adas": {
+      "description": "ADAS driving ECU on cars with lane-keeping steering",
+      "request": 1840,
+      "response": 1848,
+      "source": "opendbc values.py extra_ecus Ecu.adas at 0x730 under https://github.com/commaai/opendbc (opendbc/car/hyundai, MIT); OBDb Hyundai-IONIQ-5, Kia-EV6 and Genesis-GV60 (header 730, reply 738, 22 F010); recorded in docs/vehicles/japan-korea.md"
+    }
+  }
+}
