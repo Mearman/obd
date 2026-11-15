@@ -1,5 +1,6 @@
 import { vanillaExtractPlugin } from "@vanilla-extract/vite-plugin";
 import react from "@vitejs/plugin-react";
+import { execFileSync } from "node:child_process";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { readRootVersion, versionDefine } from "./app-version.ts";
@@ -12,8 +13,20 @@ const BACKGROUND_COLOUR = "#f5f7f9";
 /** Where the build is served from: `/` for local use, `/<repository>/` on a GitHub Pages project site. */
 const BASE_PATH = basePathFrom(process.env);
 
+/** The commit the build was made from, shown in a problem report; `unknown` when the sources are not a git checkout. */
+function buildCommit(): string {
+  try {
+    return execFileSync("git", ["rev-parse", "--short=12", "HEAD"], { encoding: "utf8" }).trim();
+  } catch {
+    return "unknown";
+  }
+}
+
 export default defineConfig({
-  define: versionDefine(readRootVersion()),
+  define: {
+    ...versionDefine(readRootVersion()),
+    "import.meta.env.VITE_OBD_BUILD": JSON.stringify(buildCommit()),
+  },
   plugins: [
     vanillaExtractPlugin(),
     react(),
