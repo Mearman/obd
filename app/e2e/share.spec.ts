@@ -1,3 +1,4 @@
+import { chooseProfile } from "./profile";
 import { expect, test, type Page } from "@playwright/test";
 
 const VIN = "SIMULATEDCAR00001";
@@ -20,8 +21,7 @@ async function savedReports(page: Page) {
 /** Scans the simulated Volkswagen on `page` and returns the link its Share dialog makes. */
 async function shareLinkOfSimulatorScan(page: Page, redact: boolean): Promise<string> {
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Vehicle profile" }).click();
-  await page.getByRole("option", { name: /vag-mqb/ }).click();
+  await chooseProfile(page, "vag-mqb");
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
   await page.getByRole("tab", { name: "Scan" }).click();

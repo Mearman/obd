@@ -1,3 +1,4 @@
+import { chooseProfile } from "./profile";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -16,8 +17,7 @@ const MESSAGE = `bad read of ${VIN} (${VIN_HEX}) from adapter ${MAC} at ${IPV4} 
 
 async function connectAndScan(page: Page): Promise<void> {
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Vehicle profile" }).click();
-  await page.getByRole("option", { name: /vag-mqb/ }).click();
+  await chooseProfile(page, "vag-mqb");
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
   await page.getByRole("tab", { name: "Scan" }).click();

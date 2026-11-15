@@ -1,3 +1,4 @@
+import { chooseProfile } from "./profile";
 import { expect, test, type Page } from "@playwright/test";
 
 async function openScreen(page: Page, name: string): Promise<void> {
@@ -18,8 +19,7 @@ test("a simulator capture decodes differently under another profile and reopens 
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
   });
-  await page.getByRole("combobox", { name: "Vehicle profile" }).click();
-  await page.getByRole("option", { name: /mercedes-w211/ }).click();
+  await chooseProfile(page, "mercedes-w211");
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
 

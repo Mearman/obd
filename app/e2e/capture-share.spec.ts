@@ -1,3 +1,4 @@
+import { chooseProfile } from "./profile";
 import { expect, test, type Page } from "@playwright/test";
 
 /** The ASCII bytes of the simulator's invented VIN, as a capture's raw replies spell it. */
@@ -21,8 +22,7 @@ async function expectSummary(page: Page, pattern: RegExp): Promise<void> {
 /** Captures the simulated W211 on `page` and returns the raw capture link its Share dialog makes. */
 async function rawCaptureLink(page: Page, redact: boolean): Promise<string> {
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Vehicle profile" }).click();
-  await page.getByRole("option", { name: /mercedes-w211/ }).click();
+  await chooseProfile(page, "mercedes-w211");
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
   await page.getByRole("tab", { name: "Scan" }).click();
