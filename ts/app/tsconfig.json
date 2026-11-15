@@ -1,0 +1,21 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "types": [
+      "vite/client",
+      "vite-plugin-pwa/react",
+      "vite-plugin-pwa/info",
+      "@testing-library/jest-dom",
+      "w3c-web-serial",
+      "web-bluetooth",
+      "node"
+    ],
+    "noEmit": true
+  },
+  "include": ["src", "test", "e2e", "*.config.ts"]
+}

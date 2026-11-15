@@ -1,8 +1,14 @@
+packages:
+  - "."
+  - app
+
 allowBuilds:
   "@serialport/bindings-cpp": false
   "@stoprocent/bluetooth-hci-socket": false
   "@stoprocent/noble": false
   usb: false
   socketcan: false
+  esbuild: false
+
 overrides:
   "@typescript-eslint/typescript-estree>minimatch": 11.0.8
