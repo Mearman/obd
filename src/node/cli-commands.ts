@@ -442,7 +442,7 @@ export const COMMANDS: readonly CommandSpec[] = [
       "make a link that shares a saved scan, OBD-II read, run or capture, or read one (TypeScript only)",
     description:
       "Print a link whose #share= fragment carries a saved scan (scan --output), a generic OBD-II " +
-      "read (obd --output), a run's JSON export or a raw capture (.obdcap.json or .obdcap.json.gz), compressed. The fragment is never sent to a server, but anyone holding the link can " +
+      "read (obd --output), a run's JSON export or a raw capture (.obdcap.json or .obdcap.json.gz), compressed, and its length on standard error, with a warning past the 2000 characters chat apps keep whole. The fragment is never sent to a server, but anyone holding the link can " +
       "read the fault history in it. With --open, print what a link carries in the format describe " +
       "uses; a capture is decoded as decode prints it. This command has no Python equivalent.",
     args: [
