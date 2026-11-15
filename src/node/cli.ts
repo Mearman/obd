@@ -38,6 +38,9 @@ import {
   describeRequests,
   describeScan,
   importNames,
+  openShareLink,
+  ShareLinkError,
+  shareDocumentLink,
   wroteLine,
 } from "../core/offline.js";
 import { discoverCommand } from "../core/discovery.js";
@@ -73,7 +76,7 @@ import {
 import type { LineSink } from "../core/unit-access.js";
 import { loadGenericTitles } from "../data/index.js";
 import { mqttJsConnect } from "../mqtt/mqtt-js-client.js";
-import { builtinProfileData } from "../profiles/index.js";
+import { builtinProfileData, builtinProfiles } from "../profiles/index.js";
 import {
   discoverAdapters,
   formatAdapterListing,
@@ -94,6 +97,7 @@ import {
   transcriptAppender,
 } from "./cli-files.js";
 import { createNobleCentral } from "./noble.js";
+import { zlibShareCodec } from "./share-codec.js";
 import type { BleCentral } from "./ble.js";
 
 /** Everything the command line takes from its surroundings, so a test can supply its own. */
@@ -386,6 +390,42 @@ async function describeCommand(io: CliIo, args: ParsedArgs): Promise<number> {
   return 0;
 }
 
+/** The names for a profile the link names, only when it is one this program ships: the link is untrusted, so it never chooses a file to read. */
+function shippedNames(profile: string): CodeNames | undefined {
+  if (!builtinProfiles().includes(profile)) return undefined;
+  return new CodeNames(
+    loadGenericTitles(),
+    parseProfileCodes(builtinProfileData(profile), profile),
+    [],
+  );
+}
+
+async function shareCommand(io: CliIo, args: ParsedArgs): Promise<number> {
+  const link = args.optionalText("open");
+  const report = args.optionalText("report");
+  if ((link === undefined) === (report === undefined)) {
+    throw new ShareLinkError("give a report file to share, or --open with a link, not both");
+  }
+  if (link !== undefined) {
+    const generic = new CodeNames(loadGenericTitles(), new Map(), []);
+    for (const line of await openShareLink(link, zlibShareCodec, shippedNames, generic)) {
+      io.out(line);
+    }
+    return 0;
+  }
+  if (report === undefined) return 1;
+  const text = await readText(io, report, (message) => new ShareLinkError(message));
+  io.out(
+    await shareDocumentLink(text, report, {
+      base: args.text("base"),
+      codec: zlibShareCodec,
+      redactVin: args.flag("redactVin"),
+      createdAt: Date.now(),
+    }),
+  );
+  return 0;
+}
+
 async function importNamesCommand(io: CliIo, args: ParsedArgs): Promise<number> {
   const file = args.text("file");
   const output = args.text("output");
@@ -659,6 +699,7 @@ function isReportable(error: unknown): error is Error {
     error instanceof AdapterUrlError ||
     error instanceof CodeNameError ||
     error instanceof ScanFileError ||
+    error instanceof ShareLinkError ||
     (error instanceof Error && error.name === "DefinitionError")
   );
 }
@@ -680,6 +721,8 @@ async function dispatch(io: CliIo, args: ParsedArgs): Promise<number> {
       return describeCommand(io, args);
     case "import-names":
       return importNamesCommand(io, args);
+    case "share":
+      return shareCommand(io, args);
     default:
       return carCommand(io, args, String(name));
   }

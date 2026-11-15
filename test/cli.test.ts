@@ -35,7 +35,7 @@ function io(overrides: Partial<CliIo> = {}): {
 }
 
 describe("the argument parser", () => {
-  it("offers every command of the Python command line, in its order", () => {
+  it("offers every command of the Python command line in its order, then the TypeScript-only ones", () => {
     expect(COMMANDS.map((command) => command.name)).toEqual([
       "monitor",
       "adapters",
@@ -60,6 +60,8 @@ describe("the argument parser", () => {
       "write",
       "restore",
       "actuate",
+      // TypeScript only: the Python tool had no sharing.
+      "share",
     ]);
   });
 
