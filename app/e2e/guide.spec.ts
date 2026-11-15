@@ -61,7 +61,15 @@ async function undersizedTargets(page: Page): Promise<string[]> {
   );
 }
 
+/** How far the tab bar's labels run past its width; the bar scrolls rather than overflowing the page, so the page check alone would miss a clipped tab. */
+async function tabBarOverflow(page: Page): Promise<number> {
+  return page
+    .getByRole("tablist", { name: "Screens" })
+    .evaluate((bar) => bar.scrollWidth - bar.clientWidth);
+}
+
 async function fits(page: Page, what: string): Promise<void> {
+  expect(await tabBarOverflow(page), `the tab bar is clipped on ${what}`).toBeLessThanOrEqual(0);
   expect(await horizontalOverflow(page), `${what} overflows horizontally`).toBeLessThanOrEqual(0);
   expect(
     await undersizedTargets(page),
