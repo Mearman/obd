@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useDatabase } from "../database/DatabaseProvider";
 import type { DiagnosticsClient } from "../diagnostics/client";
 
 /** The outcome of importing a profile file. */
@@ -42,6 +43,8 @@ export function ProfilesProvider({
 }) {
   const [imported, setImported] = useState<readonly string[]>([]);
   const builtin = useMemo(() => builtinProfiles(), []);
+  // Changes when any tab writes, so a profile imported in another tab appears here.
+  const { revision } = useDatabase();
 
   useEffect(() => {
     let current = true;
@@ -51,7 +54,7 @@ export function ProfilesProvider({
     return () => {
       current = false;
     };
-  }, [client]);
+  }, [client, revision]);
 
   const importText = useCallback(
     async (text: string): Promise<ImportResult> => {

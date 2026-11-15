@@ -24,6 +24,8 @@ export interface DatabaseContextValue {
   readonly state: DatabaseState;
   /** Ends the current worker and starts a new one, for after the other tab was closed. */
   readonly retry: () => void;
+  /** Changes after any tab of the app writes to the database, so a screen listing stored records reads them again. */
+  readonly revision: number;
 }
 
 const DatabaseContext = createContext<DatabaseContextValue | undefined>(undefined);
@@ -44,6 +46,15 @@ export function DatabaseProvider({
 }) {
   const [session, setSession] = useState(initial);
   const [state, setState] = useState<DatabaseState>({ status: "opening" });
+  const [revision, setRevision] = useState(0);
+
+  useEffect(
+    () =>
+      session.subscribe(() => {
+        setRevision((current) => current + 1);
+      }),
+    [session],
+  );
 
   useEffect(() => {
     let current = true;
@@ -72,7 +83,7 @@ export function DatabaseProvider({
     setSession(start());
   }, [session, start]);
 
-  const value = useMemo(() => ({ state, retry }), [state, retry]);
+  const value = useMemo(() => ({ state, retry, revision }), [state, retry, revision]);
   return <DatabaseContext.Provider value={value}>{children}</DatabaseContext.Provider>;
 }
 

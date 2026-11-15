@@ -9,6 +9,7 @@ import {
 } from "obd-read";
 import { useEffect, useState } from "react";
 import { failureMessage } from "../diagnostics/client";
+import { useDatabase } from "../database/DatabaseProvider";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { OriginBadge } from "../origin/OriginBadge";
 import { ALL_ORIGINS, ORIGIN_FILTER_OPTIONS, originQuery } from "../origin/origins";
@@ -67,6 +68,7 @@ export function SavedReports({
 }) {
   const { service } = useDiagnostics();
   const { client } = service;
+  const { revision } = useDatabase();
   const [shown, setShown] = useState(ALL_ORIGINS);
   const [reports, setReports] = useState<readonly ScanReportSummary[] | undefined>(undefined);
   const [open, setOpen] = useState<ScanReport | undefined>(undefined);
@@ -85,7 +87,7 @@ export function SavedReports({
     return () => {
       live.active = false;
     };
-  }, [client, shown, refresh]);
+  }, [client, shown, refresh, revision]);
 
   async function view(id: string): Promise<void> {
     setProblem(undefined);
