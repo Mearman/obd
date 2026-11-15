@@ -4,6 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
+import type * as ConnectScreenModule from "../src/screens/ConnectScreen";
+import type * as ScanScreenModule from "../src/screens/ScanScreen";
+import type * as LiveScreenModule from "../src/screens/LiveScreen";
+import type * as RunsScreenModule from "../src/screens/RunsScreen";
+import type * as SettingsScreenModule from "../src/screens/SettingsScreen";
 import type { BrowserSupport } from "../src/connect/support";
 import type { DiagnosticsClient } from "../src/diagnostics/client";
 import { ErrorStore, observeClient, reportCall } from "../src/report/capture";
@@ -16,7 +21,7 @@ import { createTestService, renderApp } from "./render";
 const failing = vi.hoisted(() => new Set<string>());
 
 vi.mock("../src/screens/ConnectScreen", async (original) => {
-  const real = await original<typeof import("../src/screens/ConnectScreen")>();
+  const real = await original<typeof ConnectScreenModule>();
   return {
     ConnectScreen: (props: Parameters<typeof real.ConnectScreen>[0]) => {
       if (failing.has("connect")) throw new Error("connect failed");
@@ -25,7 +30,7 @@ vi.mock("../src/screens/ConnectScreen", async (original) => {
   };
 });
 vi.mock("../src/screens/ScanScreen", async (original) => {
-  const real = await original<typeof import("../src/screens/ScanScreen")>();
+  const real = await original<typeof ScanScreenModule>();
   return {
     ScanScreen: () => {
       if (failing.has("scan")) throw new Error("scan failed");
@@ -34,7 +39,7 @@ vi.mock("../src/screens/ScanScreen", async (original) => {
   };
 });
 vi.mock("../src/screens/LiveScreen", async (original) => {
-  const real = await original<typeof import("../src/screens/LiveScreen")>();
+  const real = await original<typeof LiveScreenModule>();
   return {
     LiveScreen: () => {
       if (failing.has("live")) throw new Error("live failed");
@@ -43,7 +48,7 @@ vi.mock("../src/screens/LiveScreen", async (original) => {
   };
 });
 vi.mock("../src/screens/RunsScreen", async (original) => {
-  const real = await original<typeof import("../src/screens/RunsScreen")>();
+  const real = await original<typeof RunsScreenModule>();
   return {
     RunsScreen: () => {
       if (failing.has("runs")) throw new Error("runs failed");
@@ -52,7 +57,7 @@ vi.mock("../src/screens/RunsScreen", async (original) => {
   };
 });
 vi.mock("../src/screens/SettingsScreen", async (original) => {
-  const real = await original<typeof import("../src/screens/SettingsScreen")>();
+  const real = await original<typeof SettingsScreenModule>();
   return {
     SettingsScreen: () => {
       if (failing.has("settings")) throw new Error("settings failed");
@@ -211,9 +216,11 @@ describe("a screen's boundary", () => {
     renderApp(<App support={SUPPORT} />);
     await user.click(screen.getByRole("tab", { name: "Live" }));
     await screen.findByRole("heading", { name: "Live could not be shown" });
-    const events = appLog.snapshot().map(({ at: _at, count: _count, ...event }) => event);
-    expect(events).toContainEqual({ kind: "screen", screen: "live" });
-    expect(events).toContainEqual({ kind: "error", source: "react", screen: "live" });
+    const events = appLog.snapshot();
+    expect(events).toContainEqual(expect.objectContaining({ kind: "screen", screen: "live" }));
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: "error", source: "react", screen: "live" }),
+    );
   });
 });
 
@@ -262,7 +269,7 @@ describe("the root boundary", () => {
 });
 
 describe("ErrorBoundary", () => {
-  it("resets when its keys change and not before", async () => {
+  it("resets when its keys change and not before", () => {
     const store = new ErrorStore();
     let fail = true;
     function Child() {
@@ -339,7 +346,7 @@ function scanFailsWith(client: DiagnosticsClient, error: Error): DiagnosticsClie
       const isObject = typeof value === "function" || (typeof value === "object" && value !== null);
       if (key !== "scan" || !isObject) return value;
       return new Proxy(value, {
-        get: (inner, method) =>
+        get: (inner, method): unknown =>
           method === "run" ? () => Promise.reject(error) : Reflect.get(inner, method),
       });
     },

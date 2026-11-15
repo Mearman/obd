@@ -6,7 +6,7 @@ import { content, description, overlay, title as titleStyle } from "../ui/Dialog
 import { appLog } from "./events";
 import { readEnvironment, readScrubContext } from "./environment";
 import type { CapturedError } from "./capture";
-import { buildIssueLink, buildReport, MAX_URL_LENGTH } from "./report";
+import { buildIssueLink, buildReport } from "./report";
 import { buttons, note, reportText } from "./report.css";
 
 /** Props of {@link ReportDialog}. */
@@ -15,7 +15,7 @@ export interface ReportDialogProps {
   readonly onOpenChange: (open: boolean) => void;
   /** The error the report is about. */
   readonly error: CapturedError;
-  /** The longest link the dialog may make; {@link MAX_URL_LENGTH} unless a test narrows it. */
+  /** The longest link the dialog may make; the report module's default unless a test narrows it. */
   readonly maxLinkLength?: number;
 }
 
@@ -50,7 +50,7 @@ export function ReportDialog({ open, onOpenChange, error, maxLinkLength }: Repor
   );
   const link = useMemo(
     () => (report === undefined ? undefined : buildIssueLink(report, maxLinkLength)),
-    [report],
+    [report, maxLinkLength],
   );
 
   async function copy(text: string): Promise<boolean> {

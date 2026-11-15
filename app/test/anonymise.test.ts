@@ -40,12 +40,14 @@ function pick<T>(random: () => number, items: readonly T[]): T {
 }
 
 function chars(random: () => number, alphabet: string, length: number): string {
-  return Array.from({ length }, () => pick(random, [...alphabet])).join("");
+  return Array.from({ length }, () => alphabet.charAt(Math.floor(random() * alphabet.length))).join(
+    "",
+  );
 }
 
 function vin(random: () => number): string {
   const body = chars(random, VIN_ALPHABET, 15);
-  const text = `${pick(random, [..."ABCDEFGHJKLMNPRSTUVWXYZ"])}${pick(random, [..."0123456789"])}${body}`;
+  const text = `${chars(random, "ABCDEFGHJKLMNPRSTUVWXYZ", 1)}${chars(random, "0123456789", 1)}${body}`;
   return text;
 }
 
