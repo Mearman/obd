@@ -70,9 +70,16 @@ test("a link from a simulator scan opens as read-only shared data in a fresh con
   await expect(page.getByRole("tablist")).toBeVisible();
   const [stored, ...others] = await savedReports(page);
   expect(others).toEqual([]);
-  expect(stored?.summary).toMatchObject({ adapter: "shared://link", label: "Shared scan" });
+  expect(stored?.summary).toMatchObject({
+    adapter: "shared://link",
+    label: "Shared scan",
+    origin: "shared",
+  });
   expect(stored?.saved?.report).toMatchObject({ origin: "shared", tool: "obd-read" });
   expect(JSON.stringify(stored?.saved?.report)).not.toContain(VIN);
+  await page.getByRole("tab", { name: "Scan" }).click();
+  const saved = page.getByRole("table", { name: "Saved reports" });
+  await expect(saved.getByText("Shared", { exact: true })).toBeVisible();
   await receiver.close();
 });
 
