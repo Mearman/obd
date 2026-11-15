@@ -1,0 +1,186 @@
+{
+  "notes": "Renault Zoe phase 2, read over the diagnostic CAN on the OBD-II socket at 500 kbit/s with UDS. The addressing is mixed: 19 units use 11-bit identifiers and 8 (ABS-VDC, battery charger, E-ACT-EBA, INV-ME, both battery controllers, the security gateway and the vehicle control module) use 29-bit identifiers of the form 18DA<target><source>, ISO 15765-4 29-bit normal fixed addressing, which is how CanZE and the ddt4all table list them. The bus setting is the 11-bit default and each 29-bit unit carries its own `id_bits`; the tool switches the adapter between the 11-bit and 29-bit protocols as it moves between units.\n\nThe 27 units are every addressed row of the CanZE ZOE_Ph2 ECU file, each also present in the ddt4all address table. Treat every row as unconfirmed on a given car until `obd-read probe` shows the unit answering.\n\nThe S-GW3 security gateway is listed and nothing read states what it filters; units behind it may return no answer, which the tool reports as no response, not as absent.\n\nSession: CanZE gives 0x03 for 21 units, 0xC0 for five (airbag, battery charger, INV-ME, USM, VSP) and 0x00 for the IDM. No one session is common and 0xC0 is not one the guard permits, so the profile opens the default session, 0x01; unconfirmed on a car.\n\nSecurity gateway: a Renault security gateway is reported on recent cars, so a silent unit may be filtered rather than absent, and the tool reports a silent unit as no response, not as absent. A ddt4all issue (cedricp/ddt4all issue 404, Clio V, 2020) reports reads working through the OBD socket with writes blocked by a central gateway, and vendor pages (a Delphi article on a Renault Arkana, a Hella Gutmann page) say that fault codes and parameters can be read without unlocking it; none of them says which units a locked gateway hides from a read.",
+  "name": "renault-zoe-ph2",
+  "description": "Renault Zoe phase 2 (from 2019), UDS over mixed 11-bit and 29-bit CAN, address plan from CanZE and ddt4all",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 1
+  },
+  "units": {
+    "abs-vdc": {
+      "description": "ABS-VDC",
+      "request": 416951793,
+      "response": 417001773,
+      "id_bits": 29,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'ABS-VDC' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 18DAF12D, to 18DA2DF1; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 01 (ABS-VDC); 2D (ABS-VDC_29b)"
+    },
+    "airbag": {
+      "description": "Airbag",
+      "request": 1874,
+      "response": 1906,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Airbag' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 772, to 752; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 2C (Airbag-SRS)"
+    },
+    "aau": {
+      "description": "Audio Amplifier Unit",
+      "request": 1922,
+      "response": 1954,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Audio Amplifier Unit' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 7A2, to 782; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 86 (AAU)"
+    },
+    "apb": {
+      "description": "Automatic Parking Brake",
+      "request": 1877,
+      "response": 1909,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Automatic Parking Brake' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 775, to 755; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 0D (APB)"
+    },
+    "bcb-obc": {
+      "description": "Battery Charger Block",
+      "request": 416997105,
+      "response": 417001950,
+      "id_bits": 29,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Battery Charger Block' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 18DAF1DE, to 18DADEF1; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 67 (BCB); DE (BCB-OBC_29b)"
+    },
+    "bcm": {
+      "description": "Body Control Module",
+      "request": 1861,
+      "response": 1893,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Body Control Module' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 765, to 745; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 26 (UCH)"
+    },
+    "hvac": {
+      "description": "Climate Control",
+      "request": 1860,
+      "response": 1892,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Climate Control' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 764, to 744; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 29 (HVAC)"
+    },
+    "dcm": {
+      "description": "Data Communication Module",
+      "request": 1994,
+      "response": 2010,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Data Communication Module' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 7DA, to 7CA; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 77 (DCM Renault)"
+    },
+    "e-act-eba": {
+      "description": "E-ACT-EBA",
+      "request": 416998129,
+      "response": 417001954,
+      "id_bits": 29,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'E-ACT-EBA' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 18DAF1E2, to 18DAE2F1; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 03 (EBA); E2 (E-ACT-EBA_29b)"
+    },
+    "eps": {
+      "description": "Electrical Power Steering",
+      "request": 1858,
+      "response": 1890,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Electrical Power Steering' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 762, to 742; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 04 (EPS)"
+    },
+    "front-camera": {
+      "description": "Front Camera",
+      "request": 2012,
+      "response": 2013,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Front Camera' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 7DD, to 7DC; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 30 (SMB); 62 (FCAM)"
+    },
+    "hfm": {
+      "description": "Hands Free Module",
+      "request": 1945,
+      "response": 1977,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Hands Free Module' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 7B9, to 799; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) C0 (HFM)"
+    },
+    "idm": {
+      "description": "Integrated Dynamics Control Module",
+      "request": 1804,
+      "response": 1792,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Integrated Dynamics Control Module' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 700, to 70C; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 25 (IDM-CDM)"
+    },
+    "inv-me": {
+      "description": "INV-ME",
+      "request": 416997361,
+      "response": 417001951,
+      "id_bits": 29,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'INV-ME' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 18DAF1DF, to 18DADFF1; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) DF (INV-ME_29b)"
+    },
+    "frrad": {
+      "description": "Laser radar for Adaptive Cruise Control System",
+      "request": 1827,
+      "response": 1845,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Laser radar for Adaptive Cruise Control System' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 735, to 723; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 2B (FRRAD)"
+    },
+    "lbc": {
+      "description": "Lithium Battery Controller",
+      "request": 416996337,
+      "response": 417001947,
+      "id_bits": 29,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Lithium Battery Controller' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 18DAF1DB, to 18DADBF1; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 91 (LBC (HEV)); DB (LBC (HEV)_29b)"
+    },
+    "lbc2": {
+      "description": "Lithium Battery Controller 2",
+      "request": 416996593,
+      "response": 417001948,
+      "id_bits": 29,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Lithium Battery Controller 2' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 18DAF1DC, to 18DADCF1; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) A8 (LBC2); DC (LBC2_29b)"
+    },
+    "cluster": {
+      "description": "Meter Cluster",
+      "request": 1859,
+      "response": 1891,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Meter Cluster' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 763, to 743; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 51 (TDB)"
+    },
+    "miu": {
+      "description": "Multimedia Interface Unit",
+      "request": 1812,
+      "response": 1844,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Multimedia Interface Unit' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 734, to 714; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 59 (MIU)"
+    },
+    "navigation": {
+      "description": "Navigation-UCC-ITM",
+      "request": 1863,
+      "response": 1895,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Navigation-UCC-ITM' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 767, to 747; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 58 (Navigation-UCC-ITM)"
+    },
+    "parking-sonar": {
+      "description": "Parking Sonar",
+      "request": 1870,
+      "response": 1902,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Parking Sonar' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 76E, to 74E; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 0E (Parking Sonar)"
+    },
+    "plc-plgw": {
+      "description": "Power Line connection/ Power Line Gateway",
+      "request": 2008,
+      "response": 1992,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Power Line connection/ Power Line Gateway' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 7C8, to 7D8; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 97 (PLC-PLGW)"
+    },
+    "s-gw3": {
+      "description": "Security Gateway",
+      "request": 416994033,
+      "response": 417001938,
+      "id_bits": 29,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Security Gateway' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 18DAF1D2, to 18DAD2F1; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) D2 (S-GW3)"
+    },
+    "usm": {
+      "description": "U Safety Module",
+      "request": 1869,
+      "response": 1901,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'U Safety Module' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 76D, to 74D; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 27 (UPC-EMM); 42 (USM_29)"
+    },
+    "evc": {
+      "description": "Vehicle Controle Module",
+      "request": 416996081,
+      "response": 417001946,
+      "id_bits": 29,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Vehicle Controle Module' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 18DAF1DA, to 18DADAF1; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 95 ((H) EVC); DA ((H) EVC-HCM-VCM_29b)"
+    },
+    "vsp": {
+      "description": "Vehicle Sound for Pedestrians",
+      "request": 1855,
+      "response": 1889,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Vehicle Sound for Pedestrians' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 761, to 73F; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 21 (IPA); 81 (VSP)"
+    },
+    "wcgs": {
+      "description": "Wireless Charger Smartphone",
+      "request": 1962,
+      "response": 1965,
+      "source": "CanZE ZOE_Ph2/_Ecus.csv row 'Wireless Charger Smartphone' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132851/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE_Ph2/_Ecus.csv): from 7AD, to 7AA; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 82 (WCGS)"
+    }
+  }
+}

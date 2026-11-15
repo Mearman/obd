@@ -1,0 +1,34 @@
+{
+  "notes": "Renault Twizy, read over the diagnostic CAN on the OBD-II socket (11-bit identifiers at 500 kbit/s, ISO 15765-2, UDS).\n\nThe three units are every row of the CanZE Twizy ECU file, each also present in the ddt4all address table. The Twizy's own bus layout and what the OBD socket reaches are not established by either source. Treat every row as unconfirmed until `obd-read probe` shows the unit answering.\n\nSession: the CanZE file gives 0x03 (extended diagnostic) as the session for all three units, which the guard permits, so the profile opens it; unconfirmed on a car.\n\nSecurity gateway: a Renault security gateway is reported on recent cars, so a silent unit may be filtered rather than absent, and the tool reports a silent unit as no response, not as absent. A ddt4all issue (cedricp/ddt4all issue 404, Clio V, 2020) reports reads working through the OBD socket with writes blocked by a central gateway, and vendor pages (a Delphi article on a Renault Arkana, a Hella Gutmann page) say that fault codes and parameters can be read without unlocking it; none of them says which units a locked gateway hides from a read.",
+  "name": "renault-twizy",
+  "description": "Renault Twizy, UDS over 11-bit CAN, address plan from CanZE and ddt4all",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 3
+  },
+  "units": {
+    "cluster": {
+      "description": "Meter Cluster",
+      "request": 1859,
+      "response": 1891,
+      "source": "CanZE Twizy/_Ecus.csv row 'Meter Cluster' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twizy/_Ecus.csv, archived https://web.archive.org/web/20261115133545/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twizy/_Ecus.csv): from 763, to 743; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 51 (TDB)"
+    },
+    "lbc": {
+      "description": "Lithium Battery Controller",
+      "request": 1947,
+      "response": 1979,
+      "source": "CanZE Twizy/_Ecus.csv row 'Lithium Battery Controller' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twizy/_Ecus.csv, archived https://web.archive.org/web/20261115133545/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twizy/_Ecus.csv): from 7BB, to 79B; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 93 (LBC (EV))"
+    },
+    "bcb-obc": {
+      "description": "Battery Charger Block",
+      "request": 1938,
+      "response": 1939,
+      "source": "CanZE Twizy/_Ecus.csv row 'Battery Charger Block' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twizy/_Ecus.csv, archived https://web.archive.org/web/20261115133545/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twizy/_Ecus.csv): from 793, to 792; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 67 (BCB); DE (BCB-OBC_29b)"
+    }
+  }
+}
