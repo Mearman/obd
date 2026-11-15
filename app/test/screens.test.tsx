@@ -1,5 +1,5 @@
 import { pickProfile } from "./ui-helpers";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { builtinProfileData } from "obd-read/profiles";
 import { GENERIC_SIMULATOR_URL, MemoryStorage, simulatorUrl } from "obd-read";
@@ -8,6 +8,8 @@ import { App } from "../src/App";
 import type { BrowserSupport } from "../src/connect/support";
 import { failureMessage } from "../src/diagnostics/client";
 import { applyThemePreference } from "../src/theme/preference";
+import { APP_VERSION } from "../src/release/release";
+import { openFakeTab } from "./fake-updates";
 import { createTestService, renderApp } from "./render";
 
 const CHROME: BrowserSupport = {
@@ -97,6 +99,27 @@ async function connectSimulator(profile?: string): Promise<void> {
 async function openTab(name: string): Promise<void> {
   await userEvent.click(screen.getByRole("tab", { name }));
 }
+
+describe("Updates while something runs", () => {
+  it("waits for a collection run to stop before it applies a new version", async () => {
+    const tab = openFakeTab(APP_VERSION);
+    renderApp(<App support={CHROME} />, undefined, undefined, undefined, tab);
+    await connectSimulator();
+    await openTab("Live");
+    await userEvent.click(screen.getByRole("button", { name: "Start collecting" }));
+    expect(await screen.findByText("engine speed")).toBeInTheDocument();
+    act(() => {
+      tab.updater.waiting();
+    });
+    expect(tab.updater.status().waitingFor).toContain("a collection run");
+    expect(tab.worker.activate).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
+    await vi.waitFor(() => {
+      expect(tab.worker.activate).toHaveBeenCalledTimes(1);
+    });
+    expect(tab.page.reloads()).toBe(1);
+  });
+});
 
 describe("Scan", () => {
   it("scans with the simulator once connected", async () => {

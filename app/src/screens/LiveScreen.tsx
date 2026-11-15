@@ -3,6 +3,7 @@ import { useState } from "react";
 import { LineChart, appendRolling, type RollingHistory } from "../charts";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
+import { useActivity } from "../pwa/ActivityProvider";
 import { FaultHistory } from "../faults/FaultHistory";
 import { Badge, Button, Card, DataTable, type Column } from "../ui";
 import { COLLECTION_LIMIT } from "./limits";
@@ -23,6 +24,7 @@ export function LiveScreen() {
   const { connection, collection, service, startCollection, stopCollection } = useDiagnostics();
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  useActivity("starting or stopping a run", busy);
   const running = collection.run !== undefined;
   const runId = collection.run?.id;
   // Adjusted while rendering, as React advises for state derived from a changing input: a new run

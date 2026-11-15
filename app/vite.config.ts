@@ -31,7 +31,7 @@ export default defineConfig({
     vanillaExtractPlugin(),
     react(),
     VitePWA({
-      // The page asks before replacing a running copy, so a scan is never interrupted by an update.
+      // A new service worker waits until the page tells it to take over, which the updater (src/pwa/updater.ts) does only once nothing runs in the tab, so an update never interrupts work.
       registerType: "prompt",
       pwaAssets: { config: true },
       manifest: {

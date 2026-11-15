@@ -2,15 +2,15 @@ import { Toast } from "../ui";
 
 /** Props of {@link UpdatePrompt}. */
 export interface UpdatePromptProps {
-  /** A new service worker is waiting. */
+  /** A new version is ready and the prompt has not been dismissed. */
   readonly updateReady: boolean;
-  /** The user dismissed the prompt; the update waits for the next visit. */
+  /** The user dismissed the prompt; the update still loads on its own once nothing is running. */
   readonly onDismiss: () => void;
-  /** The user chose to reload onto the new version. */
+  /** The user chose to reload onto the new version now. */
   readonly onUpdate: () => void;
 }
 
-/** A toast offering to reload onto a new version once its service worker is waiting. */
+/** A toast offering to reload onto a new version while it waits for what is running to finish. */
 export function UpdatePrompt({ updateReady, onDismiss, onUpdate }: UpdatePromptProps) {
   return (
     <Toast
@@ -20,7 +20,7 @@ export function UpdatePrompt({ updateReady, onDismiss, onUpdate }: UpdatePromptP
       }}
       duration={Infinity}
       title="A new version is ready"
-      description="Reload to use it. Anything running now is not interrupted until you do."
+      description="It loads by itself once nothing is running here. Reload to use it now."
       actions={[{ label: "Reload", onSelect: onUpdate }]}
     />
   );

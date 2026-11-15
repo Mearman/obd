@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { adapterUrl } from "../connect/adapters";
+import { useActivity } from "../pwa/ActivityProvider";
 import { DiagnosticsError, type AdapterKind, type AppService } from "./client";
 import { collectedElsewhere, runClaims } from "./run-claims";
 import { useWakeLock } from "./useWakeLock";
@@ -99,6 +100,8 @@ export function DiagnosticsProvider({
   const guidedRunning = guided?.state === "running" ? guided.runId : undefined;
 
   useWakeLock(runId !== undefined || guidedRunning !== undefined);
+  useActivity("a collection run", runId !== undefined);
+  useActivity("a recording plan", guidedRunning !== undefined);
 
   const announced = useRef(new Set<string>());
   const isNewPhase = useCallback((key: string) => {

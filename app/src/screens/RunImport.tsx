@@ -2,6 +2,7 @@ import type { Run } from "obd-read";
 import { useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
+import { useActivity } from "../pwa/ActivityProvider";
 import { Button, Card } from "../ui";
 import { error, muted } from "./screen.css";
 
@@ -14,16 +15,21 @@ export function RunImport({ onImported }: { readonly onImported: (run: Run) => v
   const input = useRef<HTMLInputElement>(null);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [note, setNote] = useState<string | undefined>(undefined);
+  const [importing, setImporting] = useState(false);
+  useActivity("importing a run", importing);
 
   async function importFile(file: File): Promise<void> {
     setProblem(undefined);
     setNote(undefined);
+    setImporting(true);
     try {
       const run = await client.runs.import({ text: await file.text(), name: file.name });
       setNote(`Imported ${file.name} as a stopped run.`);
       onImported(run);
     } catch (caught) {
       setProblem(failureMessage(caught, "That file is not a run exported as CSV or TSV."));
+    } finally {
+      setImporting(false);
     }
   }
 
