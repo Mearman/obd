@@ -5,7 +5,8 @@
  */
 
 /** The places the app can be showing. */
-export type ScreenId = "connect" | "scan" | "live" | "runs" | "settings" | "shared" | "app";
+export type ScreenId =
+  "connect" | "scan" | "live" | "runs" | "captures" | "settings" | "shared" | "app";
 
 /** How a connection reaches the car, by transport type only. */
 export type TransportKind = "webserial" | "webbluetooth" | "webusb" | "simulator" | "other";
