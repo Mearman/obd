@@ -31,6 +31,8 @@ export interface ProfilePickerProps {
   readonly value: string | undefined;
   readonly onValueChange: (name: string | undefined) => void;
   readonly disabled?: boolean;
+  /** What the control is called: its label, its accessible name and the dialog's title. */
+  readonly label?: string;
 }
 
 function units(entry: CatalogueEntry): string {
@@ -46,6 +48,7 @@ export function ProfilePicker({
   value,
   onValueChange,
   disabled,
+  label = "Vehicle profile",
 }: ProfilePickerProps) {
   const labelId = useId();
   const [open, setOpen] = useState(false);
@@ -84,7 +87,7 @@ export function ProfilePicker({
   return (
     <div className={field}>
       <span id={labelId} className={fieldLabel}>
-        Vehicle profile
+        {label}
       </span>
       <RadixDialog.Root open={open} onOpenChange={setOpen}>
         <RadixDialog.Trigger asChild>
@@ -108,13 +111,13 @@ export function ProfilePicker({
         <RadixDialog.Portal>
           <RadixDialog.Overlay className={overlay} />
           <RadixDialog.Content className={panel} aria-describedby={undefined}>
-            <RadixDialog.Title className={heading}>Vehicle profile</RadixDialog.Title>
+            <RadixDialog.Title className={heading}>{label}</RadixDialog.Title>
             <input
               type="search"
               className={search}
               value={query}
               placeholder="Search make, model or chassis"
-              aria-label="Search vehicle profiles"
+              aria-label="Search profiles"
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
@@ -122,7 +125,7 @@ export function ProfilePicker({
                 setQuery(event.target.value);
               }}
             />
-            <div className={list} role="listbox" aria-label="Vehicle profiles">
+            <div className={list} role="listbox" aria-label={label}>
               {showGeneric && (
                 <button
                   type="button"

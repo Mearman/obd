@@ -83,13 +83,11 @@ test("with automatic saving off a raw capture link re-decodes under the chosen p
   await expectSummary(page, /Decoded \d+ Left raw 0 of \d+ exchanges with mercedes-w211/);
   await expect(page.getByRole("table", { name: "Units decoded with mercedes-w211" })).toBeVisible();
 
-  await page.getByRole("combobox", { name: "Decode with" }).click();
-  await page.getByRole("option", { name: "vag-mqb", exact: true }).click();
+  await chooseProfile(page, "vag-mqb", "Decode with");
   await expectSummary(page, /Left raw [1-9]\d* of \d+ exchanges with vag-mqb/);
   await expect(page.getByRole("table", { name: "Exchanges vag-mqb leaves raw" })).toBeVisible();
 
-  await page.getByRole("combobox", { name: "Decode with" }).click();
-  await page.getByRole("option", { name: "Generic OBD-II (no profile)" }).click();
+  await chooseProfile(page, "", "Decode with");
   await expectSummary(page, /Left raw [1-9]\d* of \d+ exchanges with Generic OBD-II/);
   await expect(page.getByText("VIN: *****************").first()).toBeVisible();
   expect(await page.locator("body").innerText()).not.toContain(VIN_BYTES);

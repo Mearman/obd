@@ -492,8 +492,7 @@ describe("a shared link with automatic saving off", () => {
       ).queryAllByText("Left raw"),
     ).toEqual([]);
 
-    await userEvent.click(screen.getByRole("combobox", { name: "Decode with" }));
-    await userEvent.click(screen.getByRole("option", { name: "Generic OBD-II (no profile)" }));
+    await pickProfile("", "Decode with");
     await waitFor(() => {
       expect(screen.getByRole("status", { name: "Decoding summary" })).toHaveTextContent(
         /Left raw [1-9]\d* of \d+ exchanges with Generic OBD-II/,
@@ -528,10 +527,7 @@ describe("a shared link with automatic saving off", () => {
     });
     renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     await screen.findByRole("status", { name: "Decoding summary" });
-    await userEvent.click(screen.getByRole("combobox", { name: "Decode with" }));
-    await userEvent.click(
-      await screen.findByRole("option", { name: "w211-engine-only (imported)" }),
-    );
+    await pickProfile("w211-engine-only", "Decode with");
     await waitFor(() => {
       expect(screen.getByRole("status", { name: "Decoding summary" })).toHaveTextContent(
         /Left raw [1-9]\d* of \d+ exchanges with w211-engine-only/,

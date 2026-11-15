@@ -1,3 +1,4 @@
+import { pickProfile } from "./ui-helpers";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { decodeShare, fragmentOfLink, simulatorUrl } from "obd-read";
@@ -52,8 +53,7 @@ describe("Captures", () => {
     expect(screen.getByRole("table", { name: "Units decoded with mercedes-w211" })).toBeVisible();
     expect(screen.getByText("This profile decodes every exchange in the capture.")).toBeVisible();
 
-    await userEvent.click(screen.getByRole("combobox", { name: "Decode with" }));
-    await userEvent.click(screen.getByRole("option", { name: "Generic OBD-II (no profile)" }));
+    await pickProfile("", "Decode with");
     await summary(/Left raw [1-9]\d*.*Generic OBD-II/);
     const raw = screen.getByRole("table", { name: /leaves raw/ });
     expect(within(raw).getAllByText("784 -> 785").length).toBeGreaterThan(0);
