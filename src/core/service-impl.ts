@@ -356,8 +356,8 @@ function obdUnitReports(scan: ObdScan, requestId: string): UnitReportData[] {
   });
 }
 
-/** A decoded capture as a caller sees it. */
-function decodedData(decoded: DecodedCapture): DecodedCaptureData {
+/** A decoded capture as a caller sees it: plain data that crosses the service boundary, as `captures.decode` returns it. */
+export function decodedCaptureData(decoded: DecodedCapture): DecodedCaptureData {
   return {
     profile: decoded.profile,
     units: decoded.units.map(unitReportData),
@@ -878,7 +878,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
               ? { kind: "generic" }
               : { kind: "profile", profile: await loadProfile(input.profile) },
           );
-          return decodedData(decoded);
+          return decodedCaptureData(decoded);
         }),
       ),
     },
