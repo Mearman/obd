@@ -1,0 +1,90 @@
+{
+  "notes": "Nissan and Infiniti cars on the diagnostic socket's CAN pair (pins 6 and 14, 11-bit identifiers, 500 kbit/s): Qashqai J11 (2013 to 2021), Juke F15 (2010 to 2019) and X-Trail T32 (2014 to 2021). The same addresses appear for the Rogue and the Infiniti Q50 and QX50 in the sources, which is the only evidence for Infiniti.\n\nEvery address is a fact transcribed from open diagnostic-tool sources; no signal definition is copied. Treat every row as unconfirmed until `obd-read probe` shows the unit answering.\n\nThe response offset is not always 8. opendbc states a receive offset of 0x20 for Nissan units and OBDb agrees for 0x740, 0x743, 0x744, 0x748, 0x758 and 0x75C, but the engine and transmission answer at the legislated offset of 8 (0x7E0 to 0x7E8, 0x7E1 to 0x7E9) and 0x723 answers at 0x735, an offset of 0x12. Each unit therefore names its own response identifier.\n\nService is per unit. opendbc opens a Nissan unit with session 0x81 and reads its software version with service 21 identifier 0x83, so the profile defaults to KWP2000 with session 0x81. OBDb shows only service 22 (two-byte identifiers) for 0x723 and 0x748, which therefore carry UDS with session 0x01.\n\nSome units sit on 29-bit identifiers (a gateway at 0x18DAD0F1 in opendbc, and OBDb headers DA15, DA18, DA2D, DADA and DADB). A profile has one identifier width, so they are in `nissan-infiniti-can-29bit`.\n\nA vendor handout lists a Nissan secure gateway from 2020, which is not documented in any source here. A unit that stays silent on a newer car is reported as no response, not as a fault.",
+  "name": "nissan-infiniti-can",
+  "description": "Nissan and Infiniti CAN, 11-bit: Qashqai J11, Juke F15, X-Trail T32",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "kwp2000",
+    "session": 129
+  },
+  "units": {
+    "camera": {
+      "description": "Front camera unit, named by opendbc at 0x707 (fwdCamera)",
+      "request": 1799,
+      "response": 1831,
+      "source": "https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/fingerprints.py and https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/values.py (Ecu.fwdCamera 0x707, X-Trail, receive offset 0x20); https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x707 to 0x727)"
+    },
+    "unit-723": {
+      "description": "Unit at 0x723, which answers cruise-control and driver-assistance reads in OBDb",
+      "request": 1827,
+      "response": 1845,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x723 to 0x735, service 22)"
+    },
+    "abs": {
+      "description": "Brake (ABS) unit, named by opendbc at 0x740",
+      "request": 1856,
+      "response": 1888,
+      "source": "https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/fingerprints.py and https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/values.py (Ecu.abs 0x740, X-Trail, receive offset 0x20); https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x740 to 0x760, service 22)"
+    },
+    "eps": {
+      "description": "Power steering unit, named by opendbc at 0x742",
+      "request": 1858,
+      "response": 1890,
+      "source": "https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/fingerprints.py and https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/values.py (Ecu.eps 0x742, receive offset 0x20)"
+    },
+    "meter": {
+      "description": "Instrument cluster, a combination meter in opendbc (X-Trail) at 0x743",
+      "request": 1859,
+      "response": 1891,
+      "source": "https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/fingerprints.py and https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/values.py (Ecu.combinationMeter 0x743, X-Trail); https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x743 to 0x763, services 21 and 22)"
+    },
+    "unit-744": {
+      "description": "Unit at 0x744, which answers climate and engine-related reads in OBDb",
+      "request": 1860,
+      "response": 1892,
+      "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x744 to 0x764, services 21 and 22)"
+    },
+    "unit-748": {
+      "description": "Unit at 0x748, which answers tyre and transmission-related reads in OBDb",
+      "request": 1864,
+      "response": 1896,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x748 to 0x768, service 22)"
+    },
+    "unit-758": {
+      "description": "Unit at 0x758, which answers tyre-related reads in OBDb",
+      "request": 1880,
+      "response": 1912,
+      "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x758 to 0x778, services 21 and 22)"
+    },
+    "unit-75c": {
+      "description": "Unit at 0x75C, which answers engine-related reads in OBDb",
+      "request": 1884,
+      "response": 1916,
+      "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x75C to 0x77C, service 21)"
+    },
+    "engine": {
+      "description": "Engine control unit at the legislated 0x7E0",
+      "request": 2016,
+      "response": 2024,
+      "source": "https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/fingerprints.py and https://github.com/commaai/opendbc/blob/27fa1c5d8eed3238a0a78c52ff5abb6cdc807bd2/opendbc/car/nissan/values.py (Ecu.engine 0x7e0, X-Trail); https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x7E0 to 0x7E8, services 21 and 22)"
+    },
+    "transmission": {
+      "description": "Transmission control unit at the legislated 0x7E1",
+      "request": 2017,
+      "response": 2025,
+      "source": "https://github.com/OBDb/Nissan-Qashqai/blob/031a6e3024ad0f89db69ac3cfa9999e2d2106d13/signalsets/v3/default.json and https://github.com/OBDb/Nissan-Juke/blob/b2c85ced410f8d285f48b2d9da3d66146d538bfe/signalsets/v3/default.json and https://github.com/OBDb/Nissan-X-Trail/blob/e1dc82434b9b557768b7042f59bcd6ded3889918/signalsets/v3/default.json (0x7E1 to 0x7E9, ecu type transmission, services 21 and 22)"
+    }
+  }
+}
