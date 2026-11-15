@@ -34,6 +34,8 @@ export interface DiagnosticsServiceOptions {
   readonly confirmationTtlMs?: number;
   /** The devices a page granted; defaults to an empty set the service's `adapters.grant` fills. */
   readonly grants?: DeviceGrants;
+  /** The program's version, as captures record it. */
+  readonly toolVersion: string;
 }
 
 /** A composed service with the parts an edge needs to reach. */
@@ -59,6 +61,8 @@ export function createDiagnosticsService(options: DiagnosticsServiceOptions): Di
     link,
     transports: options.transports,
     grants,
+    loadProfile: options.loadProfile,
+    toolVersion: options.toolVersion,
     ...(options.now === undefined ? {} : { now: options.now }),
     ...(options.sleep === undefined ? {} : { sleep: options.sleep }),
     ...(options.confirmationTtlMs === undefined
