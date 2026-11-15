@@ -23,7 +23,7 @@ test("a link from a simulator scan opens as read-only shared data in a fresh con
   await expect(page.getByRole("heading", { name: "Shared data" })).toBeVisible();
   await expect(page.getByText("Saved to this device, marked as shared.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Saved" })).toBeDisabled();
-  expect(page.url()).toContain("#share=1.");
+  expect(page.url()).toContain("#share=2.");
   const [stored, ...others] = await savedReports(page);
   expect(others).toEqual([]);
   expect(stored?.summary).toMatchObject({ adapter: "shared://link", origin: "shared" });
@@ -58,7 +58,7 @@ test("with automatic saving off a link is stored only on Save", async ({ browser
   const identification = page.getByRole("table", { name: "Shared identification" });
   await expect(identification.getByText("removed").first()).toBeVisible();
   expect(await page.locator("body").innerText()).not.toContain(VIN);
-  expect(page.url()).toContain("#share=1.");
+  expect(page.url()).toContain("#share=2.");
   await expect(page.getByRole("tablist")).toHaveCount(0);
 
   // Nothing is written until the user presses Save.
@@ -66,7 +66,7 @@ test("with automatic saving off a link is stored only on Save", async ({ browser
 
   await page.getByRole("button", { name: "Save this scan" }).click();
   await expect(page.getByText("Saved to this device, marked as shared.")).toBeVisible();
-  expect(page.url()).toContain("#share=1.");
+  expect(page.url()).toContain("#share=2.");
   await page.getByRole("button", { name: "Dismiss" }).click();
   await expect(page.getByText("Saved the shared scan", { exact: true })).toBeVisible();
   expect(page.url()).not.toContain("share=");
