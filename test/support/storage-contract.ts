@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   StorageError,
+  buildCapture,
   exportRunCsvText,
   exportRunJson,
   runExportSchema,
+  type Capture,
+  type Exchange,
   type Sample,
   type Storage,
 } from "../../src/core/index.js";
@@ -38,6 +41,69 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
 async function code(promise: Promise<unknown>): Promise<string | undefined> {
   const error = await rejection(promise);
   return error instanceof StorageError ? error.code : undefined;
+}
+
+/** A capture of invented exchanges: one answered unit read, one refused, one broadcast nobody answered. */
+function inventedCapture(id: string, startedAt: number): Capture {
+  const engine = {
+    mode: "physical",
+    requestId: 0x7e0,
+    responseId: 0x7e8,
+    extendedAddress: null,
+  } as const;
+  const exchanges: Exchange[] = [
+    {
+      seq: 0,
+      at: startedAt,
+      session: 0,
+      bus: { kind: "can", idBits: 11, bitrate: 500_000 },
+      address: engine,
+      protocol: "kwp2000",
+      request: "1A86",
+      outcome: { kind: "replies", replies: [{ sender: 0x7e8, messages: ["5A86414243"] }] },
+    },
+    {
+      seq: 1,
+      at: startedAt + 1,
+      session: 0,
+      bus: { kind: "can", idBits: 11, bitrate: 500_000 },
+      address: engine,
+      protocol: "kwp2000",
+      request: "2101",
+      outcome: { kind: "replies", replies: [{ sender: 0x7e8, messages: ["7F2131"] }] },
+    },
+    {
+      seq: 2,
+      at: startedAt + 2,
+      session: 0,
+      bus: { kind: "can", idBits: 11, bitrate: 500_000 },
+      address: { mode: "functional", requestId: 0x7df },
+      protocol: "obd",
+      request: "0902",
+      outcome: { kind: "no-response", message: "no control unit answered" },
+    },
+  ];
+  return buildCapture(
+    {
+      id,
+      startedAt,
+      endedAt: startedAt + 2,
+      origin: { kind: "capture", profile: null, complete: true, description: "invented" },
+      session: {
+        adapter: {
+          url: "simulator://generic-obd2",
+          identity: "ELM327 v2.3",
+          description: null,
+          stnIdentity: null,
+          voltage: "12.4V",
+          hasStnExtensions: false,
+        },
+        tool: { name: "obd-read", version: "test" },
+      },
+      notes: ["a note"],
+    },
+    exchanges,
+  );
 }
 
 /**
@@ -336,6 +402,49 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
         await storage.deleteScanReport(newer.id);
         await storage.deleteScanReport("nope");
         expect(await storage.getScanReport(newer.id)).toBeUndefined();
+      }));
+
+    it("saves, lists, reads and deletes captures, keeping every exchange", () =>
+      withStorage(async (storage) => {
+        const older = inventedCapture("capture-a", T0);
+        const newer = inventedCapture("capture-b", T0 + 100);
+        const summary = await storage.saveCapture(older);
+        expect(summary).toEqual({
+          id: "capture-a",
+          startedAt: T0,
+          endedAt: T0 + 2,
+          kind: "capture",
+          profile: null,
+          complete: true,
+          description: "invented",
+          adapter: "ELM327 v2.3",
+          exchanges: 3,
+          units: [
+            { address: "physical:2016:2024:null", label: "7E0 -> 7E8", exchanges: 2, answered: 2 },
+            { address: "functional:2015", label: "functional 7DF", exchanges: 1, answered: 0 },
+          ],
+        });
+        await storage.saveCapture(newer);
+        expect(await storage.getCapture("capture-a")).toEqual(older);
+        expect(await storage.getCapture("nope")).toBeUndefined();
+        expect((await storage.listCaptures()).map((capture) => capture.id)).toEqual([
+          "capture-b",
+          "capture-a",
+        ]);
+        expect(await storage.listCaptures({ limit: 1, offset: 1 })).toEqual([summary]);
+        expect(await code(storage.saveCapture(older))).toBe("conflict");
+        await storage.deleteCapture("capture-b");
+        await storage.deleteCapture("nope");
+        expect(await storage.getCapture("capture-b")).toBeUndefined();
+        expect((await storage.listCaptures()).map((capture) => capture.id)).toEqual(["capture-a"]);
+      }));
+
+    it("refuses a capture that breaks the document's rules", () =>
+      withStorage(async (storage) => {
+        const capture = inventedCapture("capture-a", T0);
+        const reordered: Capture = { ...capture, exchanges: [...capture.exchanges].reverse() };
+        await expect(storage.saveCapture(reordered)).rejects.toThrow();
+        expect(await storage.listCaptures()).toEqual([]);
       }));
 
     it("keeps imported profiles by name, replacing a profile imported twice", () =>

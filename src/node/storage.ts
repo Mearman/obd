@@ -10,9 +10,10 @@ import {
 } from "../storage/index.js";
 import type { Storage } from "../core/storage.js";
 
-/** Converts a statement parameter to the types `node:sqlite` binds; the storage binds only null, numbers and strings. */
+/** Converts a statement parameter to the types `node:sqlite` binds; the storage binds only null, numbers, strings and bytes. */
 function bindable(value: unknown): SQLInputValue {
   if (value === null || typeof value === "number" || typeof value === "string") return value;
+  if (value instanceof Uint8Array) return value;
   throw new TypeError(`cannot bind a ${typeof value} parameter`);
 }
 

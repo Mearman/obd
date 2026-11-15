@@ -15,6 +15,8 @@ import { z } from "zod";
 import {
   StorageError,
   aggregateQuerySchema,
+  captureQuerySchema,
+  captureSummarySchema,
   newRunSchema,
   newScanReportSchema,
   runQuerySchema,
@@ -25,6 +27,7 @@ import {
   scanReportSchema,
   scanReportSummarySchema,
   signalAggregateSchema,
+  storedCaptureSchema,
   storedProfileSchema,
   type Storage,
   type StorageErrorCode,
@@ -52,6 +55,10 @@ export const storageContract = {
   saveProfile: oc.input(storedProfileSchema).output(z.object({ replaced: z.boolean() })),
   getProfile: oc.input(z.object({ name })).output(storedProfileSchema.nullable()),
   listProfiles: oc.output(z.array(storedProfileSchema)),
+  saveCapture: oc.input(storedCaptureSchema).output(captureSummarySchema),
+  getCapture: oc.input(z.object({ id: name })).output(storedCaptureSchema.nullable()),
+  listCaptures: oc.input(captureQuerySchema).output(z.array(captureSummarySchema)),
+  deleteCapture: oc.input(z.object({ id: name })).output(done),
 };
 
 const CODES: Readonly<Record<StorageErrorCode, string>> = {
@@ -133,6 +140,17 @@ export function serveStorage(port: SupportedMessagePort, current: () => Promise<
       through(async (s) => (await s.getProfile(input.name)) ?? null),
     ),
     listProfiles: os.listProfiles.handler(() => through((s) => s.listProfiles())),
+    saveCapture: os.saveCapture.handler(({ input }) => through((s) => s.saveCapture(input))),
+    getCapture: os.getCapture.handler(({ input }) =>
+      through(async (s) => (await s.getCapture(input.id)) ?? null),
+    ),
+    listCaptures: os.listCaptures.handler(({ input }) => through((s) => s.listCaptures(input))),
+    deleteCapture: os.deleteCapture.handler(({ input }) =>
+      through(async (s) => {
+        await s.deleteCapture(input.id);
+        return finished;
+      }),
+    ),
   });
   new RPCHandler(router).upgrade(port);
   startPort(port);
@@ -179,5 +197,11 @@ export function remoteStorage(port: SupportedMessagePort): Storage {
     getProfile: async (profileName) =>
       (await through(() => client.getProfile({ name: profileName }))) ?? undefined,
     listProfiles: () => through(() => client.listProfiles()),
+    saveCapture: (capture) => through(() => client.saveCapture(capture)),
+    getCapture: async (id) => (await through(() => client.getCapture({ id }))) ?? undefined,
+    listCaptures: (query = {}) => through(() => client.listCaptures(query)),
+    deleteCapture: async (id) => {
+      await through(() => client.deleteCapture({ id }));
+    },
   };
 }

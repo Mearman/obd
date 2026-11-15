@@ -41,11 +41,12 @@ export interface DatabaseHostOptions {
 /** The SQLite header every database file starts with. */
 const SQLITE_MAGIC = "SQLite format 3\0";
 
-type BindValue = null | number | string;
+type BindValue = null | number | string | Uint8Array;
 
-/** Converts a statement parameter to a value SQLite binds; the storage binds only null, numbers and strings. */
+/** Converts a statement parameter to a value SQLite binds; the storage binds only null, numbers, strings and bytes. */
 function bindable(value: unknown): BindValue {
   if (value === null || typeof value === "number" || typeof value === "string") return value;
+  if (value instanceof Uint8Array) return value;
   throw new TypeError(`cannot bind a ${typeof value} parameter`);
 }
 
