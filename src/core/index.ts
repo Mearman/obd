@@ -54,3 +54,5 @@ export * from "./operations.js";
 export * from "./command-errors.js";
 export * from "./obd-clear.js";
 export * from "./discovery.js";
+export * from "./generic.js";
+export * from "./obd-scan.js";

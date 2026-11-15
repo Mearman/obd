@@ -24,7 +24,8 @@ export class LinkBusy extends Error {
 
 /** An open connection. */
 export interface LinkSession {
-  readonly profile: Profile;
+  /** The vehicle profile the connection was opened with, or `undefined` for a generic OBD-II session that speaks the legislated services only. */
+  readonly profile: Profile | undefined;
   /** The adapter URL it was opened with. */
   readonly adapterUrl: string;
   readonly elm: Elm;
@@ -51,12 +52,12 @@ export class DeviceLink {
   }
 
   /**
-   * Opens the adapter, initialises it and selects the profile's bus.
+   * Opens the adapter, initialises it and, with a profile, selects the profile's bus. With no profile the bus is left unselected: each legislated read selects it, as the `obd` command does.
    *
    * @throws LinkBusy when a connection is open already.
    * @throws TransportError, ElmError and ProfileError as the layers below do; nothing stays open after one.
    */
-  connect(profileName: string, adapterUrl: string): Promise<LinkSession> {
+  connect(profileName: string | undefined, adapterUrl: string): Promise<LinkSession> {
     return this.exclusive(async () => {
       if (this.current !== undefined) {
         throw new LinkBusy(`already connected to ${this.current.adapterUrl}; disconnect first`);
@@ -82,7 +83,7 @@ export class DeviceLink {
       if (this.current === undefined) throw new NotConnected("there is no connection to reopen");
       const { profile, adapterUrl } = this.current;
       await this.close();
-      return this.open(profile.name, adapterUrl);
+      return this.open(profile?.name, adapterUrl);
     });
   }
 
@@ -106,17 +107,18 @@ export class DeviceLink {
     });
   }
 
-  private async open(profileName: string, adapterUrl: string): Promise<LinkSession> {
-    const profile = await this.dependencies.loadProfile(profileName);
+  private async open(profileName: string | undefined, adapterUrl: string): Promise<LinkSession> {
+    const profile =
+      profileName === undefined ? undefined : await this.dependencies.loadProfile(profileName);
     const transport = this.dependencies.transports.create(adapterUrl);
     await transport.open();
     try {
       const elm =
-        profile.bus.kind === "kline"
+        profile?.bus.kind === "kline"
           ? new KLineElm(transport, { transcript: new Transcript() })
           : new Elm(transport, { transcript: new Transcript() });
       const adapter = await elm.initialise();
-      await selectBus(elm, profile);
+      if (profile !== undefined) await selectBus(elm, profile);
       this.current = { profile, adapterUrl, elm, adapter, transport };
       return this.current;
     } catch (error) {

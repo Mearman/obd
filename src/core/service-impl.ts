@@ -14,6 +14,17 @@ import {
   type UnitReportData,
 } from "./service.js";
 import { ActuationError } from "./actuate.js";
+import { asciiEncode, toUpperHex } from "./bytes.js";
+import {
+  GENERIC_PROFILE,
+  PROFILE_REQUIRED_CODE,
+  ProfileRequired,
+  profileLabel,
+  requireProfile,
+  sessionBus,
+} from "./generic.js";
+import { FUNCTIONAL_ID } from "./obd.js";
+import { readObdScan, type ObdScan } from "./obd-scan.js";
 import { readVoltage } from "./battery.js";
 import type { Collector, SampleSink } from "./collector.js";
 import type { DeviceLink } from "./device-link.js";
@@ -40,13 +51,13 @@ import {
   profileCommand,
 } from "./operations.js";
 import { clearCodesCommand } from "./obd-clear.js";
-import { ProfileError, canBus, parseJson, parseProfile, profileUnit } from "./profile.js";
+import { ProfileError, parseJson, parseProfile, profileUnit } from "./profile.js";
 import { checkProfile } from "./profile-check.js";
 import { exportRunCsvText, exportRunJson } from "./run-export.js";
 import { readSelection, userNotes, withSelection } from "./run-selection.js";
 import { isSimulatorUrl } from "./simulator-host.js";
 import { StorageSnapshotStore } from "./snapshot-store.js";
-import { now as clockNow, sleep as realSleep } from "./time.js";
+import { isoNowSeconds, now as clockNow, sleep as realSleep } from "./time.js";
 import { StorageError, jsonSchema, type Run, type Sample, type Storage } from "./storage.js";
 import { AdapterUrlError, SCHEMES, TransportError, type Scheme } from "./transport.js";
 import type { DeviceGrants } from "./transport-host.js";
@@ -204,6 +215,9 @@ function callerError(error: unknown): ORPCError<string, undefined> | undefined {
   if (error instanceof StorageError) {
     return new ORPCError(STORAGE_ERROR_CODES[error.code], { message: error.message });
   }
+  if (error instanceof ProfileRequired) {
+    return new ORPCError(PROFILE_REQUIRED_CODE, { message: error.message });
+  }
   if (
     error instanceof ProfileError ||
     error instanceof OptionError ||
@@ -266,11 +280,67 @@ function unitReportData(report: UnitReport): UnitReportData {
 
 function connectionData(session: LinkSession): Connection {
   return {
-    profile: session.profile.name,
+    profile: session.profile?.name ?? null,
     adapter: session.adapterUrl,
     simulated: isSimulatorUrl(session.adapterUrl),
     info: { ...session.adapter },
   };
+}
+
+const SCAN_STATUSES = [
+  ["stored", "stored"],
+  ["pending", "pending"],
+  ["permanent", "permanent"],
+] as const;
+
+/** One report per emissions unit that answered the legislated reads, in the shape a unit scan has, so a caller shows both the same way. The VIN is carried by the first unit. */
+function obdUnitReports(scan: ObdScan, requestId: string): UnitReportData[] {
+  return scan.units.map((unit, index) => {
+    const found = SCAN_STATUSES.flatMap(([kind, status]) =>
+      (unit[kind] ?? []).map((code) => ({ code, status })),
+    );
+    const read = SCAN_STATUSES.some(([kind]) => unit[kind] !== null);
+    const lamp =
+      unit.lampOn === null || unit.codeCount === null
+        ? []
+        : [
+            `warning lamp ${unit.lampOn ? "on" : "off"}, ${String(unit.codeCount)} stored codes reported`,
+          ];
+    const frozen = unit.freezeFrame;
+    return {
+      unit: unit.sender,
+      description: `Emissions control unit ${unit.sender}`,
+      requestId,
+      responseId: unit.sender,
+      answered: true,
+      notes: [
+        ...lamp,
+        ...(unit.readiness === null
+          ? []
+          : [`monitors not complete: ${unit.readiness.incomplete.join(", ") || "none"}`]),
+        ...(index === 0 ? scan.notes : []),
+      ],
+      identification: [
+        ...(index === 0 && scan.vin !== null
+          ? [{ label: "VIN", hex: toUpperHex(asciiEncode(scan.vin)), text: scan.vin }]
+          : []),
+        ...unit.calibrationIds.map((text) => ({
+          label: "Calibration identifier",
+          hex: toUpperHex(asciiEncode(text)),
+          text,
+        })),
+      ],
+      faults: read ? found : null,
+      freezeFrames:
+        frozen?.code == null
+          ? {}
+          : {
+              [frozen.code]: Object.entries(frozen.values)
+                .map(([name, value]) => `${name}: ${value}`)
+                .join("; "),
+            },
+    };
+  });
 }
 
 /** The run as a caller sees it: its notes are what the user wrote, without the collection selection. */
@@ -322,16 +392,19 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
     });
 
   const readOne = (unit: string, options: { faults: boolean; freeze: boolean }) =>
-    onLink(async (session) =>
-      unitReportData(
-        await readUnit(session.elm, session.profile, profileUnit(session.profile, unit), options),
-      ),
-    );
+    onLink(async (session) => {
+      const profile = requireProfile(session.profile, "reading one unit");
+      return unitReportData(
+        await readUnit(session.elm, profile, profileUnit(profile, unit), options),
+      );
+    });
 
   /** Starts a guarded command on the open connection and returns what it asks to have confirmed. */
   const request = (
     kind: GuardedKind,
     label: string,
+    /** What the operation does when it addresses one unit and so needs a profile; `undefined` for one that does not. */
+    needsProfile: string | undefined,
     command: (
       session: LinkSession,
       store: StorageSnapshotStore,
@@ -343,9 +416,10 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       requireFree();
       const open = link.session;
       if (open === undefined) throw new NotConnected("connect an adapter first");
+      if (needsProfile !== undefined) requireProfile(open.profile, needsProfile);
       const takenAt = now();
       const store = new StorageSnapshotStore(storage, {
-        profile: open.profile.name,
+        profile: profileLabel(open.profile),
         adapter: open.adapterUrl,
         takenAt,
       });
@@ -355,6 +429,44 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       );
       return { ...asked, snapshot: store.saved.at(-1) ?? null };
     });
+
+  /** The legislated scan of a generic connection, saved as a report under the generic profile name. */
+  const scanGeneric = async (session: LinkSession, label: string) => {
+    const bus = sessionBus(session.profile);
+    const obd = await readObdScan(session.elm, bus);
+    const units = obdUnitReports(obd, FUNCTIONAL_ID[bus.idBits].toString(16).toUpperCase());
+    const saved = await storage.saveScanReport({
+      profile: GENERIC_PROFILE,
+      adapter: session.adapterUrl,
+      takenAt: now(),
+      label,
+      report: jsonSchema.parse({
+        tool: "obd-read",
+        taken: isoNowSeconds(),
+        profile: { name: GENERIC_PROFILE, status: "generic" },
+        adapter: {
+          identity: session.adapter.identity,
+          description: session.adapter.description,
+          stn_identity: session.adapter.stnIdentity,
+          voltage: session.adapter.voltage,
+        },
+        units,
+        obd,
+        transcript: [...session.elm.transcript.entries],
+      }),
+    });
+    return {
+      report: {
+        id: saved.id,
+        profile: saved.profile,
+        adapter: saved.adapter,
+        takenAt: saved.takenAt,
+        label: saved.label,
+      },
+      units,
+      obd,
+    };
+  };
 
   const os = implement(diagnosticsContract);
   return os.router({
@@ -385,12 +497,15 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
         }),
       ),
       probe: os.link.probe.handler(() =>
-        onLink(async (session) => ({
-          adapter: { ...session.adapter },
-          units: (await scan(session.elm, session.profile, { faults: false, freeze: false })).map(
-            unitReportData,
-          ),
-        })),
+        onLink(async (session) => {
+          const profile = requireProfile(session.profile, "probing the units of a profile");
+          return {
+            adapter: { ...session.adapter },
+            units: (await scan(session.elm, profile, { faults: false, freeze: false })).map(
+              unitReportData,
+            ),
+          };
+        }),
       ),
     },
     units: {
@@ -407,6 +522,9 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
     scan: {
       run: os.scan.run.handler(({ input }) =>
         onLink(async (session) => {
+          if (session.profile === undefined) {
+            return scanGeneric(session, input.label);
+          }
           const reports = await scan(session.elm, session.profile, {
             faults: true,
             freeze: input.freeze,
@@ -433,6 +551,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
               label: saved.label,
             },
             units: reports.map(unitReportData),
+            obd: null,
           };
         }),
       ),
@@ -488,9 +607,10 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
         request(
           "clear",
           input.target.kind === "obd" ? "obd" : input.target.unit,
+          input.target.kind === "obd" ? undefined : "clearing one unit's fault codes",
           (session, store, save, io) => {
             if (input.target.kind === "obd") {
-              const bus = canBus(session.profile);
+              const bus = sessionBus(session.profile);
               return clearCodesCommand({
                 elm: session.elm,
                 adapter: session.adapter,
@@ -507,7 +627,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
               {
                 elm: session.elm,
                 adapter: session.adapter,
-                profile: session.profile,
+                profile: requireProfile(session.profile, "clearing one unit's fault codes"),
                 store,
                 ...io,
               },
@@ -521,7 +641,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
     },
     write: {
       request: os.write.request.handler(({ input }) =>
-        request("write", input.unit, (session, store, save, io) =>
+        request("write", input.unit, "writing a value", (session, store, save, io) =>
           profileCommand(
             {
               command: "write",
@@ -530,7 +650,13 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
               request: requestBytes(input.request),
               read: requestBytes(input.read),
             },
-            { elm: session.elm, adapter: session.adapter, profile: session.profile, store, ...io },
+            {
+              elm: session.elm,
+              adapter: session.adapter,
+              profile: requireProfile(session.profile, "writing a value"),
+              store,
+              ...io,
+            },
           ),
         ),
       ),
@@ -540,7 +666,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
     },
     actuate: {
       request: os.actuate.request.handler(({ input }) =>
-        request("actuate", input.unit, (session, store, save, io) =>
+        request("actuate", input.unit, "an actuator test", (session, store, save, io) =>
           profileCommand(
             {
               command: "actuate",
@@ -550,7 +676,13 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
               durationMs: input.durationMs,
               sleep,
             },
-            { elm: session.elm, adapter: session.adapter, profile: session.profile, store, ...io },
+            {
+              elm: session.elm,
+              adapter: session.adapter,
+              profile: requireProfile(session.profile, "an actuator test"),
+              store,
+              ...io,
+            },
           ),
         ),
       ),
@@ -567,12 +699,15 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       start: os.runs.start.handler(({ input }) =>
         translated(async () => {
           requirePassive();
+          if (input.profile === undefined && input.unit !== undefined) {
+            throw new ProfileRequired("collecting one unit's values");
+          }
           const selection = {
             ...(input.unit === undefined ? {} : { unit: input.unit }),
             ...(input.signals === undefined ? {} : { signals: input.signals }),
           };
           const run = await storage.createRun({
-            profile: input.profile,
+            profile: input.profile ?? GENERIC_PROFILE,
             adapter: input.adapter,
             startedAt: now(),
             notes: withSelection(input.notes ?? "", selection),
@@ -654,6 +789,11 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
           const problems = checkProfile(document, "imported profile");
           if (problems.length > 0) throw new ProfileError(problems);
           const profile = parseProfile(document, "imported profile");
+          if (profile.name === GENERIC_PROFILE) {
+            throw new ProfileError([
+              `the name ${GENERIC_PROFILE} is reserved for connections with no profile`,
+            ]);
+          }
           const { replaced } = await storage.saveProfile({
             name: profile.name,
             importedAt: now(),

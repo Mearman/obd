@@ -10,6 +10,7 @@ Usage and times follow {@link Storage}: times are integer milliseconds since the
 
 import { asyncIteratorObject, oc } from "@orpc/contract";
 import { z } from "zod";
+import { obdScanSchema } from "./obd-scan.js";
 import { SCHEMES } from "./transport.js";
 import {
   aggregateQuerySchema,
@@ -51,8 +52,8 @@ export const collectionRequestSchema = z.object({
 
 /** What a caller gives to start a collection run. */
 export const startRunInputSchema = collectionRequestSchema.extend({
-  /** The profile to collect for: a shipped profile or one imported earlier. */
-  profile: nameSchema,
+  /** The profile to collect for: a shipped profile or one imported earlier. Omitted for a generic OBD-II run, which collects the legislated values only and so cannot name a `unit`. */
+  profile: nameSchema.optional(),
   /** The adapter URL, such as `ble://vLinker` or `simulator://mercedes-w211`. */
   adapter: nameSchema,
   notes: z.string().optional(),
@@ -118,7 +119,8 @@ export const adapterInfoSchema = z.object({
 
 /** The open connection. */
 export const connectionSchema = z.object({
-  profile: nameSchema,
+  /** The profile the connection was opened with, or `null` for a generic OBD-II connection. */
+  profile: nameSchema.nullable(),
   /** The adapter URL it was opened with. */
   adapter: nameSchema,
   /** Whether the data comes from the simulator and not from a car. */
@@ -130,7 +132,11 @@ export const connectionSchema = z.object({
 export type Connection = z.output<typeof connectionSchema>;
 
 /** What a caller gives to open a connection. */
-export const connectInputSchema = z.object({ profile: nameSchema, adapter: nameSchema });
+export const connectInputSchema = z.object({
+  /** A shipped or imported profile; omitted for a generic OBD-II connection (the legislated services only). */
+  profile: nameSchema.optional(),
+  adapter: nameSchema,
+});
 
 /** What one control unit said. */
 export const unitReportSchema = z.object({
@@ -216,15 +222,15 @@ export const diagnosticsContract = {
   link: {
     /** The open connection, or `null`. */
     status: oc.output(connectionSchema.nullable()),
-    /** Opens the adapter, initialises it and selects the profile's bus; rejects when already connected. */
+    /** Opens the adapter, initialises it and selects the profile's bus; rejects when already connected. With no profile the connection is generic OBD-II: it reads and clears through the legislated services only, and every operation that addresses one unit rejects with `PROFILE_REQUIRED`. */
     connect: oc.input(connectInputSchema).output(connectionSchema),
     /** Closes the connection; does nothing when there is none. */
     disconnect: oc.output(z.object({ disconnected: z.boolean() })),
-    /** Asks every unit of the profile for its session without reading codes. */
+    /** Asks every unit of the profile for its session without reading codes. Rejects with `PROFILE_REQUIRED` on a generic connection. */
     probe: oc.output(z.object({ adapter: adapterInfoSchema, units: z.array(unitReportSchema) })),
   },
   units: {
-    /** One unit's identification. */
+    /** One unit's identification. Rejects with `PROFILE_REQUIRED` on a generic connection, as do `faults` and `freeze`. */
     ident: oc.input(unitInput).output(unitReportSchema),
     /** One unit's identification and stored fault codes. */
     faults: oc.input(unitInput).output(unitReportSchema),
@@ -232,10 +238,18 @@ export const diagnosticsContract = {
     freeze: oc.input(unitInput).output(unitReportSchema),
   },
   scan: {
-    /** Reads every unit's identification and fault codes, and saves the result as a scan report. */
+    /**
+     * Reads every unit's identification and fault codes, and saves the result as a scan report. On a generic connection it reads the legislated OBD-II services instead: `obd` holds the structured report and `units` has one entry per answering emissions unit (its stored, pending and permanent codes as faults, its freeze frame and the VIN as identification), so the same views show both. `obd` is `null` for a profile scan.
+     */
     run: oc
       .input(z.object({ freeze: z.boolean().default(false), label: z.string().default("") }))
-      .output(z.object({ report: scanReportSummarySchema, units: z.array(unitReportSchema) })),
+      .output(
+        z.object({
+          report: scanReportSummarySchema,
+          units: z.array(unitReportSchema),
+          obd: obdScanSchema.nullable(),
+        }),
+      ),
   },
   reports: {
     /** Saved scan reports and snapshots, newest first. */
@@ -265,7 +279,7 @@ export const diagnosticsContract = {
   },
   clear: {
     /**
-     * Reads what a clear would erase, saves it as a snapshot and returns what would be sent. Sends nothing that changes the car. The target is one unit's fault codes, or the legislated mode 04 clear that erases every emissions-related unit's codes.
+     * Reads what a clear would erase, saves it as a snapshot and returns what would be sent. Sends nothing that changes the car. The target is one unit's fault codes (needs a profile, else `PROFILE_REQUIRED`), or the legislated mode 04 clear that erases every emissions-related unit's codes, which a generic connection can do.
      */
     request: oc
       .input(
@@ -281,7 +295,7 @@ export const diagnosticsContract = {
     confirm: oc.input(confirmInput).output(guardedOutcomeSchema),
   },
   write: {
-    /** Reads the current value, saves it as a snapshot and returns what would be written. */
+    /** Reads the current value, saves it as a snapshot and returns what would be written. Rejects with `PROFILE_REQUIRED` on a generic connection. */
     request: oc
       .input(z.object({ unit: nameSchema, request: hexRequest, read: hexRequest }))
       .output(guardedRequestSchema),
@@ -289,7 +303,7 @@ export const diagnosticsContract = {
     confirm: oc.input(confirmInput).output(guardedOutcomeSchema),
   },
   actuate: {
-    /** Checks an actuator test and returns what would be sent; the guard caps the duration at 30 seconds. */
+    /** Checks an actuator test and returns what would be sent; the guard caps the duration at 30 seconds. Rejects with `PROFILE_REQUIRED` on a generic connection. */
     request: oc
       .input(
         z.object({
@@ -308,7 +322,7 @@ export const diagnosticsContract = {
     cancel: oc.input(confirmInput).output(guardedOutcomeSchema),
   },
   runs: {
-    /** Opens a run and starts collecting; the run is returned open. */
+    /** Opens a run and starts collecting; the run is returned open. A run with no profile is stored under the name `generic-obd2` and collects the legislated values; naming a `unit` without a profile rejects with `PROFILE_REQUIRED`. */
     start: oc.input(startRunInputSchema).output(runSchema),
     /** Collects again for a run that is open and not being collected, as after a reload; it keeps what the run was started with. */
     resume: oc.input(runIdInput).output(runSchema),
