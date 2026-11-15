@@ -10,7 +10,9 @@ export const badge = recipe({
     borderRadius: vars.radius.round,
     fontSize: vars.fontSize.small,
     fontWeight: 600,
-    whiteSpace: "nowrap",
+    // A short badge stays on one line; a long one, such as when a shared link was made, wraps rather than widening a phone's page.
+    maxWidth: "100%",
+    overflowWrap: "anywhere",
     border: "1px solid currentColor",
   },
   variants: {
