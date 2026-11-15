@@ -290,9 +290,15 @@ pnpm --filter obd-read-app e2e
 
 CI runs the same commands. `pnpm test:parity` runs the command line against the recorded contract in [`test/golden`](test/golden): [its README](test/golden/README.md) says where the records came from, and the only differences allowed are listed in `test/parity/normalise.ts`. Two checks keep core platform-free: an ESLint `no-restricted-imports` and `no-restricted-globals` rule on `src/core/`, and `tsconfig.core.json`, which typechecks it with neither the Node nor the DOM type libraries.
 
-`pnpm --filter obd-read-app e2e` builds the app, serves it with `vite preview` on localhost, and in Chromium takes screenshots of every screen at phone, tablet and desktop widths in both colour schemes into `app/screenshots/` (untracked). It asserts that nothing overflows horizontally and that every interactive element is at least 44 px, reloads offline to check the shell loads from the service worker, and drives the real database worker and OPFS (write a run, reload, reload offline, a second tab, export and import). Install the browser once with `pnpm --filter obd-read-app exec playwright install chromium`, or point `OBD_READ_CHROMIUM` at a Chromium binary you already have.
+`pnpm --filter obd-read-app e2e` builds the app, serves it with `vite preview` on localhost, and in Chromium takes screenshots of every screen at phone, tablet and desktop widths in both colour schemes into `app/screenshots/` (untracked). It asserts that nothing overflows horizontally and that every interactive element is at least 44 px, reloads offline to check the shell loads from the service worker, builds and serves the app under both `/` and `/obd/` (a static server that 404s outside the prefix, as Pages does) to check the manifest, the service worker scope, a deep link and an offline reload, and drives the real database worker and OPFS (write a run, reload, reload offline, a second tab, export and import). Install the browser once with `pnpm --filter obd-read-app exec playwright install chromium`, or point `OBD_READ_CHROMIUM` at a Chromium binary you already have.
 
 The tests run against the scripted adapter and car in [`src/core/simulator.ts`](src/core/simulator.ts), the same one the `simulate` command serves.
+
+## Deployment
+
+The app is published as a GitHub Pages project site at <https://mearman.github.io/obd/> by [`pages.yml`](.github/workflows/pages.yml), on every push to `main`. Service workers, Web Serial, WebUSB and Web Bluetooth need a secure context, so the site is only useful over HTTPS (or `localhost`); Pages provides that. Open the URL in Chromium and use the browser's install option to add it as an app, which then reloads offline from its service worker.
+
+The build reads one environment variable, `BASE_PATH`, in [`app/base-path.ts`](app/base-path.ts): Vite's `base`, the manifest's `id`, `scope` and `start_url`, and so the service worker's scope all follow it. It defaults to `/` for local use and previews, and the workflow sets `BASE_PATH=/obd/`. A fork publishing its own project site sets `BASE_PATH` in `pages.yml` to its repository name (`/<repository>/`), and enables Pages with the source set to GitHub Actions. The workflow skips itself in a private repository.
 
 ## Licence
 
