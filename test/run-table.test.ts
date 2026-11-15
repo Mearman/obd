@@ -32,7 +32,10 @@ describe("a simulator run exported and imported", () => {
     const { host, storage } = newSimulatedService();
     const run = await host.client.runs.start({ profile: "mercedes-w211", adapter: SIMULATOR });
     await eventually(async () => {
-      const aggregate = await host.client.runs.aggregate({ runId: run.id });
+      // The fault code lists are text samples taken when a list changes, so they are few.
+      const aggregate = (await host.client.runs.aggregate({ runId: run.id })).filter(
+        (row) => !row.signal.endsWith("fault codes"),
+      );
       return aggregate.length >= 3 && aggregate.every((row) => row.count >= 3) ? true : undefined;
     });
     await host.client.runs.stop({ runId: run.id });
