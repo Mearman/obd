@@ -11,6 +11,7 @@ import {
   type Run,
   type SampleSink,
 } from "../../src/core/index.js";
+import { shippedPlans } from "../../src/plans/index.js";
 import { loadBuiltinProfile } from "../../src/profiles/index.js";
 
 /** A collector that records what it was asked and keeps the sink it was given, so a test can feed samples as the live layer would. */
@@ -71,6 +72,7 @@ export function newHost(): {
     now: () => clock.time,
     loadProfile: (name) => Promise.resolve(loadBuiltinProfile(name)),
     toolVersion: "test",
+    plans: shippedPlans,
   });
   return { host, collector, storage, clock };
 }

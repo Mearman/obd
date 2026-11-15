@@ -7,7 +7,8 @@
 import { LiveCollector, type CollectorTiming } from "./collector.js";
 import { DeviceLink } from "./device-link.js";
 import { parseProfile, type Profile } from "./profile.js";
-import { createDiagnosticsHost, type DiagnosticsHost } from "./service-impl.js";
+import type { PlanClock } from "./plan-runner.js";
+import { createDiagnosticsHost, type DiagnosticsHost, type PlanCatalogue } from "./service-impl.js";
 import type { Storage } from "./storage.js";
 import { DeviceGrants, type TransportHost } from "./transport-host.js";
 
@@ -36,6 +37,12 @@ export interface DiagnosticsServiceOptions {
   readonly grants?: DeviceGrants;
   /** The program's version, as captures record it. */
   readonly toolVersion: string;
+  /** The shipped recording plans. */
+  readonly plans: PlanCatalogue;
+  /** Time and waiting for recording plans; defaults to the real clock. */
+  readonly planClock?: PlanClock;
+  /** The gap between reads of the fault code lists while a plan's phase watches them. */
+  readonly planCodesIntervalMs?: number;
 }
 
 /** A composed service with the parts an edge needs to reach. */
@@ -63,6 +70,11 @@ export function createDiagnosticsService(options: DiagnosticsServiceOptions): Di
     grants,
     loadProfile: options.loadProfile,
     toolVersion: options.toolVersion,
+    plans: options.plans,
+    ...(options.planClock === undefined ? {} : { planClock: options.planClock }),
+    ...(options.planCodesIntervalMs === undefined
+      ? {}
+      : { planCodesIntervalMs: options.planCodesIntervalMs }),
     ...(options.now === undefined ? {} : { now: options.now }),
     ...(options.sleep === undefined ? {} : { sleep: options.sleep }),
     ...(options.confirmationTtlMs === undefined

@@ -6,6 +6,7 @@ import {
   createDiagnosticsService,
   simulatedLiveCar,
 } from "../src/core/index.js";
+import { shippedPlans } from "../src/plans/index.js";
 import { loadBuiltinProfile } from "../src/profiles/index.js";
 import { connectDiagnostics, serveDiagnostics } from "../src/service/message-port.js";
 import { remoteTransportHost, serveTransports } from "../src/service/transport-link.js";
@@ -20,6 +21,7 @@ function workerAndPage() {
   );
   const service = createDiagnosticsService({
     toolVersion: "test",
+    plans: shippedPlans,
     storage: new MemoryStorage(),
     loadProfile: (name) => Promise.resolve(loadBuiltinProfile(name)),
     transports: remoteTransportHost(transports.port2, ["webbluetooth"]),

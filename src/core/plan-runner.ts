@@ -303,6 +303,13 @@ export interface PlanRunnerOptions {
   readonly codesIntervalMs?: number;
   /** Called with each event, in order. */
   readonly onEvent?: (event: PlanEvent) => void;
+  /** The run's notes. Default {@link planRunNotes} of the plan. */
+  readonly notes?: string;
+}
+
+/** The notes a plan's run is stored with unless the caller gives its own. */
+export function planRunNotes(plan: Pick<Plan, "name" | "title">): string {
+  return `plan ${plan.name}: ${plan.title}`;
 }
 
 /** How many samples are buffered before they are stored. */
@@ -393,7 +400,7 @@ export class PlanRunner {
       profile: this.options.profile ?? plan.needs.profile ?? GENERIC_PROFILE,
       adapter: this.options.adapter,
       startedAt: this.clock.now(),
-      notes: `plan ${plan.name}: ${plan.title}`,
+      notes: this.options.notes ?? planRunNotes(plan),
     });
     this.runId = run.id;
     this.emit({ type: "plan-started", at: run.startedAt, runId: run.id, plan });
