@@ -9,6 +9,7 @@ import { RunsScreen } from "./screens/RunsScreen";
 import { ScanScreen } from "./screens/ScanScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { VersionLink } from "./release/VersionLink";
+import { ScreenBoundary } from "./report";
 import { SharedViewer } from "./share/SharedViewer";
 import { useSharedLink } from "./share/useSharedLink";
 import { THEME_PREFERENCES } from "./theme/preference";
@@ -55,6 +56,9 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
   const { connection } = useDiagnostics();
   const shared = useSharedLink();
   const [saved, setSaved] = useState(false);
+  const goConnect = () => {
+    setScreen("connect");
+  };
 
   return (
     <div className={app}>
@@ -94,14 +98,23 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
       />
       {shared.fragment !== undefined ? (
         <main className={main}>
-          <SharedViewer
-            key={shared.fragment}
-            fragment={shared.fragment}
-            onDone={(kept) => {
+          <ScreenBoundary
+            screen="shared"
+            resetKeys={[shared.fragment]}
+            onGoToConnect={() => {
               shared.clear();
-              setSaved(kept);
+              setScreen("connect");
             }}
-          />
+          >
+            <SharedViewer
+              key={shared.fragment}
+              fragment={shared.fragment}
+              onDone={(kept) => {
+                shared.clear();
+                setSaved(kept);
+              }}
+            />
+          </ScreenBoundary>
         </main>
       ) : (
         <Tabs
@@ -114,19 +127,29 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
           <main className={main}>
             <DatabaseNotice />
             <TabsContent value="connect">
-              <ConnectScreen support={support} />
+              <ScreenBoundary screen="connect">
+                <ConnectScreen support={support} />
+              </ScreenBoundary>
             </TabsContent>
             <TabsContent value="scan">
-              <ScanScreen />
+              <ScreenBoundary screen="scan" onGoToConnect={goConnect}>
+                <ScanScreen />
+              </ScreenBoundary>
             </TabsContent>
             <TabsContent value="live">
-              <LiveScreen />
+              <ScreenBoundary screen="live" onGoToConnect={goConnect}>
+                <LiveScreen />
+              </ScreenBoundary>
             </TabsContent>
             <TabsContent value="runs">
-              <RunsScreen />
+              <ScreenBoundary screen="runs" onGoToConnect={goConnect}>
+                <RunsScreen />
+              </ScreenBoundary>
             </TabsContent>
             <TabsContent value="settings">
-              <SettingsScreen />
+              <ScreenBoundary screen="settings" onGoToConnect={goConnect}>
+                <SettingsScreen />
+              </ScreenBoundary>
             </TabsContent>
           </main>
           <TabsList className={nav} aria-label="Screens">
