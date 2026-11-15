@@ -10,6 +10,8 @@ import bmwFFem from "./bmw-f-fem.json" with { type: "json" };
 import bmwG29 from "./bmw-g29.json" with { type: "json" };
 import bmwI3 from "./bmw-i3.json" with { type: "json" };
 import mercedesW211 from "./mercedes-w211.json" with { type: "json" };
+import psaKwp2000 from "./psa-kwp2000.json" with { type: "json" };
+import psaUds from "./psa-uds.json" with { type: "json" };
 import vagMqb from "./vag-mqb.json" with { type: "json" };
 import vwUp from "./vw-up.json" with { type: "json" };
 
@@ -18,6 +20,8 @@ const SHIPPED: ReadonlyMap<string, unknown> = new Map<string, unknown>([
   ["bmw-g29", bmwG29],
   ["bmw-i3", bmwI3],
   ["mercedes-w211", mercedesW211],
+  ["psa-kwp2000", psaKwp2000],
+  ["psa-uds", psaUds],
   ["vag-mqb", vagMqb],
   ["vw-up", vwUp],
 ]);
