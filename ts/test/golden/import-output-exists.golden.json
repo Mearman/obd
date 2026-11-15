@@ -1,0 +1,7 @@
+{
+  "name": "import-output-exists",
+  "exit": 1,
+  "stdout": "error: names.json already exists; choose a new file\n",
+  "stderr": "",
+  "files": {}
+}

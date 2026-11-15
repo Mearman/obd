@@ -1,0 +1,7 @@
+{
+  "name": "describe-missing-names-file",
+  "exit": 1,
+  "stdout": "error: nothing.json: [Errno 2] No such file or directory: 'nothing.json'\n",
+  "stderr": "",
+  "files": {}
+}

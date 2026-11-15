@@ -4,3 +4,4 @@ pnpm-lock.yaml
 src/storage/migrations/
 src/storage/migrations.ts
 app/
+test/golden/

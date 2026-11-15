@@ -1,0 +1,9 @@
+{
+  "name": "live-csv",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nsample 1 at 0.0 s:\nengine speed: 750 rpm\nsample 2 at 0.0 s:\nengine speed: 750 rpm\n",
+  "stderr": "",
+  "files": {
+    "run.csv": "time,elapsed (s),engine speed (rpm)\r\n2026-01-02T03:04:05.678+00:00,0.000,750\r\n2026-01-02T03:04:05.678+00:00,0.000,750\r\n"
+  }
+}

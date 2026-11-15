@@ -1,0 +1,10 @@
+{
+  "name": "mqtt-invalid-bad-device-id",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nerror: --device-id may hold only lower-case letters, digits and underscores\n",
+  "stderr": "",
+  "files": {},
+  "broker": {
+    "connected": false
+  }
+}

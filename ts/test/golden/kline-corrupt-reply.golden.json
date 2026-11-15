@@ -1,0 +1,7 @@
+{
+  "name": "kline-corrupt-reply",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile old-car: address table is unconfirmed\nengine (1 -> 1): no answer\n  note: session request failed: K-line reply fails its checksum: '48F10150810C'\nabs (3 -> 3): no answer\n  note: session request failed: K-line reply fails its checksum: '48F1037F1011DD'\n0 of 2 units answered\n",
+  "stderr": "",
+  "files": {}
+}

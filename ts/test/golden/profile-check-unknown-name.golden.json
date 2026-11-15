@@ -1,0 +1,7 @@
+{
+  "name": "profile-check-unknown-name",
+  "exit": 1,
+  "stdout": "no-such-profile: no profile named 'no-such-profile'; shipped profiles: mercedes-w211, vag-mqb\n",
+  "stderr": "",
+  "files": {}
+}

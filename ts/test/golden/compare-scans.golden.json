@@ -1,0 +1,7 @@
+{
+  "name": "compare-scans",
+  "exit": 0,
+  "stdout": "first scan:  a.json (taken 2026-01-01T00:00:00+00:00, profile codes)\nsecond scan: b.json (taken 2026-02-01T00:00:00+00:00, profile codes)\nengine:\n  started answering\n  fault codes were not read in the first scan\nesp:\n  appeared: 2222 (status 40)\n  cleared: 9003 (status 20)\n  changed: 5123: status 61 -> 21\n",
+  "stderr": "",
+  "files": {}
+}

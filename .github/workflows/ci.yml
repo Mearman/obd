@@ -19,6 +19,8 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
       - run: uv run pytest
+      - name: Golden files match the Python sources
+        run: uv run python -I scripts/record_golden.py --check
 
   typescript:
     runs-on: ubuntu-latest
@@ -38,6 +40,8 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - name: Parity with the Python command line
+        run: pnpm test:parity
       - run: pnpm build
       # The app consumes the package through its built exports, so these follow the build above.
       - run: pnpm --filter obd-read-app lint

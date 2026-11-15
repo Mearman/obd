@@ -1,0 +1,10 @@
+{
+  "name": "mqtt-invalid-wildcard-prefix",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nerror: --topic-prefix must be a topic with no wildcard and no leading or trailing slash\n",
+  "stderr": "",
+  "files": {},
+  "broker": {
+    "connected": false
+  }
+}

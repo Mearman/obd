@@ -1,0 +1,7 @@
+{
+  "name": "describe-hex-code-without-unit",
+  "exit": 0,
+  "stdout": "5123: no description known\n",
+  "stderr": "",
+  "files": {}
+}

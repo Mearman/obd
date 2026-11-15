@@ -1,0 +1,7 @@
+{
+  "name": "kline-faults",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile old-car: address table is unconfirmed\nengine (1 -> 1): answered\n  identification: 303641393036303332  06A906032\n  fault codes: 1\n    0123  status 60\n",
+  "stderr": "",
+  "files": {}
+}

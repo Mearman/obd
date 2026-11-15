@@ -1,0 +1,7 @@
+{
+  "name": "simulate-unknown-profile",
+  "exit": 1,
+  "stdout": "error: no profile named 'no-such-profile'; shipped profiles: mercedes-w211, vag-mqb\n",
+  "stderr": "",
+  "files": {}
+}

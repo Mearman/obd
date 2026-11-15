@@ -1,0 +1,7 @@
+{
+  "name": "discover-refuses-write-session",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nsweeping request identifiers 0x7e0 to 0x7e1 with kwp2000 session 0x85; each silent identifier waits out the adapter's reply timeout\nerror: kwp2000 service 10 sub-function 85 refused: only default and standard diagnostic sessions are allowed\n",
+  "stderr": "",
+  "files": {}
+}

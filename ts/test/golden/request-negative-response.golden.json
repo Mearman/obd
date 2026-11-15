@@ -1,0 +1,7 @@
+{
+  "name": "request-negative-response",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nerror: service 1A refused with code 11 (service not supported)\n",
+  "stderr": "",
+  "files": {}
+}

@@ -1,0 +1,7 @@
+{
+  "name": "obd-29-bit",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nVIN: not reported\nno unit answered the readiness request\nno unit answered the supported current-data request\n",
+  "stderr": "",
+  "files": {}
+}

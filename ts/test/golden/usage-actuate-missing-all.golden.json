@@ -1,0 +1,7 @@
+{
+  "name": "usage-actuate-missing-all",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read actuate [-h] --adapter ADAPTER [--log LOG] --profile PROFILE\n                        --request REQUEST --stop STOP --seconds SECONDS\n                        unit\nobd-read actuate: error: the following arguments are required: --request, --stop, --seconds\n",
+  "files": {}
+}

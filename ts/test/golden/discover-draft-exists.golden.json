@@ -1,0 +1,7 @@
+{
+  "name": "discover-draft-exists",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nerror: draft.toml already exists; choose a new file for the draft\n",
+  "stderr": "",
+  "files": {}
+}

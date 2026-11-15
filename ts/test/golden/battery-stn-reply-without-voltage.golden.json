@@ -1,0 +1,7 @@
+{
+  "name": "battery-stn-reply-without-voltage",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: STN1110 v4.2\nreading the voltage with STVR every 0.25 s\nerror: no voltage in the reply to STVR 2: ['OK']\n",
+  "stderr": "",
+  "files": {}
+}

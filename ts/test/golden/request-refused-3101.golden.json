@@ -1,0 +1,7 @@
+{
+  "name": "request-refused-3101",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nerror: kwp2000 service 31 refused: it is not a read-only service\n",
+  "stderr": "",
+  "files": {}
+}

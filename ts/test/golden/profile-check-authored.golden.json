@@ -1,0 +1,7 @@
+{
+  "name": "profile-check-authored",
+  "exit": 0,
+  "stdout": "good.toml: ok\n",
+  "stderr": "",
+  "files": {}
+}

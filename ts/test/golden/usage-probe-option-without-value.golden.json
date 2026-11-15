@@ -1,0 +1,7 @@
+{
+  "name": "usage-probe-option-without-value",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read probe [-h] --adapter ADAPTER [--log LOG] --profile PROFILE\nobd-read probe: error: argument --adapter: expected one argument\n",
+  "files": {}
+}

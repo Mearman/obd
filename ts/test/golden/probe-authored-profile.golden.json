@@ -1,0 +1,7 @@
+{
+  "name": "probe-authored-profile",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nengine (7E0 -> 7E8): answered\n  identification: 41363432313530303030302045323830434449  A6421500000 E280CDI\n1 of 1 units answered\n",
+  "stderr": "",
+  "files": {}
+}

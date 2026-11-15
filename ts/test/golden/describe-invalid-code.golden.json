@@ -1,0 +1,7 @@
+{
+  "name": "describe-invalid-code",
+  "exit": 1,
+  "stdout": "error: 'hello' is neither an SAE code such as P0420 nor hexadecimal bytes\n",
+  "stderr": "",
+  "files": {}
+}

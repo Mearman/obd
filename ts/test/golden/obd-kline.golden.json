@@ -1,0 +1,7 @@
+{
+  "name": "obd-kline",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nVIN: not reported\nunit 0: warning lamp on, 62 stored codes\nno unit answered the supported current-data request\n",
+  "stderr": "",
+  "files": {}
+}

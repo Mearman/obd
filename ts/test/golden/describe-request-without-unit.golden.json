@@ -1,0 +1,7 @@
+{
+  "name": "describe-request-without-unit",
+  "exit": 1,
+  "stdout": "error: --request needs --unit\n",
+  "stderr": "",
+  "files": {}
+}

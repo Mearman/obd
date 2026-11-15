@@ -1,0 +1,7 @@
+{
+  "name": "monitor-elm-software-filter",
+  "exit": 0,
+  "stdout": "adapter ELM327 v2.3, monitoring with ELM327 filters: the log holds what passes them\n2026-01-02T03:04:05.678+00:00 7E8 064100BE3FA813\n1 frames logged\n",
+  "stderr": "",
+  "files": {}
+}

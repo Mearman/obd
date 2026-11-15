@@ -1,0 +1,7 @@
+{
+  "name": "monitor-identifier-too-wide",
+  "exit": 1,
+  "stdout": "error: identifier 800 does not fit 11 bits\n",
+  "stderr": "",
+  "files": {}
+}

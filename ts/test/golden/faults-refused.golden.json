@@ -1,0 +1,7 @@
+{
+  "name": "faults-refused",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nesp (784 -> 785): answered\n  note: session request refused: service 10 refused with code 11 (service not supported)\n  note: identification not read: service 1A refused with code 11 (service not supported)\n  note: fault codes not read: service 18 refused with code 11 (service not supported)\n",
+  "stderr": "",
+  "files": {}
+}

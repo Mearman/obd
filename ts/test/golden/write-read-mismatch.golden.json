@@ -1,0 +1,7 @@
+{
+  "name": "write-read-mismatch",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nerror: the read request must be 2199, which reads the identifier the write names; got 2198\n",
+  "stderr": "",
+  "files": {}
+}

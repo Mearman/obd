@@ -1,0 +1,7 @@
+{
+  "name": "ident-silent-unit",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nkombi (796 -> 797): no answer\n  note: no answer to the session request\n",
+  "stderr": "",
+  "files": {}
+}

@@ -1,0 +1,7 @@
+{
+  "name": "freeze-refused",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nesp (784 -> 785): answered\n  identification: 41363432313530303030302045323830434449  A6421500000 E280CDI\n  fault codes: 2\n    5123  status 61\n      freeze frame: not read: service 12 refused with code 11 (service not supported)\n    9003  status 20\n      freeze frame: not read: service 12 refused with code 11 (service not supported)\n",
+  "stderr": "",
+  "files": {}
+}

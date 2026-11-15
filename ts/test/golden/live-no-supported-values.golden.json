@@ -1,0 +1,7 @@
+{
+  "name": "live-no-supported-values",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nerror: no unit reported any supported current-data value\n",
+  "stderr": "",
+  "files": {}
+}

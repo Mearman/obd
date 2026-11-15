@@ -1,0 +1,7 @@
+{
+  "name": "clear-existing-snapshot",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nerror: before.json already exists; choose a new file for the snapshot\n",
+  "stderr": "",
+  "files": {}
+}

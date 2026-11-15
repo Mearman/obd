@@ -1,0 +1,7 @@
+{
+  "name": "adapters-inspect",
+  "exit": 0,
+  "stdout": "vLinker FD+  AA:BB:CC:DD:EE:01\n  service fff0\n    characteristic fff1  notify, read\n  service fff0\n    characteristic fff2  write\n",
+  "stderr": "",
+  "files": {}
+}

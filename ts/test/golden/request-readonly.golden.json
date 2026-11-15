@@ -1,0 +1,7 @@
+{
+  "name": "request-readonly",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\n5A8641363432313530303030302045323830434449\n",
+  "stderr": "",
+  "files": {}
+}

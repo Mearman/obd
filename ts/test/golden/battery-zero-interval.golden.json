@@ -1,0 +1,7 @@
+{
+  "name": "battery-zero-interval",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nerror: --duration must not be negative and --interval must be positive\n",
+  "stderr": "",
+  "files": {}
+}

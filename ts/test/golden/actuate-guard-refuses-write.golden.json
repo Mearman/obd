@@ -1,0 +1,7 @@
+{
+  "name": "actuate-guard-refuses-write",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nerror: start request 3B990203 is not a kwp2000 actuation request\n",
+  "stderr": "",
+  "files": {}
+}

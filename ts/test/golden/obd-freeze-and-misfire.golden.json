@@ -1,0 +1,7 @@
+{
+  "name": "obd-freeze-and-misfire",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nVIN: TESTVIN0000000001\nunit 7E8: warning lamp on, 1 stored codes\nstored codes from 7E8: P0420\npending codes from 7E8: none\npermanent codes from 7E8: none\nreadiness from 7E8 (spark ignition):\n  complete: none\n  not complete: none\nengine load: 50.196 %\ncoolant temperature: 83 °C\nengine speed: 750 rpm\nvehicle speed: 50 km/h\nfreeze frame from 7E8: P0302\n  coolant temperature: 74 °C\n  engine speed: 2816 rpm\nmisfire counts from 7E8 (cylinder order follows the monitor order and is unconfirmed):\n  engine: last cycle 4, average of last ten cycles not reported\n  cylinder 1: last cycle 1, average of last ten cycles 0\n  cylinder 2: last cycle 3, average of last ten cycles 84\n",
+  "stderr": "",
+  "files": {}
+}

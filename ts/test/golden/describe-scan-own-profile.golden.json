@@ -1,0 +1,7 @@
+{
+  "name": "describe-scan-own-profile",
+  "exit": 1,
+  "stdout": "error: no profile named 'codes'; shipped profiles: mercedes-w211, vag-mqb\n",
+  "stderr": "",
+  "files": {}
+}

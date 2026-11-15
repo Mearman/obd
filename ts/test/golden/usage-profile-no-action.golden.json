@@ -1,0 +1,7 @@
+{
+  "name": "usage-profile-no-action",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read profile [-h] {check} ...\nobd-read profile: error: the following arguments are required: action\n",
+  "files": {}
+}

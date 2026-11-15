@@ -1,0 +1,7 @@
+{
+  "name": "import-cbf-refused",
+  "exit": 1,
+  "stdout": "error: car.cbf: CBF files are not read directly; convert one with Trafo from CaesarSuite and pass the JSON it writes\n",
+  "stderr": "",
+  "files": {}
+}

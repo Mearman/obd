@@ -1,0 +1,7 @@
+{
+  "name": "probe-silent-adapter",
+  "exit": 1,
+  "stdout": "error: no prompt from the adapter after 'ATZ'\n",
+  "stderr": "",
+  "files": {}
+}

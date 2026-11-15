@@ -1,0 +1,7 @@
+{
+  "name": "battery-single-sample",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nreading the voltage with ATRV every 0.25 s\n0.00 s: 12.4 V\n1 sample: lowest 12.4 V at 0.00 s, highest 12.4 V at 0.00 s, last 12.4 V\n",
+  "stderr": "",
+  "files": {}
+}

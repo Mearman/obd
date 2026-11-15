@@ -1,0 +1,7 @@
+{
+  "name": "faults-uds",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile vag-mqb: address table is unconfirmed\nengine (7E0 -> 7E8): answered\n  VIN: 53494D554C415445444341523030303031  SIMULATEDCAR00001\n  fault codes: 1\n    C12345  status 08\n",
+  "stderr": "",
+  "files": {}
+}

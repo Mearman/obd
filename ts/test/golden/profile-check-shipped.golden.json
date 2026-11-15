@@ -1,0 +1,7 @@
+{
+  "name": "profile-check-shipped",
+  "exit": 0,
+  "stdout": "mercedes-w211: ok\nvag-mqb: ok\n",
+  "stderr": "",
+  "files": {}
+}

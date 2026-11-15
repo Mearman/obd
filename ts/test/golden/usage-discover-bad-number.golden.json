@@ -1,0 +1,7 @@
+{
+  "name": "usage-discover-bad-number",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read discover [-h] --adapter ADAPTER [--log LOG]\n                         --protocol {kwp2000,uds} [--session SESSION]\n                         [--bitrate {250000,500000}] [--first FIRST]\n                         [--last LAST] [--output OUTPUT] [--name NAME]\nobd-read discover: error: argument --first: invalid <lambda> value: 'zz'\n",
+  "files": {}
+}

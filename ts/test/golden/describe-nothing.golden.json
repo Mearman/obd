@@ -1,0 +1,7 @@
+{
+  "name": "describe-nothing",
+  "exit": 1,
+  "stdout": "error: give a scan file, a fault code or --request\n",
+  "stderr": "",
+  "files": {}
+}

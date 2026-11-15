@@ -1,0 +1,7 @@
+{
+  "name": "restore-wrong-unit",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nerror: before.json was taken from {'name': 'esp', 'request_id': '784', 'response_id': '785'}, not {'name': 'engine', 'request_id': '7E0', 'response_id': '7E8'}\n",
+  "stderr": "",
+  "files": {}
+}

@@ -1,0 +1,7 @@
+{
+  "name": "discover-finds-units",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nsweeping request identifiers 0x7e0 to 0x7e1 with kwp2000 session 0x81; each silent identifier waits out the adapter's reply timeout\nrequest 0x7e0 -> response 0x7e8: session accepted\n1 replies in 2 identifiers\n",
+  "stderr": "",
+  "files": {}
+}

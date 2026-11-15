@@ -1,0 +1,7 @@
+{
+  "name": "monitor-raw-listen-only",
+  "exit": 0,
+  "stdout": "raw CAN link, listen-only: the log is complete\n2026-01-02T03:04:05.678+00:00 7E8 034100BECCCCCCCC\n2026-01-02T03:04:05.678+00:00 123 01CCCCCCCCCCCCCC\n2 frames logged\n",
+  "stderr": "",
+  "files": {}
+}

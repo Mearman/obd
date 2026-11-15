@@ -1,0 +1,7 @@
+{
+  "name": "usage-probe-missing-both",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read probe [-h] --adapter ADAPTER [--log LOG] --profile PROFILE\nobd-read probe: error: the following arguments are required: --adapter, --profile\n",
+  "files": {}
+}

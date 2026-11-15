@@ -1,0 +1,7 @@
+{
+  "name": "live-negative-interval",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nerror: --interval must not be negative\n",
+  "stderr": "",
+  "files": {}
+}

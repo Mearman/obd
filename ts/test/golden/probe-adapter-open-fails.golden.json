@@ -1,0 +1,7 @@
+{
+  "name": "probe-adapter-open-fails",
+  "exit": 1,
+  "stdout": "error: could not open the link to the fake adapter\n",
+  "stderr": "",
+  "files": {}
+}

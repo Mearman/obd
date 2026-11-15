@@ -1,0 +1,44 @@
+{
+  "name": "mqtt-no-voltage",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\npublishing 1 sensors to broker.local:1883 under obd-read/tcp_fake_1, discovery under homeassistant\n",
+  "stderr": "",
+  "files": {},
+  "broker": {
+    "connected": true,
+    "host": "broker.local",
+    "port": 1883,
+    "clientId": "obd-read-tcp_fake_1",
+    "tls": false,
+    "will": [
+      "obd-read/tcp_fake_1/availability",
+      "offline",
+      true
+    ],
+    "username": null,
+    "password": null,
+    "messages": [
+      [
+        "homeassistant/sensor/tcp_fake_1_engine_speed/config",
+        "{\"name\": \"engine speed\", \"unique_id\": \"tcp_fake_1_engine_speed\", \"state_topic\": \"obd-read/tcp_fake_1/engine_speed\", \"availability_topic\": \"obd-read/tcp_fake_1/availability\", \"device\": {\"identifiers\": [\"tcp_fake_1\"], \"name\": \"obd-read ELM327 v2.3\", \"model\": \"ELM327 v2.3\"}, \"unit_of_measurement\": \"rpm\", \"state_class\": \"measurement\", \"expire_after\": 30}",
+        true
+      ],
+      [
+        "obd-read/tcp_fake_1/availability",
+        "online",
+        true
+      ],
+      [
+        "obd-read/tcp_fake_1/engine_speed",
+        "750",
+        false
+      ],
+      [
+        "obd-read/tcp_fake_1/availability",
+        "offline",
+        true
+      ]
+    ],
+    "closed": true
+  }
+}

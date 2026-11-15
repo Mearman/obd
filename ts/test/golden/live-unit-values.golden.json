@@ -1,0 +1,7 @@
+{
+  "name": "live-unit-values",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nunconfirmed identifiers, check against the car: rail-temperature\nsample 1 at 0.0 s:\nboost pressure: 260 kPa\nrail temperature: -45 degC\nsample 2 at 0.0 s:\nboost pressure: 260 kPa\nrail temperature: -45 degC\n",
+  "stderr": "",
+  "files": {}
+}

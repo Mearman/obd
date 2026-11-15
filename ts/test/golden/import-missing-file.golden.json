@@ -1,0 +1,7 @@
+{
+  "name": "import-missing-file",
+  "exit": 1,
+  "stdout": "error: nothing.odx: [Errno 2] No such file or directory: 'nothing.odx'\n",
+  "stderr": "",
+  "files": {}
+}

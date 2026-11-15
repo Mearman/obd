@@ -1,0 +1,7 @@
+{
+  "name": "battery-csv-exists",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nreading the voltage with ATRV every 0.25 s\nerror: volts.csv already exists; choose a new file for the log\n",
+  "stderr": "",
+  "files": {}
+}

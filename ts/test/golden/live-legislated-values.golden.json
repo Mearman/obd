@@ -1,0 +1,7 @@
+{
+  "name": "live-legislated-values",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nsample 1 at 0.0 s:\nengine speed: 750 rpm\ncoolant temperature: 83 °C\nsample 2 at 0.0 s:\nengine speed: 750 rpm\ncoolant temperature: 83 °C\nsample 3 at 0.0 s:\nengine speed: 750 rpm\ncoolant temperature: 83 °C\n",
+  "stderr": "",
+  "files": {}
+}

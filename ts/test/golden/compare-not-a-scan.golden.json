@@ -1,0 +1,7 @@
+{
+  "name": "compare-not-a-scan",
+  "exit": 1,
+  "stdout": "error: a.json: not an obd-read scan (no tool field)\n",
+  "stderr": "",
+  "files": {}
+}

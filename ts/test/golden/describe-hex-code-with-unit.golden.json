@@ -1,0 +1,7 @@
+{
+  "name": "describe-hex-code-with-unit",
+  "exit": 0,
+  "stdout": "esp 5123: Wheel speed sensor, front left  [invented for the test]\n",
+  "stderr": "",
+  "files": {}
+}

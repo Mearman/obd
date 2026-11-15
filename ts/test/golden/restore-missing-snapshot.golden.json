@@ -1,0 +1,7 @@
+{
+  "name": "restore-missing-snapshot",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nerror: cannot read the snapshot nothing.json: [Errno 2] No such file or directory: 'nothing.json'\n",
+  "stderr": "",
+  "files": {}
+}

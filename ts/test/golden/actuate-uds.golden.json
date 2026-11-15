@@ -1,0 +1,7 @@
+{
+  "name": "actuate-uds",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile vag-mqb: address table is unconfirmed\nunit: engine (7E0 -> 7E8)\nstart request: 2F019903FF\nstop request: 2F019900, sent after 0.05 seconds or on any error\nsending start request 2F019903FF\nstart reply: 6F019903FF\nholding for 0.05 seconds\nsending stop request 2F019900\nstop reply: 6F019900\ncontrol handed back to the unit\n",
+  "stderr": "",
+  "files": {}
+}

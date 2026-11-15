@@ -1,0 +1,9 @@
+{
+  "name": "import-odx",
+  "exit": 0,
+  "stdout": "read 2 fault codes and 1 requests\nwrote names.json; it holds names from test.odx-d and must not be published\n",
+  "stderr": "",
+  "files": {
+    "names.json": "{\n  \"tool\": \"obd-read\",\n  \"kind\": \"names\",\n  \"source\": \"test.odx-d\",\n  \"units\": {\n    \"esp\": {\n      \"codes\": {\n        \"5123\": \"Test sensor A fault\",\n        \"9003\": \"Test sensor B fault\"\n      },\n      \"values\": {\n        \"1A86\": \"Read test part number\"\n      }\n    }\n  }\n}\n"
+  }
+}

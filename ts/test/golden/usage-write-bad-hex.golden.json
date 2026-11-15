@@ -1,0 +1,7 @@
+{
+  "name": "usage-write-bad-hex",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read write [-h] --adapter ADAPTER [--log LOG] --profile PROFILE\n                      --request REQUEST --read READ --save SAVE\n                      unit\nobd-read write: error: argument --request: invalid hexadecimal value: 'zz'\n",
+  "files": {}
+}

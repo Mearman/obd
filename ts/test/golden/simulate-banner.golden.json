@@ -1,0 +1,7 @@
+{
+  "name": "simulate-banner",
+  "exit": 130,
+  "stdout": "simulating mercedes-w211 (13 units) on tcp://127.0.0.1:65277\neach connection gets a fresh car; press Ctrl-C to stop\n",
+  "stderr": "",
+  "files": {}
+}

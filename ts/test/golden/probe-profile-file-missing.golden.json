@@ -1,0 +1,7 @@
+{
+  "name": "probe-profile-file-missing",
+  "exit": 1,
+  "stdout": "error: no profile file at nothere.toml\n",
+  "stderr": "",
+  "files": {}
+}

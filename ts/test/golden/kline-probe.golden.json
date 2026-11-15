@@ -1,0 +1,7 @@
+{
+  "name": "kline-probe",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile old-car: address table is unconfirmed\nengine (1 -> 1): answered\n  identification: 303641393036303332  06A906032\nabs (3 -> 3): no answer\n  note: no answer to the session request\n1 of 2 units answered\n",
+  "stderr": "",
+  "files": {}
+}

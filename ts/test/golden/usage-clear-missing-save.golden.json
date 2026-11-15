@@ -1,0 +1,7 @@
+{
+  "name": "usage-clear-missing-save",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read clear [-h] --adapter ADAPTER [--log LOG] --profile PROFILE\n                      --save SAVE [--yes]\n                      unit\nobd-read clear: error: the following arguments are required: --save\n",
+  "files": {}
+}

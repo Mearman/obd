@@ -1,0 +1,7 @@
+{
+  "name": "describe-scan-with-profile",
+  "exit": 0,
+  "stdout": "a.json (taken 2026-01-01T00:00:00+00:00, profile codes)\n  esp 5123 status 61: Wheel speed sensor, front left  [invented for the test]\n  esp 9003 status 20: no description known\n  esp 1111 status 08: no description known\n",
+  "stderr": "",
+  "files": {}
+}

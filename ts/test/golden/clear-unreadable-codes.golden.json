@@ -1,0 +1,7 @@
+{
+  "name": "clear-unreadable-codes",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nerror: could not read esp's fault codes (session request refused: service 10 refused with code 11 (service not supported); identification not read: service 1A refused with code 11 (service not supported); fault codes not read: service 18 refused with code 11 (service not supported)); nothing cleared\n",
+  "stderr": "",
+  "files": {}
+}

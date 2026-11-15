@@ -1,0 +1,9 @@
+{
+  "name": "discover-writes-draft",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nsweeping request identifiers 0x7e0 to 0x7e1 with kwp2000 session 0x81; each silent identifier waits out the adapter's reply timeout\nrequest 0x7e0 -> response 0x7e8: session accepted\n1 replies in 2 identifiers\nwrote draft profile draft.toml; check it with: obd-read profile check draft.toml\n",
+  "stderr": "",
+  "files": {
+    "draft.toml": "# Draft written by obd-read discover on 2026-01-02.\n# Every unit is a CAN identifier pair that answered a session request. Nothing says\n# what the units are: rename them and fill in the descriptions before relying on this.\n\nname = \"found\"\ndescription = \"Draft from a discovery sweep\"\nstatus = \"unconfirmed\"\n\n[bus]\nid_bits = 11\nbitrate = 500000\n\n[diagnostics]\nprotocol = \"kwp2000\"\nsession = 0x81\n\n[units.unit-7e0]\ndescription = \"Unidentified unit that answered on 0x7e0\"\nrequest = 0x7e0\nresponse = 0x7e8\nsource = \"obd-read discover sweep on 2026-01-02: session accepted\"\n"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "adapters-list",
+  "exit": 0,
+  "stdout": "Bluetooth LE devices:\n  Strong  AA:BB:CC:DD:EE:03  signal -30 dBm\n  (no name)  AA:BB:CC:DD:EE:02  signal -40 dBm\n  vLinker FD+  AA:BB:CC:DD:EE:01  signal -60 dBm\nSerial ports:\n  /dev/tty.a  First port\n  /dev/tty.b  Second port\n",
+  "stderr": "",
+  "files": {}
+}

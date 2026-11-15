@@ -1,0 +1,7 @@
+{
+  "name": "live-unknown-unit",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nerror: profile test-kwp has no unit 'radio'; it has engine\n",
+  "stderr": "",
+  "files": {}
+}

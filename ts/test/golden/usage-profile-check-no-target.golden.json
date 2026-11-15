@@ -1,0 +1,7 @@
+{
+  "name": "usage-profile-check-no-target",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read profile check [-h] PROFILE [PROFILE ...]\nobd-read profile check: error: the following arguments are required: PROFILE\n",
+  "files": {}
+}

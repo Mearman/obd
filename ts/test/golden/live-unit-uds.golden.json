@@ -1,0 +1,7 @@
+{
+  "name": "live-unit-uds",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nboost pressure: 260 kPa\n",
+  "stderr": "",
+  "files": {}
+}

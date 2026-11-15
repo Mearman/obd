@@ -1,0 +1,7 @@
+{
+  "name": "live-count-zero",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nerror: --count must be at least 1\n",
+  "stderr": "",
+  "files": {}
+}

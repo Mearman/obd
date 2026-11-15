@@ -1,0 +1,7 @@
+{
+  "name": "profile-check-problems",
+  "exit": 1,
+  "stdout": "bad.toml: 9 problems\n  status must be confirmed or unconfirmed, got 'probably'\n  name 'Test Car' must be lower-case words joined by hyphens\n  description is blank\n  [units.engine]: source is blank, so the address cannot be traced\n  [units.engine]: request 0x800 does not fit 11-bit identifiers\n  [units.engine]: response 0x800 does not fit 11-bit identifiers\n  [units.engine]: request and response are both 0x800\n  [units.other]: request 0x800 does not fit 11-bit identifiers\n  [units.other]: request 0x800 is also used by engine\nmercedes-w211: ok\n",
+  "stderr": "",
+  "files": {}
+}

@@ -1,0 +1,7 @@
+{
+  "name": "usage-obd-bad-int",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read obd [-h] --adapter ADAPTER [--log LOG] [--id-bits {11,29}]\n                    [--bitrate BITRATE]\n                    [--kline {iso9141,kwp2000-slow,kwp2000-fast}]\nobd-read obd: error: argument --id-bits: invalid int value: 'x'\n",
+  "files": {}
+}

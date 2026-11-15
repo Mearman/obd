@@ -1,0 +1,2295 @@
+{
+  "cars": {
+    "w211": {
+      "kind": "elm",
+      "units": [
+        {
+          "protocol": "kwp",
+          "request": "7E0",
+          "response": "7E8",
+          "faults": []
+        },
+        {
+          "protocol": "kwp",
+          "request": "784",
+          "response": "785",
+          "faults": [
+            ["5123", "61"],
+            ["9003", "20"]
+          ]
+        }
+      ]
+    },
+    "w211-freeze-refused": {
+      "kind": "elm",
+      "units": [
+        {
+          "protocol": "kwp",
+          "request": "7E0",
+          "response": "7E8",
+          "faults": []
+        },
+        {
+          "protocol": "kwp",
+          "request": "784",
+          "response": "785",
+          "faults": [
+            ["5123", "61"],
+            ["9003", "20"]
+          ],
+          "freezeRefused": true
+        }
+      ]
+    },
+    "w211-esp-refuses": {
+      "kind": "elm",
+      "units": [
+        {
+          "protocol": "kwp",
+          "request": "7E0",
+          "response": "7E8",
+          "faults": []
+        },
+        {
+          "protocol": "kwp",
+          "request": "784",
+          "response": "785",
+          "faults": [
+            ["5123", "61"],
+            ["9003", "20"]
+          ],
+          "refuseAll": true
+        }
+      ]
+    },
+    "w211-writes": {
+      "kind": "elm",
+      "units": [
+        {
+          "protocol": "kwp",
+          "request": "7E0",
+          "response": "7E8",
+          "faults": []
+        },
+        {
+          "protocol": "kwp",
+          "request": "784",
+          "response": "785",
+          "faults": [
+            ["5123", "61"],
+            ["9003", "20"]
+          ],
+          "records": {
+            "99": "0001"
+          }
+        }
+      ]
+    },
+    "w211-writes-refused": {
+      "kind": "elm",
+      "units": [
+        {
+          "protocol": "kwp",
+          "request": "7E0",
+          "response": "7E8",
+          "faults": []
+        },
+        {
+          "protocol": "kwp",
+          "request": "784",
+          "response": "785",
+          "faults": [
+            ["5123", "61"],
+            ["9003", "20"]
+          ],
+          "records": {
+            "99": "0001"
+          },
+          "writesRefused": true
+        }
+      ]
+    },
+    "vag-uds": {
+      "kind": "elm",
+      "units": [
+        {
+          "protocol": "uds",
+          "request": "7E0",
+          "response": "7E8",
+          "faults": [["C12345", "08"]],
+          "records": {
+            "199": "0001"
+          }
+        }
+      ]
+    },
+    "sim-w211": {
+      "kind": "simulated",
+      "profile": "mercedes-w211"
+    },
+    "sim-vag": {
+      "kind": "simulated",
+      "profile": "vag-mqb"
+    },
+    "obd": {
+      "kind": "elm",
+      "units": [],
+      "functional": {
+        "0100": [["7E8", "410018180000"]],
+        "0104": [["7E8", "410480"]],
+        "0105": [["7E8", "41057B"]],
+        "010C": [["7E8", "410C0BB8"]],
+        "010D": [["7E8", "410D32"]],
+        "0101": [["7E8", "410181000000"]],
+        "0902": [["7E8", "4902015445535456494E30303030303030303031"]],
+        "03": [["7E8", "43010420"]],
+        "07": [["7E8", "4700"]],
+        "0A": [["7E8", "4A00"]]
+      }
+    },
+    "obd-freeze": {
+      "kind": "elm",
+      "units": [],
+      "functional": {
+        "0100": [["7E8", "410018180000"]],
+        "0104": [["7E8", "410480"]],
+        "0105": [["7E8", "41057B"]],
+        "010C": [["7E8", "410C0BB8"]],
+        "010D": [["7E8", "410D32"]],
+        "0101": [["7E8", "410181000000"]],
+        "0902": [["7E8", "4902015445535456494E30303030303030303031"]],
+        "03": [["7E8", "43010420"]],
+        "07": [["7E8", "4700"]],
+        "0A": [["7E8", "4A00"]],
+        "020200": [["7E8", "4202000302"]],
+        "020500": [["7E8", "42050072"]],
+        "020C00": [["7E8", "420c002c00"]],
+        "06A1": [["7E8", "46a10c2400040000ffff"]],
+        "06A2": [["7E8", "46a20b2400000000ffffa20c2400010000ffff"]],
+        "06A3": [["7E8", "46a30b2400540000ffffa30c2400030000ffff"]]
+      }
+    },
+    "obd-clear": {
+      "kind": "elm",
+      "units": [],
+      "functional": {
+        "0100": [["7E8", "410018180000"]],
+        "0104": [["7E8", "410480"]],
+        "0105": [["7E8", "41057B"]],
+        "010C": [["7E8", "410C0BB8"]],
+        "010D": [["7E8", "410D32"]],
+        "0101": [["7E8", "410181000000"]],
+        "0902": [["7E8", "4902015445535456494E30303030303030303031"]],
+        "03": [["7E8", "43010420"]],
+        "07": [["7E8", "4700"]],
+        "0A": [["7E8", "4A00"]],
+        "04": [["7E8", "44"]]
+      }
+    },
+    "engine-values": {
+      "kind": "elm",
+      "units": [
+        {
+          "protocol": "kwp",
+          "request": "7E0",
+          "response": "7E8",
+          "faults": [],
+          "values": {
+            "10": "000A28",
+            "11": "FB"
+          }
+        }
+      ]
+    },
+    "engine-values-uds": {
+      "kind": "elm",
+      "units": [
+        {
+          "protocol": "uds",
+          "request": "7E0",
+          "response": "7E8",
+          "faults": [],
+          "values": {
+            "F410": "000A28"
+          }
+        }
+      ]
+    },
+    "bare": {
+      "kind": "elm",
+      "units": []
+    },
+    "bare-stn": {
+      "kind": "elm",
+      "units": [],
+      "stn": "STN1110 v4.2"
+    },
+    "silent": {
+      "kind": "silent"
+    },
+    "refusing": {
+      "kind": "refusing",
+      "message": "could not open the link to the fake adapter"
+    },
+    "kline": {
+      "kind": "kline",
+      "units": {
+        "1": {
+          "1081": "5081",
+          "1A86": "5A86303641393036303332",
+          "1802FF00": "5801012360",
+          "1800FF00": "5801012360"
+        },
+        "3": {},
+        "0": {
+          "0100": "4100BE3E",
+          "0101": "4101BE3E"
+        }
+      }
+    },
+    "kline-silent": {
+      "kind": "kline",
+      "units": {
+        "1": {
+          "1081": "5081",
+          "1A86": "5A86303641393036303332",
+          "1802FF00": "5801012360",
+          "1800FF00": "5801012360"
+        },
+        "3": {},
+        "0": {
+          "0100": "4100BE3E",
+          "0101": "4101BE3E"
+        }
+      },
+      "silentInit": ["3"]
+    },
+    "kline-corrupt": {
+      "kind": "kline",
+      "units": {
+        "1": {
+          "1081": "5081",
+          "1A86": "5A86303641393036303332",
+          "1802FF00": "5801012360",
+          "1800FF00": "5801012360"
+        },
+        "3": {},
+        "0": {
+          "0100": "4100BE3E",
+          "0101": "4101BE3E"
+        }
+      },
+      "corrupt": true
+    },
+    "monitor-stn": {
+      "kind": "monitor",
+      "stream": ["7E8064100BE3FA813", "7E1034100BE", "BUFFER FULL", "5A0", "7DF02010C"],
+      "stn": true
+    },
+    "monitor-elm": {
+      "kind": "monitor",
+      "stream": ["7E8064100BE3FA813", "7E1034100BE", "BUFFER FULL", "5A0", "7DF02010C"],
+      "stn": false
+    },
+    "rawcan": {
+      "kind": "rawcan",
+      "inject": [
+        ["7E8", "034100BE"],
+        ["7DF", "020100"],
+        ["123", "01"]
+      ]
+    },
+    "adapters": {
+      "kind": "adapters",
+      "ble": [
+        {
+          "name": "vLinker FD+",
+          "address": "AA:BB:CC:DD:EE:01",
+          "rssi": -60
+        },
+        {
+          "name": null,
+          "address": "AA:BB:CC:DD:EE:02",
+          "rssi": -40
+        },
+        {
+          "name": "Strong",
+          "address": "AA:BB:CC:DD:EE:03",
+          "rssi": -30
+        }
+      ],
+      "ports": [
+        {
+          "device": "/dev/tty.b",
+          "description": "Second port"
+        },
+        {
+          "device": "/dev/tty.a",
+          "description": "First port"
+        }
+      ],
+      "services": [
+        {
+          "service": "fff0",
+          "uuid": "fff1",
+          "properties": ["notify", "read"]
+        },
+        {
+          "service": "fff0",
+          "uuid": "fff2",
+          "properties": ["write"]
+        }
+      ]
+    }
+  },
+  "profiles": {
+    "kwpvals": {
+      "name": "test-kwp",
+      "description": "A car for tests",
+      "status": "confirmed",
+      "bus": {
+        "id_bits": 11,
+        "bitrate": 500000
+      },
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 146
+      },
+      "units": {
+        "engine": {
+          "description": "Engine",
+          "request": 2016,
+          "response": 2024,
+          "source": "made up for the test",
+          "values": {
+            "boost": {
+              "label": "boost pressure",
+              "unit": "kPa",
+              "identifier": 16,
+              "offset": 1,
+              "size": 2,
+              "scale": 0.1,
+              "source": "made up for the test",
+              "status": "confirmed"
+            },
+            "rail-temperature": {
+              "label": "rail temperature",
+              "unit": "degC",
+              "identifier": 17,
+              "signed": true,
+              "bias": -40,
+              "source": "made up for the test"
+            },
+            "refused": {
+              "label": "refused value",
+              "identifier": 127,
+              "source": "made up for the test"
+            }
+          }
+        }
+      }
+    },
+    "udsvals": {
+      "name": "test-uds",
+      "description": "A car for tests",
+      "status": "confirmed",
+      "bus": {
+        "id_bits": 11,
+        "bitrate": 500000
+      },
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 3
+      },
+      "units": {
+        "engine": {
+          "description": "Engine",
+          "request": 2016,
+          "response": 2024,
+          "source": "made up for the test",
+          "values": {
+            "boost": {
+              "label": "boost pressure",
+              "unit": "kPa",
+              "identifier": 62480,
+              "offset": 1,
+              "size": 2,
+              "scale": 0.1,
+              "source": "made up for the test",
+              "status": "confirmed"
+            }
+          }
+        }
+      }
+    },
+    "kl": {
+      "name": "old-car",
+      "description": "Example K-line car",
+      "status": "unconfirmed",
+      "bus": {
+        "kline": "kwp2000-slow"
+      },
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "units": {
+        "engine": {
+          "description": "Engine control unit",
+          "request": 1,
+          "response": 1,
+          "source": "test"
+        },
+        "abs": {
+          "description": "Brakes",
+          "request": 3,
+          "response": 3,
+          "source": "test"
+        }
+      }
+    },
+    "klfast": {
+      "name": "old-car",
+      "description": "Example K-line car",
+      "status": "unconfirmed",
+      "bus": {
+        "kline": "kwp2000-fast"
+      },
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "units": {
+        "engine": {
+          "description": "Engine control unit",
+          "request": 1,
+          "response": 1,
+          "source": "test"
+        }
+      }
+    },
+    "codes": {
+      "name": "test-car",
+      "description": "A car for tests",
+      "status": "confirmed",
+      "bus": {
+        "id_bits": 11,
+        "bitrate": 500000
+      },
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 146
+      },
+      "units": {
+        "esp": {
+          "description": "ESP",
+          "request": 1924,
+          "response": 1925,
+          "source": "made up for the test"
+        }
+      },
+      "codes": {
+        "esp": {
+          "5123": {
+            "text": "Wheel speed sensor, front left",
+            "source": "invented for the test"
+          }
+        }
+      }
+    },
+    "good": {
+      "name": "test-car",
+      "description": "A car for tests",
+      "status": "confirmed",
+      "bus": {
+        "id_bits": 11,
+        "bitrate": 500000
+      },
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 146
+      },
+      "units": {
+        "engine": {
+          "description": "Engine",
+          "request": 2016,
+          "response": 2024,
+          "source": "made up for the test"
+        }
+      }
+    },
+    "bad": {
+      "name": "Test Car",
+      "description": "",
+      "status": "probably",
+      "bus": {
+        "id_bits": 11,
+        "bitrate": 500000
+      },
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 146
+      },
+      "units": {
+        "engine": {
+          "description": "Engine",
+          "request": 2048,
+          "response": 2048,
+          "source": "  "
+        },
+        "other": {
+          "description": "Other",
+          "request": 2048,
+          "response": 2025,
+          "source": "x"
+        }
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "name": "usage-no-command",
+      "car": "bare",
+      "argv": []
+    },
+    {
+      "name": "usage-unknown-command",
+      "car": "bare",
+      "argv": ["bogus"]
+    },
+    {
+      "name": "usage-probe-missing-adapter",
+      "car": "bare",
+      "argv": ["probe", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "usage-probe-missing-both",
+      "car": "bare",
+      "argv": ["probe"]
+    },
+    {
+      "name": "usage-probe-option-without-value",
+      "car": "bare",
+      "argv": ["probe", "--adapter"]
+    },
+    {
+      "name": "usage-obd-bad-int",
+      "car": "bare",
+      "argv": ["obd", "--adapter", "tcp://fake:1", "--id-bits", "x"]
+    },
+    {
+      "name": "usage-obd-bad-choice",
+      "car": "bare",
+      "argv": ["obd", "--adapter", "tcp://fake:1", "--id-bits", "12"]
+    },
+    {
+      "name": "usage-probe-unrecognised",
+      "car": "bare",
+      "argv": ["probe", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211", "extra"]
+    },
+    {
+      "name": "usage-write-bad-hex",
+      "car": "bare",
+      "argv": [
+        "write",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "esp",
+        "--request",
+        "zz",
+        "--read",
+        "2199",
+        "--save",
+        "s.json"
+      ]
+    },
+    {
+      "name": "usage-obd-bad-kline",
+      "car": "bare",
+      "argv": ["obd", "--adapter", "tcp://fake:1", "--kline", "bad"]
+    },
+    {
+      "name": "usage-profile-no-action",
+      "car": "bare",
+      "argv": ["profile"]
+    },
+    {
+      "name": "usage-profile-check-no-target",
+      "car": "bare",
+      "argv": ["profile", "check"]
+    },
+    {
+      "name": "usage-request-missing-hex",
+      "car": "bare",
+      "argv": ["request", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211", "esp"]
+    },
+    {
+      "name": "usage-discover-bad-number",
+      "car": "bare",
+      "argv": ["discover", "--adapter", "tcp://fake:1", "--protocol", "uds", "--first", "zz"]
+    },
+    {
+      "name": "usage-discover-bad-protocol",
+      "car": "bare",
+      "argv": ["discover", "--adapter", "tcp://fake:1", "--protocol", "bad"]
+    },
+    {
+      "name": "usage-discover-missing-protocol",
+      "car": "bare",
+      "argv": ["discover", "--adapter", "tcp://fake:1"]
+    },
+    {
+      "name": "usage-monitor-bad-id",
+      "car": "bare",
+      "argv": ["monitor", "--adapter", "tcp://fake:1", "--id", "zz"]
+    },
+    {
+      "name": "usage-battery-bad-float",
+      "car": "bare",
+      "argv": ["battery", "--adapter", "tcp://fake:1", "--duration", "soon"]
+    },
+    {
+      "name": "usage-clear-missing-save",
+      "car": "bare",
+      "argv": ["clear", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211", "esp"]
+    },
+    {
+      "name": "usage-actuate-missing-all",
+      "car": "bare",
+      "argv": ["actuate", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211", "esp"]
+    },
+    {
+      "name": "usage-abbreviated-options",
+      "car": "obd",
+      "argv": ["obd", "--adap", "tcp://fake:1", "--bit", "250000"]
+    },
+    {
+      "name": "usage-option-equals-form",
+      "car": "obd",
+      "argv": ["obd", "--adapter=tcp://fake:1", "--id-bits=29"]
+    },
+    {
+      "name": "usage-negative-number-value",
+      "car": "bare",
+      "argv": ["battery", "--adapter", "tcp://fake:1", "--duration", "-1"]
+    },
+    {
+      "name": "profile-check-shipped",
+      "car": "bare",
+      "argv": ["profile", "check", "mercedes-w211", "vag-mqb"]
+    },
+    {
+      "name": "profile-check-unknown-name",
+      "car": "bare",
+      "argv": ["profile", "check", "no-such-profile"]
+    },
+    {
+      "name": "profile-check-missing-file",
+      "car": "bare",
+      "argv": ["profile", "check", "@profile:nothere"]
+    },
+    {
+      "name": "profile-check-authored",
+      "car": "bare",
+      "argv": ["profile", "check", "@profile:good"],
+      "profiles": ["good"]
+    },
+    {
+      "name": "profile-check-problems",
+      "car": "bare",
+      "argv": ["profile", "check", "@profile:bad", "mercedes-w211"],
+      "profiles": ["bad"]
+    },
+    {
+      "name": "probe-w211",
+      "car": "w211",
+      "argv": ["probe", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "probe-vag",
+      "car": "sim-vag",
+      "argv": ["probe", "--adapter", "tcp://fake:1", "--profile", "vag-mqb"]
+    },
+    {
+      "name": "probe-with-log",
+      "car": "w211",
+      "argv": [
+        "probe",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--log",
+        "run.log"
+      ]
+    },
+    {
+      "name": "probe-adapter-open-fails",
+      "car": "refusing",
+      "argv": ["probe", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "probe-silent-adapter",
+      "car": "silent",
+      "argv": ["probe", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "probe-bad-adapter-url-profile",
+      "car": "w211",
+      "argv": ["probe", "--adapter", "tcp://fake:1", "--profile", "no-such-profile"]
+    },
+    {
+      "name": "probe-profile-file-missing",
+      "car": "w211",
+      "argv": ["probe", "--adapter", "tcp://fake:1", "--profile", "@profile:nothere"]
+    },
+    {
+      "name": "probe-authored-profile",
+      "car": "w211",
+      "argv": ["probe", "--adapter", "tcp://fake:1", "--profile", "@profile:good"],
+      "profiles": ["good"]
+    },
+    {
+      "name": "ident-esp",
+      "car": "w211",
+      "argv": ["ident", "esp", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "ident-silent-unit",
+      "car": "w211",
+      "argv": ["ident", "kombi", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "ident-unknown-unit",
+      "car": "w211",
+      "argv": ["ident", "radio", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "faults-esp",
+      "car": "w211",
+      "argv": ["faults", "esp", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "faults-engine-none",
+      "car": "w211",
+      "argv": ["faults", "engine", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "faults-refused",
+      "car": "w211-esp-refuses",
+      "argv": ["faults", "esp", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "faults-uds",
+      "car": "vag-uds",
+      "argv": ["faults", "engine", "--adapter", "tcp://fake:1", "--profile", "vag-mqb"]
+    },
+    {
+      "name": "freeze-esp",
+      "car": "w211",
+      "argv": ["freeze", "esp", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "freeze-refused",
+      "car": "w211-freeze-refused",
+      "argv": ["freeze", "esp", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "scan-w211",
+      "car": "w211",
+      "argv": ["scan", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "scan-with-freeze-output",
+      "car": "w211",
+      "argv": [
+        "scan",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--output",
+        "scan",
+        "--freeze"
+      ]
+    },
+    {
+      "name": "scan-output-replaces-report",
+      "car": "w211",
+      "argv": [
+        "scan",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--output",
+        "scan.x"
+      ],
+      "files": {
+        "scan.json": "earlier report"
+      }
+    },
+    {
+      "name": "scan-uds-simulated",
+      "car": "sim-vag",
+      "argv": ["scan", "--adapter", "tcp://fake:1", "--profile", "vag-mqb", "--freeze"]
+    },
+    {
+      "name": "request-readonly",
+      "car": "w211",
+      "argv": ["request", "esp", "1A86", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "request-with-spaces",
+      "car": "w211",
+      "argv": ["request", "esp", "1A 86", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "request-refused-14ff00",
+      "car": "w211",
+      "argv": [
+        "request",
+        "esp",
+        "14FF00",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211"
+      ]
+    },
+    {
+      "name": "request-refused-3101",
+      "car": "w211",
+      "argv": ["request", "esp", "3101", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "request-refused-3b0100",
+      "car": "w211",
+      "argv": [
+        "request",
+        "esp",
+        "3B0100",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211"
+      ]
+    },
+    {
+      "name": "request-refused-2701",
+      "car": "w211",
+      "argv": ["request", "esp", "2701", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "request-refused-1085",
+      "car": "w211",
+      "argv": ["request", "esp", "1085", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "request-refused-zz",
+      "car": "w211",
+      "argv": ["request", "esp", "zz", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "request-refused-1a8",
+      "car": "w211",
+      "argv": ["request", "esp", "1A8", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "request-negative-response",
+      "car": "w211-esp-refuses",
+      "argv": ["request", "esp", "1A86", "--adapter", "tcp://fake:1", "--profile", "mercedes-w211"]
+    },
+    {
+      "name": "clear-confirmed",
+      "car": "w211",
+      "argv": [
+        "clear",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--save",
+        "before.json"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "clear-declined",
+      "car": "w211",
+      "argv": [
+        "clear",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--save",
+        "before.json"
+      ],
+      "answer": "y"
+    },
+    {
+      "name": "clear-yes-flag",
+      "car": "w211",
+      "argv": [
+        "clear",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--save",
+        "before.json",
+        "--yes"
+      ]
+    },
+    {
+      "name": "clear-existing-snapshot",
+      "car": "w211",
+      "argv": [
+        "clear",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--save",
+        "before.json",
+        "--yes"
+      ],
+      "files": {
+        "before.json": "an earlier snapshot"
+      }
+    },
+    {
+      "name": "clear-unreadable-codes",
+      "car": "w211-esp-refuses",
+      "argv": [
+        "clear",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--save",
+        "before.json",
+        "--yes"
+      ]
+    },
+    {
+      "name": "clear-freeze-refused",
+      "car": "w211-freeze-refused",
+      "argv": [
+        "clear",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--save",
+        "before.json",
+        "--yes"
+      ]
+    },
+    {
+      "name": "clear-silent-unit",
+      "car": "w211",
+      "argv": [
+        "clear",
+        "kombi",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--save",
+        "before.json",
+        "--yes"
+      ]
+    },
+    {
+      "name": "clear-unknown-unit",
+      "car": "w211",
+      "argv": [
+        "clear",
+        "radio",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--save",
+        "before.json",
+        "--yes"
+      ]
+    },
+    {
+      "name": "write-confirmed",
+      "car": "w211-writes",
+      "argv": [
+        "write",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "3B990203",
+        "--read",
+        "2199",
+        "--save",
+        "before.json"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "write-declined",
+      "car": "w211-writes",
+      "argv": [
+        "write",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "3B990203",
+        "--read",
+        "2199",
+        "--save",
+        "before.json"
+      ],
+      "answer": "no"
+    },
+    {
+      "name": "write-refused-by-unit",
+      "car": "w211-writes-refused",
+      "argv": [
+        "write",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "3B990203",
+        "--read",
+        "2199",
+        "--save",
+        "before.json"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "write-existing-snapshot",
+      "car": "w211-writes",
+      "argv": [
+        "write",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "3B990203",
+        "--read",
+        "2199",
+        "--save",
+        "before.json"
+      ],
+      "answer": "yes",
+      "files": {
+        "before.json": "an earlier snapshot"
+      }
+    },
+    {
+      "name": "write-guard-refuses-other-service",
+      "car": "w211-writes",
+      "argv": [
+        "write",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "2E990203",
+        "--read",
+        "2199",
+        "--save",
+        "before.json"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "write-read-mismatch",
+      "car": "w211-writes",
+      "argv": [
+        "write",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "3B990203",
+        "--read",
+        "2198",
+        "--save",
+        "before.json"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "write-uds",
+      "car": "vag-uds",
+      "argv": [
+        "write",
+        "engine",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "vag-mqb",
+        "--request",
+        "2E01990203",
+        "--read",
+        "220199",
+        "--save",
+        "before.json"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "restore-missing-snapshot",
+      "car": "w211-writes",
+      "argv": [
+        "restore",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--snapshot",
+        "nothing.json",
+        "--save",
+        "after.json"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "restore-foreign-snapshot",
+      "car": "w211-writes",
+      "argv": [
+        "restore",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--snapshot",
+        "other.json",
+        "--save",
+        "after.json"
+      ],
+      "answer": "yes",
+      "files": {
+        "other.json": "{\"kind\": \"scan\"}"
+      }
+    },
+    {
+      "name": "actuate-confirmed",
+      "car": "sim-w211",
+      "argv": [
+        "actuate",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "304207FF",
+        "--stop",
+        "304200",
+        "--seconds",
+        "0.05"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "actuate-declined",
+      "car": "sim-w211",
+      "argv": [
+        "actuate",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "304207FF",
+        "--stop",
+        "304200",
+        "--seconds",
+        "0.05"
+      ],
+      "answer": "no"
+    },
+    {
+      "name": "actuate-too-long",
+      "car": "sim-w211",
+      "argv": [
+        "actuate",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "304207FF",
+        "--stop",
+        "304200",
+        "--seconds",
+        "31"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "actuate-zero-seconds",
+      "car": "sim-w211",
+      "argv": [
+        "actuate",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "304207FF",
+        "--stop",
+        "304200",
+        "--seconds",
+        "0"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "actuate-guard-refuses-write",
+      "car": "sim-w211",
+      "argv": [
+        "actuate",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--request",
+        "3B990203",
+        "--stop",
+        "304200",
+        "--seconds",
+        "1"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "actuate-uds",
+      "car": "sim-vag",
+      "argv": [
+        "actuate",
+        "engine",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "vag-mqb",
+        "--request",
+        "2F019903FF",
+        "--stop",
+        "2F019900",
+        "--seconds",
+        "0.05"
+      ],
+      "answer": "yes"
+    },
+    {
+      "name": "restore-confirmed",
+      "car": "w211-writes",
+      "argv": [
+        "restore",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--snapshot",
+        "before.json",
+        "--save",
+        "after.json"
+      ],
+      "answer": "yes",
+      "files": {
+        "before.json": "{\n  \"tool\": \"obd-read\",\n  \"kind\": \"write\",\n  \"taken\": \"2026-01-02T03:04:05+00:00\",\n  \"profile\": {\n    \"name\": \"mercedes-w211\",\n    \"status\": \"unconfirmed\"\n  },\n  \"protocol\": \"kwp2000\",\n  \"unit\": {\n    \"name\": \"esp\",\n    \"request_id\": \"784\",\n    \"response_id\": \"785\"\n  },\n  \"read_request\": \"2199\",\n  \"write_request\": \"3B990203\",\n  \"previous_value\": \"0001\",\n  \"restores\": null,\n  \"adapter\": {\n    \"identity\": \"ELM327 v2.3\",\n    \"description\": \"OBDII to RS232 Interpreter\",\n    \"stn_identity\": null,\n    \"voltage\": \"12.4V\"\n  },\n  \"transcript\": [\n    \"2026-01-02T03:04:05.678+00:00 > ATZ\",\n    \"2026-01-02T03:04:05.678+00:00 < ELM327 v2.3\",\n    \"2026-01-02T03:04:05.678+00:00 > ATE0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATL0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATS0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATH1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCAF1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATAT0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSTFF\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > AT@1\",\n    \"2026-01-02T03:04:05.678+00:00 < OBDII to RS232 Interpreter\",\n    \"2026-01-02T03:04:05.678+00:00 > STI\",\n    \"2026-01-02T03:04:05.678+00:00 < ?\",\n    \"2026-01-02T03:04:05.678+00:00 > ATRV\",\n    \"2026-01-02T03:04:05.678+00:00 < 12.4V\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSP6\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSH784\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCRA785\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSH784\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSD300000\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSM1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > 1092\",\n    \"2026-01-02T03:04:05.678+00:00 < 785025092\",\n    \"2026-01-02T03:04:05.678+00:00 > 2199\",\n    \"2026-01-02T03:04:05.678+00:00 < 7850461990001\"\n  ]\n}\n"
+      }
+    },
+    {
+      "name": "restore-declined",
+      "car": "w211-writes",
+      "argv": [
+        "restore",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--snapshot",
+        "before.json",
+        "--save",
+        "after.json"
+      ],
+      "answer": "no",
+      "files": {
+        "before.json": "{\n  \"tool\": \"obd-read\",\n  \"kind\": \"write\",\n  \"taken\": \"2026-01-02T03:04:05+00:00\",\n  \"profile\": {\n    \"name\": \"mercedes-w211\",\n    \"status\": \"unconfirmed\"\n  },\n  \"protocol\": \"kwp2000\",\n  \"unit\": {\n    \"name\": \"esp\",\n    \"request_id\": \"784\",\n    \"response_id\": \"785\"\n  },\n  \"read_request\": \"2199\",\n  \"write_request\": \"3B990203\",\n  \"previous_value\": \"0001\",\n  \"restores\": null,\n  \"adapter\": {\n    \"identity\": \"ELM327 v2.3\",\n    \"description\": \"OBDII to RS232 Interpreter\",\n    \"stn_identity\": null,\n    \"voltage\": \"12.4V\"\n  },\n  \"transcript\": [\n    \"2026-01-02T03:04:05.678+00:00 > ATZ\",\n    \"2026-01-02T03:04:05.678+00:00 < ELM327 v2.3\",\n    \"2026-01-02T03:04:05.678+00:00 > ATE0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATL0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATS0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATH1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCAF1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATAT0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSTFF\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > AT@1\",\n    \"2026-01-02T03:04:05.678+00:00 < OBDII to RS232 Interpreter\",\n    \"2026-01-02T03:04:05.678+00:00 > STI\",\n    \"2026-01-02T03:04:05.678+00:00 < ?\",\n    \"2026-01-02T03:04:05.678+00:00 > ATRV\",\n    \"2026-01-02T03:04:05.678+00:00 < 12.4V\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSP6\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSH784\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCRA785\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSH784\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSD300000\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSM1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > 1092\",\n    \"2026-01-02T03:04:05.678+00:00 < 785025092\",\n    \"2026-01-02T03:04:05.678+00:00 > 2199\",\n    \"2026-01-02T03:04:05.678+00:00 < 7850461990001\"\n  ]\n}\n"
+      }
+    },
+    {
+      "name": "restore-existing-save",
+      "car": "w211-writes",
+      "argv": [
+        "restore",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--snapshot",
+        "before.json",
+        "--save",
+        "after.json"
+      ],
+      "answer": "yes",
+      "files": {
+        "before.json": "{\n  \"tool\": \"obd-read\",\n  \"kind\": \"write\",\n  \"taken\": \"2026-01-02T03:04:05+00:00\",\n  \"profile\": {\n    \"name\": \"mercedes-w211\",\n    \"status\": \"unconfirmed\"\n  },\n  \"protocol\": \"kwp2000\",\n  \"unit\": {\n    \"name\": \"esp\",\n    \"request_id\": \"784\",\n    \"response_id\": \"785\"\n  },\n  \"read_request\": \"2199\",\n  \"write_request\": \"3B990203\",\n  \"previous_value\": \"0001\",\n  \"restores\": null,\n  \"adapter\": {\n    \"identity\": \"ELM327 v2.3\",\n    \"description\": \"OBDII to RS232 Interpreter\",\n    \"stn_identity\": null,\n    \"voltage\": \"12.4V\"\n  },\n  \"transcript\": [\n    \"2026-01-02T03:04:05.678+00:00 > ATZ\",\n    \"2026-01-02T03:04:05.678+00:00 < ELM327 v2.3\",\n    \"2026-01-02T03:04:05.678+00:00 > ATE0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATL0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATS0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATH1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCAF1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATAT0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSTFF\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > AT@1\",\n    \"2026-01-02T03:04:05.678+00:00 < OBDII to RS232 Interpreter\",\n    \"2026-01-02T03:04:05.678+00:00 > STI\",\n    \"2026-01-02T03:04:05.678+00:00 < ?\",\n    \"2026-01-02T03:04:05.678+00:00 > ATRV\",\n    \"2026-01-02T03:04:05.678+00:00 < 12.4V\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSP6\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSH784\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCRA785\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSH784\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSD300000\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSM1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > 1092\",\n    \"2026-01-02T03:04:05.678+00:00 < 785025092\",\n    \"2026-01-02T03:04:05.678+00:00 > 2199\",\n    \"2026-01-02T03:04:05.678+00:00 < 7850461990001\"\n  ]\n}\n",
+        "after.json": "earlier"
+      }
+    },
+    {
+      "name": "restore-wrong-unit",
+      "car": "w211-writes",
+      "argv": [
+        "restore",
+        "engine",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--snapshot",
+        "before.json",
+        "--save",
+        "after.json"
+      ],
+      "answer": "yes",
+      "files": {
+        "before.json": "{\n  \"tool\": \"obd-read\",\n  \"kind\": \"write\",\n  \"taken\": \"2026-01-02T03:04:05+00:00\",\n  \"profile\": {\n    \"name\": \"mercedes-w211\",\n    \"status\": \"unconfirmed\"\n  },\n  \"protocol\": \"kwp2000\",\n  \"unit\": {\n    \"name\": \"esp\",\n    \"request_id\": \"784\",\n    \"response_id\": \"785\"\n  },\n  \"read_request\": \"2199\",\n  \"write_request\": \"3B990203\",\n  \"previous_value\": \"0001\",\n  \"restores\": null,\n  \"adapter\": {\n    \"identity\": \"ELM327 v2.3\",\n    \"description\": \"OBDII to RS232 Interpreter\",\n    \"stn_identity\": null,\n    \"voltage\": \"12.4V\"\n  },\n  \"transcript\": [\n    \"2026-01-02T03:04:05.678+00:00 > ATZ\",\n    \"2026-01-02T03:04:05.678+00:00 < ELM327 v2.3\",\n    \"2026-01-02T03:04:05.678+00:00 > ATE0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATL0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATS0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATH1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCAF1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATAT0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSTFF\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > AT@1\",\n    \"2026-01-02T03:04:05.678+00:00 < OBDII to RS232 Interpreter\",\n    \"2026-01-02T03:04:05.678+00:00 > STI\",\n    \"2026-01-02T03:04:05.678+00:00 < ?\",\n    \"2026-01-02T03:04:05.678+00:00 > ATRV\",\n    \"2026-01-02T03:04:05.678+00:00 < 12.4V\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSP6\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSH784\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCRA785\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSH784\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSD300000\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSM1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > 1092\",\n    \"2026-01-02T03:04:05.678+00:00 < 785025092\",\n    \"2026-01-02T03:04:05.678+00:00 > 2199\",\n    \"2026-01-02T03:04:05.678+00:00 < 7850461990001\"\n  ]\n}\n"
+      }
+    },
+    {
+      "name": "restore-uds",
+      "car": "vag-uds",
+      "argv": [
+        "restore",
+        "engine",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "vag-mqb",
+        "--snapshot",
+        "before.json",
+        "--save",
+        "after.json"
+      ],
+      "answer": "yes",
+      "files": {
+        "before.json": "{\n  \"tool\": \"obd-read\",\n  \"kind\": \"write\",\n  \"taken\": \"2026-01-02T03:04:05+00:00\",\n  \"profile\": {\n    \"name\": \"vag-mqb\",\n    \"status\": \"unconfirmed\"\n  },\n  \"protocol\": \"uds\",\n  \"unit\": {\n    \"name\": \"engine\",\n    \"request_id\": \"7E0\",\n    \"response_id\": \"7E8\"\n  },\n  \"read_request\": \"220199\",\n  \"write_request\": \"2E01990203\",\n  \"previous_value\": \"0001\",\n  \"restores\": null,\n  \"adapter\": {\n    \"identity\": \"ELM327 v2.3\",\n    \"description\": \"OBDII to RS232 Interpreter\",\n    \"stn_identity\": null,\n    \"voltage\": \"12.4V\"\n  },\n  \"transcript\": [\n    \"2026-01-02T03:04:05.678+00:00 > ATZ\",\n    \"2026-01-02T03:04:05.678+00:00 < ELM327 v2.3\",\n    \"2026-01-02T03:04:05.678+00:00 > ATE0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATL0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATS0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATH1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCAF1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATAT0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSTFF\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > AT@1\",\n    \"2026-01-02T03:04:05.678+00:00 < OBDII to RS232 Interpreter\",\n    \"2026-01-02T03:04:05.678+00:00 > STI\",\n    \"2026-01-02T03:04:05.678+00:00 < ?\",\n    \"2026-01-02T03:04:05.678+00:00 > ATRV\",\n    \"2026-01-02T03:04:05.678+00:00 < 12.4V\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSP6\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSH7E0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCRA7E8\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSH7E0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSD300000\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSM1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > 1001\",\n    \"2026-01-02T03:04:05.678+00:00 < 7E8065001003201F4\",\n    \"2026-01-02T03:04:05.678+00:00 > 220199\",\n    \"2026-01-02T03:04:05.678+00:00 < 7E8056201990001\"\n  ]\n}\n"
+      }
+    },
+    {
+      "name": "restore-protocol-mismatch",
+      "car": "w211-writes",
+      "argv": [
+        "restore",
+        "esp",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "mercedes-w211",
+        "--snapshot",
+        "before.json",
+        "--save",
+        "after.json"
+      ],
+      "answer": "yes",
+      "files": {
+        "before.json": "{\n  \"tool\": \"obd-read\",\n  \"kind\": \"write\",\n  \"taken\": \"2026-01-02T03:04:05+00:00\",\n  \"profile\": {\n    \"name\": \"vag-mqb\",\n    \"status\": \"unconfirmed\"\n  },\n  \"protocol\": \"uds\",\n  \"unit\": {\n    \"name\": \"engine\",\n    \"request_id\": \"7E0\",\n    \"response_id\": \"7E8\"\n  },\n  \"read_request\": \"220199\",\n  \"write_request\": \"2E01990203\",\n  \"previous_value\": \"0001\",\n  \"restores\": null,\n  \"adapter\": {\n    \"identity\": \"ELM327 v2.3\",\n    \"description\": \"OBDII to RS232 Interpreter\",\n    \"stn_identity\": null,\n    \"voltage\": \"12.4V\"\n  },\n  \"transcript\": [\n    \"2026-01-02T03:04:05.678+00:00 > ATZ\",\n    \"2026-01-02T03:04:05.678+00:00 < ELM327 v2.3\",\n    \"2026-01-02T03:04:05.678+00:00 > ATE0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATL0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATS0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATH1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCAF1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATAT0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSTFF\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > AT@1\",\n    \"2026-01-02T03:04:05.678+00:00 < OBDII to RS232 Interpreter\",\n    \"2026-01-02T03:04:05.678+00:00 > STI\",\n    \"2026-01-02T03:04:05.678+00:00 < ?\",\n    \"2026-01-02T03:04:05.678+00:00 > ATRV\",\n    \"2026-01-02T03:04:05.678+00:00 < 12.4V\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSP6\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATSH7E0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATCRA7E8\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSH7E0\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSD300000\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > ATFCSM1\",\n    \"2026-01-02T03:04:05.678+00:00 < OK\",\n    \"2026-01-02T03:04:05.678+00:00 > 1001\",\n    \"2026-01-02T03:04:05.678+00:00 < 7E8065001003201F4\",\n    \"2026-01-02T03:04:05.678+00:00 > 220199\",\n    \"2026-01-02T03:04:05.678+00:00 < 7E8056201990001\"\n  ]\n}\n"
+      }
+    },
+    {
+      "name": "obd-legislated",
+      "car": "obd",
+      "argv": ["obd", "--adapter", "tcp://fake:1"]
+    },
+    {
+      "name": "obd-29-bit",
+      "car": "obd",
+      "argv": ["obd", "--adapter", "tcp://fake:1", "--id-bits", "29", "--bitrate", "250000"]
+    },
+    {
+      "name": "obd-freeze-and-misfire",
+      "car": "obd-freeze",
+      "argv": ["obd", "--adapter", "tcp://fake:1"]
+    },
+    {
+      "name": "obd-no-units",
+      "car": "bare",
+      "argv": ["obd", "--adapter", "tcp://fake:1"]
+    },
+    {
+      "name": "obd-kline",
+      "car": "kline",
+      "argv": ["obd", "--adapter", "tcp://fake:1", "--kline", "iso9141"]
+    },
+    {
+      "name": "obd-silent-adapter",
+      "car": "silent",
+      "argv": ["obd", "--adapter", "tcp://fake:1"]
+    },
+    {
+      "name": "kline-probe",
+      "car": "kline-silent",
+      "argv": ["probe", "--adapter", "tcp://fake:1", "--profile", "@profile:kl"],
+      "profiles": ["kl"]
+    },
+    {
+      "name": "kline-faults",
+      "car": "kline",
+      "argv": ["faults", "engine", "--adapter", "tcp://fake:1", "--profile", "@profile:kl"],
+      "profiles": ["kl"]
+    },
+    {
+      "name": "kline-fast-ident",
+      "car": "kline",
+      "argv": ["ident", "engine", "--adapter", "tcp://fake:1", "--profile", "@profile:klfast"],
+      "profiles": ["klfast"]
+    },
+    {
+      "name": "kline-corrupt-reply",
+      "car": "kline-corrupt",
+      "argv": ["probe", "--adapter", "tcp://fake:1", "--profile", "@profile:kl"],
+      "profiles": ["kl"]
+    },
+    {
+      "name": "kline-request-refused",
+      "car": "kline",
+      "argv": [
+        "request",
+        "engine",
+        "2E0101",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "@profile:kl"
+      ],
+      "profiles": ["kl"]
+    },
+    {
+      "name": "live-list",
+      "car": "obd",
+      "argv": ["live", "--adapter", "tcp://fake:1", "--list"]
+    },
+    {
+      "name": "live-legislated",
+      "car": "obd",
+      "argv": ["live", "--adapter", "tcp://fake:1"]
+    },
+    {
+      "name": "live-legislated-values",
+      "car": "obd",
+      "argv": [
+        "live",
+        "--adapter",
+        "tcp://fake:1",
+        "--values",
+        "engine-speed,coolant-temperature",
+        "--count",
+        "3",
+        "--interval",
+        "0"
+      ]
+    },
+    {
+      "name": "live-unknown-value",
+      "car": "obd",
+      "argv": ["live", "--adapter", "tcp://fake:1", "--values", "nonsense"]
+    },
+    {
+      "name": "live-count-zero",
+      "car": "obd",
+      "argv": ["live", "--adapter", "tcp://fake:1", "--count", "0"]
+    },
+    {
+      "name": "live-negative-interval",
+      "car": "obd",
+      "argv": ["live", "--adapter", "tcp://fake:1", "--interval", "-1"]
+    },
+    {
+      "name": "live-csv",
+      "car": "obd",
+      "argv": [
+        "live",
+        "--adapter",
+        "tcp://fake:1",
+        "--values",
+        "engine-speed",
+        "--count",
+        "2",
+        "--interval",
+        "0",
+        "--csv",
+        "run.csv"
+      ]
+    },
+    {
+      "name": "live-csv-exists",
+      "car": "obd",
+      "argv": ["live", "--adapter", "tcp://fake:1", "--values", "engine-speed", "--csv", "run.csv"],
+      "files": {
+        "run.csv": "earlier\r\n"
+      }
+    },
+    {
+      "name": "live-unit-values",
+      "car": "engine-values",
+      "argv": [
+        "live",
+        "engine",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "@profile:kwpvals",
+        "--values",
+        "boost,rail-temperature",
+        "--count",
+        "2",
+        "--interval",
+        "0"
+      ],
+      "profiles": ["kwpvals"]
+    },
+    {
+      "name": "live-unit-refused-value",
+      "car": "engine-values",
+      "argv": [
+        "live",
+        "engine",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "@profile:kwpvals",
+        "--count",
+        "2",
+        "--interval",
+        "0"
+      ],
+      "profiles": ["kwpvals"]
+    },
+    {
+      "name": "live-unit-list",
+      "car": "engine-values",
+      "argv": [
+        "live",
+        "engine",
+        "--adapter",
+        "tcp://fake:1",
+        "--profile",
+        "@profile:kwpvals",
+        "--list"
+      ],
+      "profiles": ["kwpvals"]
+    },
+    {
+      "name": "live-unit-uds",
+      "car": "engine-values-uds",
+      "argv": ["live", "engine", "--adapter", "tcp://fake:1", "--profile", "@profile:udsvals"],
+      "profiles": ["udsvals"]
+    },
+    {
+      "name": "live-unit-without-profile",
+      "car": "engine-values",
+      "argv": ["live", "engine", "--adapter", "tcp://fake:1"]
+    },
+    {
+      "name": "live-unknown-unit",
+      "car": "engine-values",
+      "argv": ["live", "radio", "--adapter", "tcp://fake:1", "--profile", "@profile:kwpvals"],
+      "profiles": ["kwpvals"]
+    },
+    {
+      "name": "live-no-supported-values",
+      "car": "bare",
+      "argv": ["live", "--adapter", "tcp://fake:1"]
+    },
+    {
+      "name": "battery-single-sample",
+      "car": "bare",
+      "argv": ["battery", "--adapter", "tcp://fake:1", "--duration", "0"]
+    },
+    {
+      "name": "battery-csv",
+      "car": "bare",
+      "argv": ["battery", "--adapter", "tcp://fake:1", "--duration", "0", "--csv", "volts.csv"]
+    },
+    {
+      "name": "battery-csv-exists",
+      "car": "bare",
+      "argv": ["battery", "--adapter", "tcp://fake:1", "--duration", "0", "--csv", "volts.csv"],
+      "files": {
+        "volts.csv": "earlier\r\n"
+      }
+    },
+    {
+      "name": "battery-negative-duration",
+      "car": "bare",
+      "argv": ["battery", "--adapter", "tcp://fake:1", "--duration", "-1"]
+    },
+    {
+      "name": "battery-zero-interval",
+      "car": "bare",
+      "argv": ["battery", "--adapter", "tcp://fake:1", "--interval", "0"]
+    },
+    {
+      "name": "battery-negative-precision",
+      "car": "bare",
+      "argv": ["battery", "--adapter", "tcp://fake:1", "--duration", "0", "--precision", "-1"]
+    },
+    {
+      "name": "battery-stn-reply-without-voltage",
+      "car": "bare-stn",
+      "argv": ["battery", "--adapter", "tcp://fake:1", "--duration", "0", "--precision", "2"]
+    },
+    {
+      "name": "mqtt-publishes",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--values",
+        "engine-speed,coolant-temperature",
+        "--count",
+        "1"
+      ]
+    },
+    {
+      "name": "mqtt-no-voltage",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--values",
+        "engine-speed",
+        "--count",
+        "1",
+        "--no-voltage"
+      ]
+    },
+    {
+      "name": "mqtt-credentials-from-environment",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--values",
+        "engine-speed",
+        "--count",
+        "1",
+        "--tls",
+        "--broker-port",
+        "8883"
+      ],
+      "env": {
+        "OBD_READ_MQTT_USER": "made-up-user",
+        "OBD_READ_MQTT_PASSWORD": "hunter2-made-up-password"
+      }
+    },
+    {
+      "name": "mqtt-password-without-user",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--values",
+        "engine-speed",
+        "--count",
+        "1"
+      ],
+      "env": {
+        "OBD_READ_MQTT_PASSWORD": "hunter2-made-up-password"
+      }
+    },
+    {
+      "name": "mqtt-broker-fails",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--values",
+        "engine-speed",
+        "--count",
+        "2",
+        "--interval",
+        "0.01"
+      ],
+      "brokerFailAfter": 4
+    },
+    {
+      "name": "mqtt-custom-topics",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--values",
+        "engine-speed",
+        "--count",
+        "1",
+        "--topic-prefix",
+        "cars/test",
+        "--discovery-prefix",
+        "ha",
+        "--device-id",
+        "test_car"
+      ]
+    },
+    {
+      "name": "mqtt-unit-values",
+      "car": "engine-values",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "engine",
+        "--profile",
+        "@profile:kwpvals",
+        "--values",
+        "boost",
+        "--count",
+        "1"
+      ],
+      "profiles": ["kwpvals"]
+    },
+    {
+      "name": "mqtt-invalid-negative-count",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--count",
+        "-1"
+      ]
+    },
+    {
+      "name": "mqtt-invalid-zero-interval",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--interval",
+        "0"
+      ]
+    },
+    {
+      "name": "mqtt-invalid-wildcard-prefix",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--topic-prefix",
+        "a/#"
+      ]
+    },
+    {
+      "name": "mqtt-invalid-slash-prefix",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--discovery-prefix",
+        "/ha"
+      ]
+    },
+    {
+      "name": "mqtt-invalid-bad-port",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--broker-port",
+        "0"
+      ]
+    },
+    {
+      "name": "mqtt-invalid-bad-device-id",
+      "car": "obd",
+      "argv": [
+        "mqtt",
+        "--adapter",
+        "tcp://fake:1",
+        "--broker-host",
+        "broker.local",
+        "--device-id",
+        "Bad ID"
+      ]
+    },
+    {
+      "name": "discover-finds-units",
+      "car": "w211",
+      "argv": [
+        "discover",
+        "--adapter",
+        "tcp://fake:1",
+        "--protocol",
+        "kwp2000",
+        "--first",
+        "0x7e0",
+        "--last",
+        "0x7e1"
+      ]
+    },
+    {
+      "name": "discover-finds-nothing",
+      "car": "bare",
+      "argv": [
+        "discover",
+        "--adapter",
+        "tcp://fake:1",
+        "--protocol",
+        "kwp2000",
+        "--first",
+        "0x7e0",
+        "--last",
+        "0x7e2"
+      ]
+    },
+    {
+      "name": "discover-uds-session",
+      "car": "vag-uds",
+      "argv": [
+        "discover",
+        "--adapter",
+        "tcp://fake:1",
+        "--protocol",
+        "uds",
+        "--first",
+        "0x7e0",
+        "--last",
+        "0x7e0",
+        "--session",
+        "0x03",
+        "--bitrate",
+        "250000"
+      ]
+    },
+    {
+      "name": "discover-writes-draft",
+      "car": "w211",
+      "argv": [
+        "discover",
+        "--adapter",
+        "tcp://fake:1",
+        "--protocol",
+        "kwp2000",
+        "--first",
+        "0x7e0",
+        "--last",
+        "0x7e1",
+        "--output",
+        "@profile:draft",
+        "--name",
+        "found"
+      ]
+    },
+    {
+      "name": "discover-draft-exists",
+      "car": "w211",
+      "argv": [
+        "discover",
+        "--adapter",
+        "tcp://fake:1",
+        "--protocol",
+        "kwp2000",
+        "--first",
+        "0x7e0",
+        "--last",
+        "0x7e1",
+        "--output",
+        "@profile:draft"
+      ],
+      "files": {
+        "draft.toml": "earlier"
+      }
+    },
+    {
+      "name": "discover-bad-name",
+      "car": "w211",
+      "argv": [
+        "discover",
+        "--adapter",
+        "tcp://fake:1",
+        "--protocol",
+        "kwp2000",
+        "--first",
+        "0x7e0",
+        "--last",
+        "0x7e1",
+        "--output",
+        "@profile:draft",
+        "--name",
+        "Bad Name"
+      ]
+    },
+    {
+      "name": "discover-refuses-write-session",
+      "car": "w211",
+      "argv": [
+        "discover",
+        "--adapter",
+        "tcp://fake:1",
+        "--protocol",
+        "kwp2000",
+        "--first",
+        "0x7e0",
+        "--last",
+        "0x7e1",
+        "--session",
+        "0x85"
+      ]
+    },
+    {
+      "name": "clear-codes-confirmed",
+      "car": "obd-clear",
+      "argv": ["clear-codes", "--adapter", "tcp://fake:1", "--save", "codes.json"],
+      "answer": "yes"
+    },
+    {
+      "name": "clear-codes-declined",
+      "car": "obd-clear",
+      "argv": ["clear-codes", "--adapter", "tcp://fake:1", "--save", "codes.json"],
+      "answer": "no"
+    },
+    {
+      "name": "clear-codes-yes-flag",
+      "car": "obd-clear",
+      "argv": ["clear-codes", "--adapter", "tcp://fake:1", "--save", "codes.json", "--yes"]
+    },
+    {
+      "name": "clear-codes-existing-snapshot",
+      "car": "obd-clear",
+      "argv": ["clear-codes", "--adapter", "tcp://fake:1", "--save", "codes.json", "--yes"],
+      "files": {
+        "codes.json": "earlier"
+      }
+    },
+    {
+      "name": "clear-codes-no-units",
+      "car": "bare",
+      "argv": ["clear-codes", "--adapter", "tcp://fake:1", "--save", "codes.json", "--yes"]
+    },
+    {
+      "name": "monitor-stn-filters",
+      "car": "monitor-stn",
+      "argv": [
+        "monitor",
+        "--adapter",
+        "tcp://fake:1",
+        "--id",
+        "7E8",
+        "--id",
+        "7E1",
+        "--block",
+        "7DF",
+        "--count",
+        "2"
+      ]
+    },
+    {
+      "name": "monitor-elm-software-filter",
+      "car": "monitor-elm",
+      "argv": [
+        "monitor",
+        "--adapter",
+        "tcp://fake:1",
+        "--id",
+        "7E8",
+        "--block",
+        "7E1",
+        "--count",
+        "1"
+      ]
+    },
+    {
+      "name": "monitor-elm-shared-filter",
+      "car": "monitor-elm",
+      "argv": ["monitor", "--adapter", "tcp://fake:1", "--id", "7E8", "--id", "7E9", "--count", "1"]
+    },
+    {
+      "name": "monitor-raw-listen-only",
+      "car": "rawcan",
+      "argv": ["monitor", "--adapter", "tcp://fake:1", "--block", "7DF", "--count", "2"]
+    },
+    {
+      "name": "monitor-raw-output-file",
+      "car": "rawcan",
+      "argv": ["monitor", "--adapter", "tcp://fake:1", "--count", "1", "--output", "bus.log"]
+    },
+    {
+      "name": "monitor-output-exists",
+      "car": "rawcan",
+      "argv": ["monitor", "--adapter", "tcp://fake:1", "--count", "1", "--output", "bus.log"],
+      "files": {
+        "bus.log": "earlier\n"
+      }
+    },
+    {
+      "name": "monitor-identifier-too-wide",
+      "car": "rawcan",
+      "argv": ["monitor", "--adapter", "tcp://fake:1", "--id", "800"]
+    },
+    {
+      "name": "monitor-29-bit-identifier",
+      "car": "rawcan",
+      "argv": [
+        "monitor",
+        "--adapter",
+        "tcp://fake:1",
+        "--id-bits",
+        "29",
+        "--block",
+        "1FFFFFFF",
+        "--count",
+        "1"
+      ]
+    },
+    {
+      "name": "monitor-with-transcript-log",
+      "car": "monitor-stn",
+      "argv": ["monitor", "--adapter", "tcp://fake:1", "--count", "1", "--log", "monitor.log"]
+    },
+    {
+      "name": "compare-scans",
+      "car": "bare",
+      "argv": ["compare", "a.json", "b.json"],
+      "files": {
+        "a.json": "{\"tool\": \"obd-read\", \"taken\": \"2026-01-01T00:00:00+00:00\", \"profile\": {\"name\": \"codes\", \"status\": \"confirmed\"}, \"units\": [{\"unit\": \"engine\", \"answered\": false, \"faults\": null, \"freeze_frames\": {}, \"identification\": {}}, {\"unit\": \"esp\", \"answered\": true, \"faults\": [{\"code\": \"5123\", \"status\": \"61\"}, {\"code\": \"9003\", \"status\": \"20\"}, {\"code\": \"1111\", \"status\": \"08\"}], \"freeze_frames\": {}, \"identification\": {}}]}",
+        "b.json": "{\"tool\": \"obd-read\", \"taken\": \"2026-02-01T00:00:00+00:00\", \"profile\": {\"name\": \"codes\", \"status\": \"confirmed\"}, \"units\": [{\"unit\": \"engine\", \"answered\": true, \"faults\": [], \"freeze_frames\": {}, \"identification\": {}}, {\"unit\": \"esp\", \"answered\": true, \"faults\": [{\"code\": \"5123\", \"status\": \"21\"}, {\"code\": \"1111\", \"status\": \"08\"}, {\"code\": \"2222\", \"status\": \"40\"}], \"freeze_frames\": {}, \"identification\": {}}]}"
+      }
+    },
+    {
+      "name": "compare-missing-file",
+      "car": "bare",
+      "argv": ["compare", "nothing.json", "nothing.json"]
+    },
+    {
+      "name": "compare-not-a-scan",
+      "car": "bare",
+      "argv": ["compare", "a.json", "a.json"],
+      "files": {
+        "a.json": "{\"tool\": \"other\"}"
+      }
+    },
+    {
+      "name": "describe-generic-code",
+      "car": "bare",
+      "argv": ["describe", "p0420"]
+    },
+    {
+      "name": "describe-two-codes",
+      "car": "bare",
+      "argv": ["describe", "P0420", "u0100"]
+    },
+    {
+      "name": "describe-scan-with-profile",
+      "car": "bare",
+      "argv": ["describe", "a.json", "--profile", "@profile:codes"],
+      "files": {
+        "a.json": "{\"tool\": \"obd-read\", \"taken\": \"2026-01-01T00:00:00+00:00\", \"profile\": {\"name\": \"codes\", \"status\": \"confirmed\"}, \"units\": [{\"unit\": \"engine\", \"answered\": false, \"faults\": null, \"freeze_frames\": {}, \"identification\": {}}, {\"unit\": \"esp\", \"answered\": true, \"faults\": [{\"code\": \"5123\", \"status\": \"61\"}, {\"code\": \"9003\", \"status\": \"20\"}, {\"code\": \"1111\", \"status\": \"08\"}], \"freeze_frames\": {}, \"identification\": {}}]}"
+      },
+      "profiles": ["codes"]
+    },
+    {
+      "name": "describe-scan-own-profile",
+      "car": "bare",
+      "argv": ["describe", "a.json"],
+      "files": {
+        "a.json": "{\"tool\": \"obd-read\", \"taken\": \"2026-01-01T00:00:00+00:00\", \"profile\": {\"name\": \"codes\", \"status\": \"confirmed\"}, \"units\": [{\"unit\": \"engine\", \"answered\": false, \"faults\": null, \"freeze_frames\": {}, \"identification\": {}}, {\"unit\": \"esp\", \"answered\": true, \"faults\": [{\"code\": \"5123\", \"status\": \"61\"}, {\"code\": \"9003\", \"status\": \"20\"}, {\"code\": \"1111\", \"status\": \"08\"}], \"freeze_frames\": {}, \"identification\": {}}]}"
+      }
+    },
+    {
+      "name": "describe-hex-code-with-unit",
+      "car": "bare",
+      "argv": ["describe", "5123", "--unit", "esp", "--profile", "@profile:codes"],
+      "profiles": ["codes"]
+    },
+    {
+      "name": "describe-hex-code-without-unit",
+      "car": "bare",
+      "argv": ["describe", "5123"]
+    },
+    {
+      "name": "describe-nothing",
+      "car": "bare",
+      "argv": ["describe"]
+    },
+    {
+      "name": "describe-invalid-code",
+      "car": "bare",
+      "argv": ["describe", "hello"]
+    },
+    {
+      "name": "describe-request-without-unit",
+      "car": "bare",
+      "argv": ["describe", "--request", "1A86"]
+    },
+    {
+      "name": "describe-missing-names-file",
+      "car": "bare",
+      "argv": ["describe", "P0420", "--names", "nothing.json"]
+    },
+    {
+      "name": "import-odx",
+      "car": "bare",
+      "argv": [
+        "import-names",
+        "test.odx-d",
+        "--unit",
+        "esp",
+        "--output",
+        "names.json",
+        "--variant",
+        "TestVariantA"
+      ],
+      "files": {
+        "test.odx-d": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ODX MODEL-VERSION=\"2.2.0\">\n  <DIAG-LAYER-CONTAINER ID=\"DLC_1\">\n    <SHORT-NAME>Test</SHORT-NAME>\n    <ECU-VARIANTS>\n      <ECU-VARIANT ID=\"EV_1\">\n        <SHORT-NAME>TestVariantA</SHORT-NAME>\n        <DIAG-DATA-DICTIONARY-SPEC>\n          <DTC-DOPS><DTC-DOP ID=\"DD_1\"><SHORT-NAME>dtcs</SHORT-NAME><DTCS>\n            <DTC ID=\"D1\"><SHORT-NAME>sensor_a</SHORT-NAME><TROUBLE-CODE>20771</TROUBLE-CODE>\n              <DISPLAY-TROUBLE-CODE>5123</DISPLAY-TROUBLE-CODE><TEXT>Test sensor A fault</TEXT></DTC>\n            <DTC ID=\"D2\"><SHORT-NAME>sensor_b</SHORT-NAME><TROUBLE-CODE>36867</TROUBLE-CODE>\n              <TEXT>Test sensor B fault</TEXT></DTC>\n          </DTCS></DTC-DOP></DTC-DOPS>\n        </DIAG-DATA-DICTIONARY-SPEC>\n        <DIAG-COMMS>\n          <DIAG-SERVICE ID=\"S1\"><SHORT-NAME>read_part</SHORT-NAME><LONG-NAME>Read test part number</LONG-NAME>\n            <REQUEST-REF ID-REF=\"R1\"/></DIAG-SERVICE>\n          <DIAG-SERVICE ID=\"S2\"><SHORT-NAME>variable</SHORT-NAME><REQUEST-REF ID-REF=\"R2\"/></DIAG-SERVICE>\n        </DIAG-COMMS>\n        <REQUESTS>\n          <REQUEST ID=\"R1\"><SHORT-NAME>r1</SHORT-NAME><PARAMS>\n            <PARAM><SHORT-NAME>sid</SHORT-NAME><BYTE-POSITION>0</BYTE-POSITION><CODED-VALUE>26</CODED-VALUE>\n              <DIAG-CODED-TYPE><BIT-LENGTH>8</BIT-LENGTH></DIAG-CODED-TYPE></PARAM>\n            <PARAM><SHORT-NAME>id</SHORT-NAME><BYTE-POSITION>1</BYTE-POSITION><CODED-VALUE>134</CODED-VALUE>\n              <DIAG-CODED-TYPE><BIT-LENGTH>8</BIT-LENGTH></DIAG-CODED-TYPE></PARAM>\n          </PARAMS></REQUEST>\n          <REQUEST ID=\"R2\"><SHORT-NAME>r2</SHORT-NAME><PARAMS>\n            <PARAM><SHORT-NAME>sid</SHORT-NAME><BYTE-POSITION>0</BYTE-POSITION>\n              <DIAG-CODED-TYPE><BIT-LENGTH>8</BIT-LENGTH></DIAG-CODED-TYPE></PARAM>\n          </PARAMS></REQUEST>\n        </REQUESTS>\n      </ECU-VARIANT>\n      <ECU-VARIANT ID=\"EV_2\">\n        <SHORT-NAME>TestVariantB</SHORT-NAME>\n        <DIAG-DATA-DICTIONARY-SPEC>\n          <DTC-DOPS><DTC-DOP ID=\"DD_2\"><SHORT-NAME>dtcs</SHORT-NAME><DTCS>\n            <DTC ID=\"D3\"><SHORT-NAME>x</SHORT-NAME><TROUBLE-CODE>20771</TROUBLE-CODE>\n              <TEXT>A different text</TEXT></DTC>\n          </DTCS></DTC-DOP></DTC-DOPS>\n        </DIAG-DATA-DICTIONARY-SPEC>\n      </ECU-VARIANT>\n    </ECU-VARIANTS>\n  </DIAG-LAYER-CONTAINER>\n</ODX>\n"
+      }
+    },
+    {
+      "name": "import-odx-all-variants",
+      "car": "bare",
+      "argv": ["import-names", "test.odx-d", "--unit", "esp", "--output", "names.json"],
+      "files": {
+        "test.odx-d": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ODX MODEL-VERSION=\"2.2.0\">\n  <DIAG-LAYER-CONTAINER ID=\"DLC_1\">\n    <SHORT-NAME>Test</SHORT-NAME>\n    <ECU-VARIANTS>\n      <ECU-VARIANT ID=\"EV_1\">\n        <SHORT-NAME>TestVariantA</SHORT-NAME>\n        <DIAG-DATA-DICTIONARY-SPEC>\n          <DTC-DOPS><DTC-DOP ID=\"DD_1\"><SHORT-NAME>dtcs</SHORT-NAME><DTCS>\n            <DTC ID=\"D1\"><SHORT-NAME>sensor_a</SHORT-NAME><TROUBLE-CODE>20771</TROUBLE-CODE>\n              <DISPLAY-TROUBLE-CODE>5123</DISPLAY-TROUBLE-CODE><TEXT>Test sensor A fault</TEXT></DTC>\n            <DTC ID=\"D2\"><SHORT-NAME>sensor_b</SHORT-NAME><TROUBLE-CODE>36867</TROUBLE-CODE>\n              <TEXT>Test sensor B fault</TEXT></DTC>\n          </DTCS></DTC-DOP></DTC-DOPS>\n        </DIAG-DATA-DICTIONARY-SPEC>\n        <DIAG-COMMS>\n          <DIAG-SERVICE ID=\"S1\"><SHORT-NAME>read_part</SHORT-NAME><LONG-NAME>Read test part number</LONG-NAME>\n            <REQUEST-REF ID-REF=\"R1\"/></DIAG-SERVICE>\n          <DIAG-SERVICE ID=\"S2\"><SHORT-NAME>variable</SHORT-NAME><REQUEST-REF ID-REF=\"R2\"/></DIAG-SERVICE>\n        </DIAG-COMMS>\n        <REQUESTS>\n          <REQUEST ID=\"R1\"><SHORT-NAME>r1</SHORT-NAME><PARAMS>\n            <PARAM><SHORT-NAME>sid</SHORT-NAME><BYTE-POSITION>0</BYTE-POSITION><CODED-VALUE>26</CODED-VALUE>\n              <DIAG-CODED-TYPE><BIT-LENGTH>8</BIT-LENGTH></DIAG-CODED-TYPE></PARAM>\n            <PARAM><SHORT-NAME>id</SHORT-NAME><BYTE-POSITION>1</BYTE-POSITION><CODED-VALUE>134</CODED-VALUE>\n              <DIAG-CODED-TYPE><BIT-LENGTH>8</BIT-LENGTH></DIAG-CODED-TYPE></PARAM>\n          </PARAMS></REQUEST>\n          <REQUEST ID=\"R2\"><SHORT-NAME>r2</SHORT-NAME><PARAMS>\n            <PARAM><SHORT-NAME>sid</SHORT-NAME><BYTE-POSITION>0</BYTE-POSITION>\n              <DIAG-CODED-TYPE><BIT-LENGTH>8</BIT-LENGTH></DIAG-CODED-TYPE></PARAM>\n          </PARAMS></REQUEST>\n        </REQUESTS>\n      </ECU-VARIANT>\n      <ECU-VARIANT ID=\"EV_2\">\n        <SHORT-NAME>TestVariantB</SHORT-NAME>\n        <DIAG-DATA-DICTIONARY-SPEC>\n          <DTC-DOPS><DTC-DOP ID=\"DD_2\"><SHORT-NAME>dtcs</SHORT-NAME><DTCS>\n            <DTC ID=\"D3\"><SHORT-NAME>x</SHORT-NAME><TROUBLE-CODE>20771</TROUBLE-CODE>\n              <TEXT>A different text</TEXT></DTC>\n          </DTCS></DTC-DOP></DTC-DOPS>\n        </DIAG-DATA-DICTIONARY-SPEC>\n      </ECU-VARIANT>\n    </ECU-VARIANTS>\n  </DIAG-LAYER-CONTAINER>\n</ODX>\n"
+      }
+    },
+    {
+      "name": "import-trafo",
+      "car": "bare",
+      "argv": ["import-names", "test.json", "--unit", "esp", "--output", "names.json"],
+      "files": {
+        "test.json": "{\"TrafoVersion\": \"x\", \"Variants\": [{\"VariantName\": \"TestVariantA\", \"DTCs\": [{\"Code\": \"5123\", \"Desc\": \"Test sensor A fault\"}, {\"Code\": \"DTC_NOT_HEX\", \"Desc\": \"Unusable code\"}, {\"Code\": \"P0420\", \"Desc\": \"Test catalyst text\"}], \"DiagServices\": [{\"DiagServiceName\": \"RD_part\", \"Desc\": \"Read test part number\", \"RequestBytes\": \"1A 86 \"}, {\"DiagServiceName\": \"bad\", \"Desc\": \"x\", \"RequestBytes\": \"ZZ\"}]}, {\"VariantName\": \"TestVariantB\", \"DTCs\": [], \"DiagServices\": []}]}"
+      }
+    },
+    {
+      "name": "import-output-exists",
+      "car": "bare",
+      "argv": ["import-names", "test.odx-d", "--unit", "esp", "--output", "names.json"],
+      "files": {
+        "test.odx-d": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<ODX MODEL-VERSION=\"2.2.0\">\n  <DIAG-LAYER-CONTAINER ID=\"DLC_1\">\n    <SHORT-NAME>Test</SHORT-NAME>\n    <ECU-VARIANTS>\n      <ECU-VARIANT ID=\"EV_1\">\n        <SHORT-NAME>TestVariantA</SHORT-NAME>\n        <DIAG-DATA-DICTIONARY-SPEC>\n          <DTC-DOPS><DTC-DOP ID=\"DD_1\"><SHORT-NAME>dtcs</SHORT-NAME><DTCS>\n            <DTC ID=\"D1\"><SHORT-NAME>sensor_a</SHORT-NAME><TROUBLE-CODE>20771</TROUBLE-CODE>\n              <DISPLAY-TROUBLE-CODE>5123</DISPLAY-TROUBLE-CODE><TEXT>Test sensor A fault</TEXT></DTC>\n            <DTC ID=\"D2\"><SHORT-NAME>sensor_b</SHORT-NAME><TROUBLE-CODE>36867</TROUBLE-CODE>\n              <TEXT>Test sensor B fault</TEXT></DTC>\n          </DTCS></DTC-DOP></DTC-DOPS>\n        </DIAG-DATA-DICTIONARY-SPEC>\n        <DIAG-COMMS>\n          <DIAG-SERVICE ID=\"S1\"><SHORT-NAME>read_part</SHORT-NAME><LONG-NAME>Read test part number</LONG-NAME>\n            <REQUEST-REF ID-REF=\"R1\"/></DIAG-SERVICE>\n          <DIAG-SERVICE ID=\"S2\"><SHORT-NAME>variable</SHORT-NAME><REQUEST-REF ID-REF=\"R2\"/></DIAG-SERVICE>\n        </DIAG-COMMS>\n        <REQUESTS>\n          <REQUEST ID=\"R1\"><SHORT-NAME>r1</SHORT-NAME><PARAMS>\n            <PARAM><SHORT-NAME>sid</SHORT-NAME><BYTE-POSITION>0</BYTE-POSITION><CODED-VALUE>26</CODED-VALUE>\n              <DIAG-CODED-TYPE><BIT-LENGTH>8</BIT-LENGTH></DIAG-CODED-TYPE></PARAM>\n            <PARAM><SHORT-NAME>id</SHORT-NAME><BYTE-POSITION>1</BYTE-POSITION><CODED-VALUE>134</CODED-VALUE>\n              <DIAG-CODED-TYPE><BIT-LENGTH>8</BIT-LENGTH></DIAG-CODED-TYPE></PARAM>\n          </PARAMS></REQUEST>\n          <REQUEST ID=\"R2\"><SHORT-NAME>r2</SHORT-NAME><PARAMS>\n            <PARAM><SHORT-NAME>sid</SHORT-NAME><BYTE-POSITION>0</BYTE-POSITION>\n              <DIAG-CODED-TYPE><BIT-LENGTH>8</BIT-LENGTH></DIAG-CODED-TYPE></PARAM>\n          </PARAMS></REQUEST>\n        </REQUESTS>\n      </ECU-VARIANT>\n      <ECU-VARIANT ID=\"EV_2\">\n        <SHORT-NAME>TestVariantB</SHORT-NAME>\n        <DIAG-DATA-DICTIONARY-SPEC>\n          <DTC-DOPS><DTC-DOP ID=\"DD_2\"><SHORT-NAME>dtcs</SHORT-NAME><DTCS>\n            <DTC ID=\"D3\"><SHORT-NAME>x</SHORT-NAME><TROUBLE-CODE>20771</TROUBLE-CODE>\n              <TEXT>A different text</TEXT></DTC>\n          </DTCS></DTC-DOP></DTC-DOPS>\n        </DIAG-DATA-DICTIONARY-SPEC>\n      </ECU-VARIANT>\n    </ECU-VARIANTS>\n  </DIAG-LAYER-CONTAINER>\n</ODX>\n",
+        "names.json": "earlier"
+      }
+    },
+    {
+      "name": "import-missing-file",
+      "car": "bare",
+      "argv": ["import-names", "nothing.odx", "--unit", "esp", "--output", "names.json"]
+    },
+    {
+      "name": "import-cbf-refused",
+      "car": "bare",
+      "argv": ["import-names", "car.cbf", "--unit", "esp", "--output", "names.json"],
+      "files": {
+        "car.cbf": "x"
+      }
+    },
+    {
+      "name": "describe-imported-names",
+      "car": "bare",
+      "argv": ["describe", "5123", "--unit", "esp", "--names", "names.json", "--request", "1a 86"],
+      "files": {
+        "names.json": "{\"tool\": \"obd-read\", \"kind\": \"names\", \"source\": \"test.odx-d\", \"units\": {\"esp\": {\"codes\": {\"5123\": \"Test sensor A fault\"}, \"values\": {\"1A86\": \"Read test part number\"}}}}"
+      }
+    },
+    {
+      "name": "adapters-list",
+      "car": "adapters",
+      "argv": ["adapters"]
+    },
+    {
+      "name": "adapters-inspect",
+      "car": "adapters",
+      "argv": ["adapters", "--inspect", "vLinker"]
+    },
+    {
+      "name": "adapters-inspect-missing",
+      "car": "adapters",
+      "argv": ["adapters", "--inspect", "nothing-here"]
+    },
+    {
+      "name": "simulate-banner",
+      "car": "bare",
+      "argv": ["simulate", "--profile", "mercedes-w211", "--port", "0"],
+      "stopAfterLines": 2
+    },
+    {
+      "name": "simulate-unknown-profile",
+      "car": "bare",
+      "argv": ["simulate", "--profile", "no-such-profile"]
+    },
+    {
+      "name": "simulate-profile-file-missing",
+      "car": "bare",
+      "argv": ["simulate", "--profile", "@profile:nothere"]
+    }
+  ]
+}

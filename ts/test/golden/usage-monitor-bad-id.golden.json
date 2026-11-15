@@ -1,0 +1,7 @@
+{
+  "name": "usage-monitor-bad-id",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read monitor [-h] --adapter ADAPTER [--id-bits {11,29}]\n                        [--bitrate {250000,500000}] [--id ID] [--block BLOCK]\n                        [--flow-control FLOW_CONTROL] [--duration DURATION]\n                        [--count COUNT] [--output OUTPUT] [--log LOG]\nobd-read monitor: error: argument --id: invalid <lambda> value: 'zz'\n",
+  "files": {}
+}

@@ -1,0 +1,7 @@
+{
+  "name": "usage-abbreviated-options",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nVIN: TESTVIN0000000001\nunit 7E8: warning lamp on, 1 stored codes\nstored codes from 7E8: P0420\npending codes from 7E8: none\npermanent codes from 7E8: none\nreadiness from 7E8 (spark ignition):\n  complete: none\n  not complete: none\nengine load: 50.196 %\ncoolant temperature: 83 °C\nengine speed: 750 rpm\nvehicle speed: 50 km/h\n",
+  "stderr": "",
+  "files": {}
+}

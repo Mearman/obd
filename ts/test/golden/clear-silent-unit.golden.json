@@ -1,0 +1,7 @@
+{
+  "name": "clear-silent-unit",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nerror: could not read kombi's fault codes (no answer to the session request); nothing cleared\n",
+  "stderr": "",
+  "files": {}
+}

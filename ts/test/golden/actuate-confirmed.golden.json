@@ -1,0 +1,7 @@
+{
+  "name": "actuate-confirmed",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nunit: esp (784 -> 785)\nstart request: 304207FF\nstop request: 304200, sent after 0.05 seconds or on any error\nsending start request 304207FF\nstart reply: 704207FF\nholding for 0.05 seconds\nsending stop request 304200\nstop reply: 704200\ncontrol handed back to the unit\n",
+  "stderr": "",
+  "files": {}
+}

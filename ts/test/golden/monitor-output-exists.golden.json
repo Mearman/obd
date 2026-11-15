@@ -1,0 +1,7 @@
+{
+  "name": "monitor-output-exists",
+  "exit": 1,
+  "stdout": "error: bus.log already exists; the monitor will not overwrite a log\n",
+  "stderr": "",
+  "files": {}
+}

@@ -1,0 +1,7 @@
+{
+  "name": "usage-request-missing-hex",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read request [-h] --adapter ADAPTER [--log LOG] --profile PROFILE\n                        unit hex\nobd-read request: error: the following arguments are required: hex\n",
+  "files": {}
+}

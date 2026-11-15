@@ -1,0 +1,9 @@
+{
+  "name": "import-trafo",
+  "exit": 0,
+  "stdout": "read 2 fault codes and 1 requests\nnote: TestVariantA: code 'DTC_NOT_HEX' is not hexadecimal or an SAE code\nwrote names.json; it holds names from test.json and must not be published\n",
+  "stderr": "",
+  "files": {
+    "names.json": "{\n  \"tool\": \"obd-read\",\n  \"kind\": \"names\",\n  \"source\": \"test.json\",\n  \"units\": {\n    \"esp\": {\n      \"codes\": {\n        \"5123\": \"Test sensor A fault\",\n        \"P0420\": \"Test catalyst text\"\n      },\n      \"values\": {\n        \"1A86\": \"Read test part number\"\n      }\n    }\n  }\n}\n"
+  }
+}

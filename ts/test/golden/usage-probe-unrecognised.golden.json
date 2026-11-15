@@ -1,0 +1,7 @@
+{
+  "name": "usage-probe-unrecognised",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read [-h]\n                {monitor,adapters,profile,simulate,probe,ident,faults,freeze,scan,obd,live,battery,mqtt,discover,clear-codes,request,clear,compare,describe,import-names,write,restore,actuate} ...\nobd-read: error: unrecognized arguments: extra\n",
+  "files": {}
+}

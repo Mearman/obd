@@ -1,0 +1,7 @@
+{
+  "name": "live-list",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\navailable values: engine-load, coolant-temperature, engine-speed, vehicle-speed\n",
+  "stderr": "",
+  "files": {}
+}

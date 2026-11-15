@@ -1,0 +1,7 @@
+{
+  "name": "usage-battery-bad-float",
+  "exit": 2,
+  "stdout": "",
+  "stderr": "usage: obd-read battery [-h] --adapter ADAPTER [--log LOG]\n                        [--duration DURATION] [--interval INTERVAL]\n                        [--precision PRECISION] [--csv CSV]\nobd-read battery: error: argument --duration: invalid float value: 'soon'\n",
+  "files": {}
+}

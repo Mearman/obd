@@ -1,0 +1,7 @@
+{
+  "name": "adapters-inspect-missing",
+  "exit": 1,
+  "stdout": "error: no Bluetooth LE device matching 'nothing-here' seen in 8 s\n",
+  "stderr": "",
+  "files": {}
+}

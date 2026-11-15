@@ -1,0 +1,7 @@
+{
+  "name": "request-refused-14ff00",
+  "exit": 1,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\nprofile mercedes-w211: address table is unconfirmed\nerror: kwp2000 service 14 refused: clearing fault codes goes through the clear command\n",
+  "stderr": "",
+  "files": {}
+}

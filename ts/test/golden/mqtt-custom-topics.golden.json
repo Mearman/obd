@@ -1,0 +1,54 @@
+{
+  "name": "mqtt-custom-topics",
+  "exit": 0,
+  "stdout": "adapter: ELM327 v2.3, battery 12.4V\nSTN extensions: none (plain ELM327 command set)\npublishing 2 sensors to broker.local:1883 under cars/test/test_car, discovery under ha\n",
+  "stderr": "",
+  "files": {},
+  "broker": {
+    "connected": true,
+    "host": "broker.local",
+    "port": 1883,
+    "clientId": "obd-read-test_car",
+    "tls": false,
+    "will": [
+      "cars/test/test_car/availability",
+      "offline",
+      true
+    ],
+    "username": null,
+    "password": null,
+    "messages": [
+      [
+        "ha/sensor/test_car_engine_speed/config",
+        "{\"name\": \"engine speed\", \"unique_id\": \"test_car_engine_speed\", \"state_topic\": \"cars/test/test_car/engine_speed\", \"availability_topic\": \"cars/test/test_car/availability\", \"device\": {\"identifiers\": [\"test_car\"], \"name\": \"obd-read ELM327 v2.3\", \"model\": \"ELM327 v2.3\"}, \"unit_of_measurement\": \"rpm\", \"state_class\": \"measurement\", \"expire_after\": 30}",
+        true
+      ],
+      [
+        "ha/sensor/test_car_adapter_voltage/config",
+        "{\"name\": \"adapter voltage\", \"unique_id\": \"test_car_adapter_voltage\", \"state_topic\": \"cars/test/test_car/adapter_voltage\", \"availability_topic\": \"cars/test/test_car/availability\", \"device\": {\"identifiers\": [\"test_car\"], \"name\": \"obd-read ELM327 v2.3\", \"model\": \"ELM327 v2.3\"}, \"unit_of_measurement\": \"V\", \"state_class\": \"measurement\", \"device_class\": \"voltage\", \"expire_after\": 30}",
+        true
+      ],
+      [
+        "cars/test/test_car/availability",
+        "online",
+        true
+      ],
+      [
+        "cars/test/test_car/engine_speed",
+        "750",
+        false
+      ],
+      [
+        "cars/test/test_car/adapter_voltage",
+        "12.4",
+        false
+      ],
+      [
+        "cars/test/test_car/availability",
+        "offline",
+        true
+      ]
+    ],
+    "closed": true
+  }
+}

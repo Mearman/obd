@@ -1,0 +1,7 @@
+{
+  "name": "describe-imported-names",
+  "exit": 0,
+  "stdout": "esp 5123: Test sensor A fault  [imported from test.odx-d]\nesp 1A86: Read test part number\n",
+  "stderr": "",
+  "files": {}
+}
