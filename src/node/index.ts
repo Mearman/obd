@@ -30,3 +30,4 @@ registerTransport("socketcan", (address) => socketcanTransportFor(address));
 registerTransport("tcp", tcpTransportFor);
 registerTransport("ble", (address) => bleTransportFor(bleCentral, address));
 export * from "../service/message-port.js";
+export * from "./share-codec.js";
