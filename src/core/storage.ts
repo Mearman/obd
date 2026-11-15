@@ -213,6 +213,23 @@ export const storedProfileSchema = z.object({
 /** An imported profile. */
 export type StoredProfile = z.output<typeof storedProfileSchema>;
 
+/** A recording plan the user made, edited, imported or saved from a link, kept in the app's database. */
+export const storedPlanSchema = z.object({
+  /** The stored copy's own id; the plan's name need not be unique among stored plans. */
+  id: nameSchema,
+  /** The plan's name, title and revision, repeated from the document so a list never parses one. */
+  name: nameSchema,
+  title: nameSchema,
+  revision: z.number().int().positive(),
+  origin: originSchema,
+  updatedAt: timestampSchema,
+  /** The plan JSON, validated by `parsePlan` before it is stored. */
+  document: jsonSchema,
+});
+
+/** A stored recording plan. */
+export type StoredPlan = z.output<typeof storedPlanSchema>;
+
 /**
  * One address a capture holds exchanges for: the index storage keeps beside a capture's compressed exchanges, so a list shows which units a capture reached without inflating it.
  */
@@ -408,4 +425,16 @@ export interface Storage {
 
   /** Removes a capture. Removing an unknown capture does nothing. */
   deleteCapture(id: string): Promise<void>;
+
+  /** Stores a recording plan under its id, replacing any stored under the same id. */
+  savePlan(plan: StoredPlan): Promise<void>;
+
+  /** The stored plan with this id, or `undefined`. */
+  getPlan(id: string): Promise<StoredPlan | undefined>;
+
+  /** Every stored plan, most recently updated first. */
+  listPlans(): Promise<StoredPlan[]>;
+
+  /** Removes a stored plan. Removing an unknown plan does nothing. */
+  deletePlan(id: string): Promise<void>;
 }

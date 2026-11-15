@@ -39,4 +39,11 @@ export const MIGRATIONS: readonly Migration[] = [
       "UPDATE `scan_reports` SET `origin` = 'shared' WHERE `adapter` = 'shared://link';",
     ],
   },
+  {
+    tag: "20261115225034_left_wong",
+    statements: [
+      "CREATE TABLE `plans` (\n\t`id` text PRIMARY KEY,\n\t`name` text NOT NULL,\n\t`title` text NOT NULL,\n\t`revision` integer NOT NULL,\n\t`origin` text DEFAULT 'local' NOT NULL,\n\t`updated_at` integer NOT NULL,\n\t`document` text NOT NULL\n);",
+      "CREATE INDEX `plans_updated_at_idx` ON `plans` (`updated_at`);",
+    ],
+  },
 ];

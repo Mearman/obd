@@ -29,6 +29,7 @@ import {
   scanReportSummarySchema,
   signalAggregateSchema,
   storedCaptureSchema,
+  storedPlanSchema,
   storedProfileSchema,
   type Storage,
   type StorageErrorCode,
@@ -62,6 +63,10 @@ export const storageContract = {
   getCapture: oc.input(z.object({ id: name })).output(storedCaptureSchema.nullable()),
   listCaptures: oc.input(captureQuerySchema).output(z.array(captureSummarySchema)),
   deleteCapture: oc.input(z.object({ id: name })).output(done),
+  savePlan: oc.input(storedPlanSchema).output(done),
+  getPlan: oc.input(z.object({ id: name })).output(storedPlanSchema.nullable()),
+  listPlans: oc.output(z.array(storedPlanSchema)),
+  deletePlan: oc.input(z.object({ id: name })).output(done),
 };
 
 const CODES: Readonly<Record<StorageErrorCode, string>> = {
@@ -156,6 +161,22 @@ export function serveStorage(port: SupportedMessagePort, current: () => Promise<
         return finished;
       }),
     ),
+    savePlan: os.savePlan.handler(({ input }) =>
+      through(async (s) => {
+        await s.savePlan(input);
+        return finished;
+      }),
+    ),
+    getPlan: os.getPlan.handler(({ input }) =>
+      through(async (s) => (await s.getPlan(input.id)) ?? null),
+    ),
+    listPlans: os.listPlans.handler(() => through((s) => s.listPlans())),
+    deletePlan: os.deletePlan.handler(({ input }) =>
+      through(async (s) => {
+        await s.deletePlan(input.id);
+        return finished;
+      }),
+    ),
   });
   new RPCHandler(router).upgrade(port);
   startPort(port);
@@ -207,6 +228,14 @@ export function remoteStorage(port: SupportedMessagePort): Storage {
     listCaptures: (query = {}) => through(() => client.listCaptures(query)),
     deleteCapture: async (id) => {
       await through(() => client.deleteCapture({ id }));
+    },
+    savePlan: async (plan) => {
+      await through(() => client.savePlan(plan));
+    },
+    getPlan: async (id) => (await through(() => client.getPlan({ id }))) ?? undefined,
+    listPlans: () => through(() => client.listPlans()),
+    deletePlan: async (id) => {
+      await through(() => client.deletePlan({ id }));
     },
   };
 }

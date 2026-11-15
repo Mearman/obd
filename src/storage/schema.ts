@@ -1,5 +1,5 @@
 /**
- * The SQLite schema of the stored runs, samples, scan reports, captures and imported profiles.
+ * The SQLite schema of the stored runs, samples, scan reports, captures, recording plans and imported profiles.
  *
  * It is the single source of the table layout: `drizzle-kit generate` derives the SQL migrations from it, the queries in `drizzle-storage.ts` are typed from it, and the row validators come from `drizzle-orm/zod`. Times are integer milliseconds since the Unix epoch.
  */
@@ -76,6 +76,23 @@ export const scanReports = sqliteTable(
     origin: origin(),
   },
   (table) => [index("scan_reports_taken_at_idx").on(table.takenAt)],
+);
+
+/** Recording plans the user keeps, keyed by the stored copy's id; `document` is the plan's JSON text, and the other columns repeat what a list shows. */
+export const plans = sqliteTable(
+  "plans",
+
+  {
+    id: text().primaryKey(),
+    name: text().notNull(),
+    title: text().notNull(),
+    revision: integer().notNull(),
+    origin: origin(),
+    updatedAt: integer("updated_at").notNull(),
+    document: text().notNull(),
+  },
+
+  (table) => [index("plans_updated_at_idx").on(table.updatedAt)],
 );
 
 /** Imported profiles, keyed by the profile's own name; `document` is the JSON text. */

@@ -1,5 +1,6 @@
 import { validateCapture, type Capture } from "../capture.js";
 import {
+  storedPlanSchema,
   StorageError,
   captureSummary,
   newRunSchema,
@@ -20,6 +21,7 @@ import {
   type ScanReportSummary,
   type SignalAggregate,
   type Storage,
+  type StoredPlan,
   type StoredProfile,
 } from "../storage.js";
 
@@ -59,6 +61,8 @@ export class MemoryStorage implements Storage {
   private readonly samples = new Map<string, Sample[]>();
   private readonly reports = new Map<string, ScanReport>();
   private readonly profiles = new Map<string, StoredProfile>();
+  /** Kept as text, so a stored plan shares nothing with the caller's objects. */
+  private readonly plans = new Map<string, string>();
   private readonly captures = new Map<string, { readonly text: string; readonly origin: Origin }>();
   private readonly newId: () => string;
 
@@ -295,5 +299,33 @@ export class MemoryStorage implements Storage {
     const samples = this.samples.get(runId);
     if (samples === undefined) throw new StorageError("not-found", `no run ${runId}`);
     return samples;
+  }
+
+  savePlan(plan: StoredPlan): Promise<void> {
+    return settle(() => {
+      const checked = storedPlanSchema.parse(plan);
+      this.plans.set(checked.id, JSON.stringify(checked));
+    });
+  }
+
+  getPlan(id: string): Promise<StoredPlan | undefined> {
+    return settle(() => {
+      const text = this.plans.get(id);
+      return text === undefined ? undefined : storedPlanSchema.parse(JSON.parse(text));
+    });
+  }
+
+  listPlans(): Promise<StoredPlan[]> {
+    return settle(() =>
+      [...this.plans.values()]
+        .map((text) => storedPlanSchema.parse(JSON.parse(text)))
+        .sort((a, b) => b.updatedAt - a.updatedAt || compareText(a.id, b.id)),
+    );
+  }
+
+  deletePlan(id: string): Promise<void> {
+    return settle(() => {
+      this.plans.delete(id);
+    });
   }
 }

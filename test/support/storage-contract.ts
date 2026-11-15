@@ -514,6 +514,32 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
         expect(await storage.getProfile("nope")).toBeUndefined();
       }));
 
+    it("keeps recording plans by id, newest first, replacing and deleting them", () =>
+      withStorage(async (storage) => {
+        const plan = {
+          id: "a",
+          name: "pedal-check",
+          title: "Pedal check",
+          revision: 1,
+          origin: "local" as const,
+          updatedAt: T0,
+          document: { format: "obd-read-plan", name: "pedal-check" },
+        };
+        await storage.savePlan(plan);
+        await storage.savePlan({ ...plan, id: "b", origin: "shared", updatedAt: T0 + 5 });
+        expect((await storage.listPlans()).map((p) => p.id)).toEqual(["b", "a"]);
+        await storage.savePlan({ ...plan, revision: 2, updatedAt: T0 + 10 });
+        expect(await storage.getPlan("a")).toEqual({ ...plan, revision: 2, updatedAt: T0 + 10 });
+        expect((await storage.listPlans()).map((p) => [p.id, p.origin])).toEqual([
+          ["a", "local"],
+          ["b", "shared"],
+        ]);
+        await storage.deletePlan("a");
+        await storage.deletePlan("nope");
+        expect(await storage.getPlan("a")).toBeUndefined();
+        expect((await storage.listPlans()).map((p) => p.id)).toEqual(["b"]);
+      }));
+
     it("serialises calls made without waiting for each other", () =>
       withStorage(async (storage) => {
         const run = await storage.createRun(newRun);
