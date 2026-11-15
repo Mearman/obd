@@ -1,6 +1,7 @@
 import type { Run } from "obd-read";
 import { isSimulatorUrl } from "obd-read";
 import { useCallback, useEffect, useState } from "react";
+import { profileTitle } from "../profiles/generic";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { Badge, Button, DataTable, type Column } from "../ui";
@@ -66,7 +67,7 @@ export function RunsScreen() {
       render: ({ run }) =>
         new Date(run.startedAt).toLocaleString("en-GB", { timeZone: "UTC" }) + " UTC",
     },
-    { header: "Profile", render: ({ run }) => run.profile },
+    { header: "Profile", render: ({ run }) => profileTitle(run.profile) },
     { header: "Samples", render: ({ samples }) => String(samples) },
     {
       header: "State",

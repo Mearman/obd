@@ -1,8 +1,10 @@
+import { GENERIC_PROFILE } from "obd-read";
 import { useState } from "react";
 import { adapterAvailability } from "../connect/availability";
 import type { BrowserSupport } from "../connect/support";
 import { failureMessage, type AdapterKind } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
+import { GENERIC_SUMMARY, GENERIC_TITLE, profileTitle } from "../profiles/generic";
 import { useProfiles } from "../profiles/ProfilesProvider";
 import { Badge, Button, Card, Dialog, Select, Switch } from "../ui";
 import { error, list, muted, optionGrid, page } from "./screen.css";
@@ -66,7 +68,7 @@ export function ConnectScreen({ support }: { readonly support: BrowserSupport })
       {connection !== undefined && (
         <Card
           title={`Connected to ${connection.simulated ? "Simulator" : adapterLabel(connection.adapter)}`}
-          description={`Profile ${connection.profile}. Adapter ${connection.info.identity}.`}
+          description={`Profile: ${profileTitle(connection.profile)}. Adapter ${connection.info.identity}.`}
         >
           <div>
             <Badge tone={connection.simulated ? "simulated" : "success"}>
@@ -81,15 +83,21 @@ export function ConnectScreen({ support }: { readonly support: BrowserSupport })
 
       <Card
         title="Vehicle"
-        description="The profile names the control units to talk to. Choose it before connecting."
+        description="A profile names the control units to talk to. Generic OBD-II needs none. Choose before connecting."
       >
         <Select
           label="Vehicle profile"
-          value={profile}
-          options={names.map((name) => ({ value: name, label: name }))}
-          onValueChange={setProfile}
+          value={profile ?? GENERIC_PROFILE}
+          options={[
+            { value: GENERIC_PROFILE, label: GENERIC_TITLE },
+            ...names.map((name) => ({ value: name, label: name })),
+          ]}
+          onValueChange={(value) => {
+            setProfile(value === GENERIC_PROFILE ? undefined : value);
+          }}
           disabled={connection !== undefined}
         />
+        {profile === undefined && <p className={muted}>{GENERIC_SUMMARY}</p>}
       </Card>
 
       {problem !== undefined && (
