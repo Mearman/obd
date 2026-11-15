@@ -467,6 +467,55 @@ export const COMMANDS: readonly CommandSpec[] = [
       option("--open", "string", "a share link to read instead of making one", { metavar: "LINK" }),
     ],
   },
+  car(
+    "record",
+    "run a recording plan: guided phases with instructions, conditions and reads, written as a run (TypeScript only)",
+    [
+      option("--plan", "string", "a shipped plan name (see plan list) or a .obdplan.json file", {
+        required: true,
+      }),
+      option(
+        "--profile",
+        "string",
+        "the profile the run is recorded for; default: the plan's, else none",
+      ),
+      option("--output", "string", "the new run file (.json) to write; share opens it", {
+        required: true,
+      }),
+      option("--csv", "string", "also write the run to this new CSV file"),
+      option("--tsv", "string", "also write the run to this new TSV file, instead of --csv"),
+      option(
+        "--yes-confirm",
+        "flag",
+        "confirm each step the person would confirm at once, for a run with nobody at the terminal",
+      ),
+      idBits(),
+      bitrate(true),
+    ],
+    false,
+  ),
+  {
+    name: "plan",
+    summary: "list, show and validate recording plans without connecting (TypeScript only)",
+    args: [],
+    subcommands: [
+      { name: "list", summary: "list the shipped plans", args: [] },
+      {
+        name: "show",
+        summary: "print a plan's phases, instructions and conditions",
+        args: [positional("target", "a shipped plan name or a .obdplan.json file")],
+      },
+      {
+        name: "validate",
+        summary: "check plan files, listing every problem",
+        args: [
+          positional("targets", "a plan name or .obdplan.json file", "one-or-more", {
+            metavar: "PLAN",
+          }),
+        ],
+      },
+    ],
+  },
 ];
 
 /** The program: the commands under the name the command line is run as. */

@@ -55,6 +55,7 @@ obd-read probe --adapter ble://vLinker --profile mercedes-w211 --log first-run.l
 | `obd-read/node`        | The Node transports (`ble`, `serial`, `tcp`, `slcan`, `socketcan`), adapter discovery and the `node:sqlite` storage. Importing it registers the transports.                                                |
 | `obd-read/web`         | The browser transports (`webserial`, `webbluetooth`, `webusb`), `capabilities()` for explaining why one is unavailable, and the worker-backed storage. Importing it registers the transports.              |
 | `obd-read/web/storage` | The storage worker protocol, importable without the browser transports.                                                                                                                                    |
+| `obd-read/plans`       | The shipped recording plans (`builtinPlans`, `loadBuiltinPlan`). See [Recording plans](#recording-plans).                                                                                                  |
 | `obd-read/profiles`    | The bundled vehicle profiles and the generic fault-code titles.                                                                                                                                            |
 
 Core never imports a platform module. Each platform entry point supplies the transports it can build and registers them with `registerTransport`; `openTransport(url)` then builds the transport an adapter URL names, and fails with a `TransportError` when no entry point serves the scheme.
@@ -87,11 +88,13 @@ Core never imports a platform module. Each platform entry point supplies the tra
 | `decode <capture>`                                          | What a capture file says under `--profile`, or under none. Needs no adapter. TypeScript only.                                                                                                                                                                                                                                                                                                                                             |
 | `import-capture <file> --output <file>`                     | Turns a saved scan or a `--log` transcript into a capture file. Needs no adapter. TypeScript only.                                                                                                                                                                                                                                                                                                                                        |
 | `share <file>`                                              | Makes a link that shares a saved scan or a run's JSON, CSV or TSV export, or with `--open <link>` prints what a link carries. Needs no adapter. TypeScript only. See [Sharing](#sharing).                                                                                                                                                                                                                                                 |
+| `record --plan <plan> --output <file>`                      | Runs a recording plan: guided phases, each with an instruction, a condition to wait for and reads at its start and end, written as a run's JSON export for `share`. See [Recording plans](#recording-plans). TypeScript only.                                                                                                                                                                                                             |
+| `plan list`, `plan show <plan>`, `plan validate <file>...`  | Lists the shipped recording plans, prints one plan's phases, or validates plan files. Needs no adapter. TypeScript only.                                                                                                                                                                                                                                                                                                                  |
 | `write <unit> --request <hex> --read <hex> --save <file>`   | Writes one coding or adaptation value you supply, after saving the value it replaces.                                                                                                                                                                                                                                                                                                                                                     |
 | `restore <unit> --snapshot <file> --save <file>`            | Writes back the value a `write` saved.                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `actuate <unit> --request <hex> --stop <hex> --seconds <n>` | Drives one actuator with a request you supply, then always sends your stop request.                                                                                                                                                                                                                                                                                                                                                       |
 
-Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover`, `clear-codes` and `battery` take `--profile`; for `live`, `mqtt` and `capture` it is optional. Exit statuses: 0 on success, 1 for a command that failed or reported an `error:`, 2 for arguments the parser rejects, 130 after an interrupt. A snapshot, a CSV log, a monitor log and a draft profile are created exclusively and never replaced.
+Every command that talks to a car takes `--adapter`, and `--log <file>` to keep the full exchange with the adapter. All except `obd`, `discover`, `clear-codes` and `battery` take `--profile`; for `live`, `mqtt`, `capture` and `record` it is optional. Exit statuses: 0 on success, 1 for a command that failed or reported an `error:`, 2 for arguments the parser rejects, 130 after an interrupt. A snapshot, a CSV log, a monitor log and a draft profile are created exclusively and never replaced.
 
 The `obd` command asks a car only for what it says it supports: the supported-identifier bitmaps decide which values are requested. The decoding follows SAE J1979. Mode 06 test meanings other than the misfire counters differ per maker, so those results are printed with their raw value, limits and scaling identifier and marked as unconfirmed.
 
@@ -357,6 +360,104 @@ The app has a Capture everything card on Connect and Scan, and a Captures screen
 Captures are stored in the app's database as one compressed document each, with an index of the addresses each one reached. The viewer has two Share buttons: Share the raw capture makes a capture link that carries every exchange, so the receiver decodes it with a profile of their choosing, and Share this decoding shares the current decoding as a scan or OBD-II report link. Both are within the limits in [Sharing](#sharing); a capture too large for a link is passed on as the exported file.
 
 A capture holds the VIN, every unit's identification and the fault history, like a saved scan. It stays on the device that made it, in the database or the file you write, until you export or share it.
+
+## Recording plans
+
+A recording plan turns a test done by hand into steps the program leads: each phase tells the person what to do, records the values while they do it, waits for a condition that shows the step is done, and reads the fault codes, freeze frame or misfire counters at its start and end. The run it records knows which phase each reading belongs to.
+
+The person does all the driving and the pedal work. A plan only reads: it uses the legislated OBD-II read services (current data, freeze frame, stored, pending and permanent codes, and the mode 06 misfire monitors), each through the guard, and has no step that clears, writes or actuates. Every pedal phase in the shipped plans is done parked, handbrake on, in neutral or P, in a ventilated space, and a driving phase on a safe road.
+
+### The plan file
+
+A plan is a JSON file named `*.obdplan.json`, defined by `planSchema` in [`src/core/plan.ts`](src/core/plan.ts) and validated with Zod when it is loaded:
+
+```json
+{
+  "format": "obd-read-plan",
+  "version": 1,
+  "name": "idle-then-blip",
+  "title": "Idle, then blip",
+  "description": "Idles for a minute, then one quick blip. The person works the pedal, parked.",
+  "source": "Why the plan is shaped as it is, or where the procedure comes from.",
+  "needs": { "values": ["engine-speed", "coolant-temperature"] },
+  "phases": [
+    {
+      "id": "idle",
+      "title": "Idle",
+      "instruction": "Parked, handbrake on, in neutral or P: let the engine idle.",
+      "sample": { "every": 1 },
+      "reads": { "start": ["stored-codes"], "end": ["stored-codes", "pending-codes"] },
+      "end": { "when": { "kind": "elapsed", "seconds": 60 }, "timeout": 90, "onTimeout": "skip" }
+    },
+    {
+      "id": "blip",
+      "title": "Blip",
+      "instruction": "Parked, handbrake on, in neutral or P: press the pedal briskly past 3000 rpm, then release it.",
+      "sample": { "values": ["engine-speed"], "every": "fastest" },
+      "repeat": { "times": 3 },
+      "start": { "when": { "kind": "value", "value": "engine-speed", "op": ">", "than": 3000 } },
+      "end": {
+        "when": { "kind": "value", "value": "engine-speed", "op": "<", "than": 1200, "for": 2 }
+      }
+    }
+  ]
+}
+```
+
+`needs.values` lists the legislated values to read, by the names `live --list` prints (such as `engine-speed`), or is `"all"` for every value the car supports; `needs.profile` optionally names the profile the run is recorded for. A phase has an `id`, a `title`, a single-line `instruction`, what to `sample` (a subset of the values, and `every` so many seconds or `"fastest"` for one read after another), the `reads` to take at its `start` and `end` (`stored-codes`, `pending-codes`, `permanent-codes`, `freeze-frame`, `misfire-counters`), `watchCodes` to read the code lists throughout and record each change, an `end` wait and an optional `start` wait, and an optional `repeat`: `{ "times": n }`, or `{ "until": <condition>, "max": n }` checked at the end of each pass.
+
+### Conditions
+
+A condition is data, never code: the runner evaluates it and nothing in a plan is executed.
+
+| Condition                                                                        | Holds when                                                                                                  |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `{ "kind": "elapsed", "seconds": n }`                                            | n seconds have passed since the wait began.                                                                 |
+| `{ "kind": "samples", "count": n }`                                              | n samples have been taken since the wait began.                                                             |
+| `{ "kind": "value", "value": v, "op": ">", "than": n, "for": s }`                | The value compares with n (`>`, `>=`, `<`, `<=`), on every sample for s seconds when `for` is given.        |
+| `{ "kind": "value", "value": v, "op": "between", "min": a, "max": b, "for": s }` | The value is from a to b, on every sample for s seconds when `for` is given.                                |
+| `{ "kind": "value", "value": v, "op": "stable", "within": x, "for": s }`         | The value's samples over the last s seconds spread by no more than x.                                       |
+| `{ "kind": "code-appears", "list": "pending", "code": "P0300" }`                 | A code that was not in the list when the wait began appears in it; `list` and `code` are optional filters.  |
+| `{ "kind": "code-clears", "list": "stored", "code": "P0420" }`                   | A code that was in the list when the wait began, or appeared since, is gone from it; both filters optional. |
+| `{ "kind": "confirm", "prompt": "Ready?" }`                                      | The person confirms: Enter at the command line, a button in a page.                                         |
+| `{ "kind": "any", "of": [...] }`, `{ "kind": "all", "of": [...] }`               | Any one, or every one, of the conditions holds.                                                             |
+
+A value condition tests the value's first reading; most values have only one. A code condition makes the phase read the code lists while it waits.
+
+### The timeout rule
+
+Every wait has a `timeout` in seconds, `DEFAULT_WAIT_TIMEOUT_S` when it gives none, and an `onTimeout` of `skip` (end the phase, take its end reads, go on) or `fail` (end the plan as failed), `fail` when it gives none. A timeout no longer than the condition itself needs (the seconds of `elapsed`, the `for` of a value condition) is refused, so no wait can hang. A value name that is not a legislated value is refused when the plan is loaded, with the list of valid names, and a value the car does not report is refused before the run starts, with the values it does report.
+
+### Shipped plans
+
+| Plan                 | What it records                                                                                                                                                  |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cold-start-warm-up` | From ignition on through a cold start and idling until coolant temperature holds within 2 °C for two minutes, with the code lists read at the start and the end. |
+| `idle-then-rev`      | A minute at idle, a minute held between 2000 and 2500 rpm, half a minute at idle, then three quick blips, with the codes read at the end of each phase.          |
+| `misfire-under-load` | An idle baseline, a minute of steady revs and three blips, with the mode 06 misfire counters read before and after each phase.                                   |
+| `drive-cycle-watch`  | From moving off until the car has been stopped for half a minute, reading the code lists throughout and logging each code that appears or clears with its time.  |
+
+Each plan's `source` field gives its reason or source; `obd-read plan show <plan>` prints it with every phase.
+
+### The commands
+
+```sh
+obd-read plan list
+obd-read plan show idle-then-rev
+obd-read plan validate my-test.obdplan.json
+obd-read record --adapter <url> --plan idle-then-rev --output idle.json --csv idle.csv
+obd-read share idle.json
+```
+
+`record` loads and validates the plan and refuses an output file that exists before it opens the adapter. It prints a banner and the instruction for each phase, the condition it waits for with its timeout, a status line with the progress and the time left, each read's result and each code that appears or clears. A phase that asks the person to confirm prompts on the terminal; with no terminal the command refuses the plan before connecting, unless `--yes-confirm` confirms each such step at once. Ctrl-C aborts the plan, and the run is still written. `--csv <file>` or `--tsv <file>` also writes the run as a table, in the layout the other run exports use. The exit status is 0 when the plan completed, 1 when it failed and 130 after an interrupt.
+
+### The run it records
+
+A plan is stored as an ordinary run, so the run screens, the exports and `share` handle it as any other. Each reading is a sample under its value's label. Each fault code list is a text sample, under `stored fault codes`, `pending fault codes` or `permanent fault codes`, holding the sorted codes or `none`, written when the list changes. Each pass of each phase is one text sample under `plan phase`, at the phase's start, holding its record as JSON: the phase id and title, the pass, the start and end times, the outcome (`completed`, `timed-out`, `skipped`, `failed` or `aborted`) and every read with its result. `planPhases` in the core package reads them back.
+
+### Running a plan from code
+
+`PlanRunner` in the core package runs a plan over any `PlanLink` (a connected `DeviceLink` is one) into any `Storage`, and takes an injected `PlanClock` so a test runs a long plan at once. Construct it with the plan, link, storage, adapter label and an `onEvent` listener, then `await runner.run()`; `runner.confirm()`, `runner.skipPhase()` and `runner.abort()` act at its next step. The events, in order, are `plan-started`, `phase-started` (with the phase and its instruction), `waiting` (the condition in words and its timeout), `confirm-requested`, `sample`, `progress`, `code-appeared` and `code-cleared`, `read`, `condition-met` or `condition-timed-out`, `phase-finished` and `finished`.
 
 ## Sharing
 

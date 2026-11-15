@@ -2,6 +2,6 @@
   "name": "usage-unknown-command",
   "exit": 2,
   "stdout": "",
-  "stderr": "usage: obd-read [-h]\n                {monitor,adapters,profile,simulate,probe,ident,faults,freeze,scan,obd,live,battery,mqtt,discover,clear-codes,request,clear,compare,describe,import-names,write,restore,actuate,capture,decode,import-capture,share} ...\nobd-read: error: argument command: invalid choice: 'bogus' (choose from monitor, adapters, profile, simulate, probe, ident, faults, freeze, scan, obd, live, battery, mqtt, discover, clear-codes, request, clear, compare, describe, import-names, write, restore, actuate, capture, decode, import-capture, share)\n",
+  "stderr": "usage: obd-read [-h]\n                {monitor,adapters,profile,simulate,probe,ident,faults,freeze,scan,obd,live,battery,mqtt,discover,clear-codes,request,clear,compare,describe,import-names,write,restore,actuate,capture,decode,import-capture,share,record,plan} ...\nobd-read: error: argument command: invalid choice: 'bogus' (choose from monitor, adapters, profile, simulate, probe, ident, faults, freeze, scan, obd, live, battery, mqtt, discover, clear-codes, request, clear, compare, describe, import-names, write, restore, actuate, capture, decode, import-capture, share, record, plan)\n",
   "files": {}
 }
