@@ -16,3 +16,4 @@ export * from "./gatt.js";
 export * from "./read-queue.js";
 export * from "./serial.js";
 export * from "./storage.js";
+export * from "../service/message-port.js";

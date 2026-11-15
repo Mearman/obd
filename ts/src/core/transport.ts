@@ -157,6 +157,11 @@ export function registerTransport(scheme: Scheme, factory: TransportFactory): ()
   };
 }
 
+/** The schemes that have a registered transport factory in this runtime, in registration order. */
+export function registeredSchemes(): Scheme[] {
+  return [...factories.keys()];
+}
+
 /**
  * Builds the transport an adapter URL names. The link is not opened yet.
  *

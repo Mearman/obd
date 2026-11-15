@@ -22,3 +22,4 @@ const bleCentral = createNobleCentral();
 registerTransport("serial", serialTransportFor);
 registerTransport("tcp", tcpTransportFor);
 registerTransport("ble", (address) => bleTransportFor(bleCentral, address));
+export * from "../service/message-port.js";
