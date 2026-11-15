@@ -2,13 +2,11 @@ import {
   CAPTURE_GZIP_SUFFIX,
   CAPTURE_JSON_SUFFIX,
   captureFileBytes,
-  describeAddress,
-  describeOutcome,
+  captureShareData,
   obdReportShareData,
   scanShareFromUnits,
   type Capture,
   type DecodedCaptureData,
-  type Exchange,
   type ShareEnvelope,
 } from "obd-read";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
@@ -20,12 +18,13 @@ import { ObdReport } from "../screens/ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
 import { error, list, muted, row, stack, transcript } from "../screens/screen.css";
 import { ShareDialog } from "../share/ShareDialog";
-import { Badge, Button, Card, DataTable, Select, download, type Column } from "../ui";
+import { RAW_COLUMNS } from "./exchange-columns";
+import { Badge, Button, Card, DataTable, Select, download } from "../ui";
 
 /** The selector's value for decoding with no profile. */
 const GENERIC_CHOICE = "";
 
-/** The link a decoding makes: the units under a profile, or the OBD-II report under none. Only the decoded summary travels; the raw exchanges stay in the file. */
+/** The link a decoding makes: the units under a profile, or the OBD-II report under none. Only the decoded summary travels; the raw capture has its own link. */
 function decodedEnvelope(decoded: DecodedCaptureData, capture: Capture): ShareEnvelope {
   const details = {
     takenAt: capture.startedAt,
@@ -42,12 +41,12 @@ function decodedEnvelope(decoded: DecodedCaptureData, capture: Capture): ShareEn
   return { v: 1, kind: "scan", createdAt: Date.now(), data: shared.value };
 }
 
-const RAW_COLUMNS: readonly Column<Exchange>[] = [
-  { header: "#", render: (exchange) => String(exchange.seq) },
-  { header: "Address", render: (exchange) => describeAddress(exchange.address) },
-  { header: "Request", render: (exchange) => <code>{exchange.request}</code> },
-  { header: "Reply (raw)", render: (exchange) => <code>{describeOutcome(exchange)}</code> },
-];
+/** The link that carries the capture's raw exchanges, for the receiver to decode with any profile. */
+function captureEnvelope(capture: Capture): ShareEnvelope {
+  const shared = captureShareData(capture);
+  if (!shared.ok) throw new Error(shared.error.message);
+  return { v: 1, kind: "capture", createdAt: Date.now(), data: shared.value };
+}
 
 /**
  * One stored capture decoded under a chosen profile, or under none. The selector lists the shipped and imported profiles and Generic; the counts and the raw table show what the chosen profile decodes and what it leaves raw. Importing a profile here re-decodes at once, and so does choosing a profile imported elsewhere.
@@ -192,6 +191,13 @@ export function CaptureViewer({
                 Export compressed
               </Button>
             </>
+          )}
+          {capture !== undefined && (
+            <ShareDialog
+              label="Share the raw capture"
+              title="Share the raw capture"
+              load={() => Promise.resolve(captureEnvelope(capture))}
+            />
           )}
           {decoded !== undefined && capture !== undefined && (
             <ShareDialog
