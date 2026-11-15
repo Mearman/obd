@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { unavailableBecause } from "../database/problem";
 import { useDatabase } from "../database/DatabaseProvider";
 import { LineChart } from "../charts";
+import { useActivity } from "../pwa/ActivityProvider";
 import { useAutoSaveShared } from "../settings/auto-save-shared";
 import { ObdReport } from "../screens/ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
@@ -157,6 +158,7 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
   const [autoSave] = useAutoSaveShared();
   const [saved, setSaved] = useState(false);
   const [alreadySaved, setAlreadySaved] = useState(false);
+  useActivity("saving a shared link", saving && !saved);
   // The fragment an automatic save was started for. A ref, so the second effect run React StrictMode makes in development cannot start another.
   const autoStarted = useRef<string | undefined>(undefined);
 

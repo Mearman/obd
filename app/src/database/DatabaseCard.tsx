@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 import type { DatabaseInfo } from "obd-read/web/storage";
+import { useActivity } from "../pwa/ActivityProvider";
 import { Button, Card, download } from "../ui";
 import { error, muted, stack } from "../screens/screen.css";
 import { useDatabase } from "./DatabaseProvider";
@@ -26,6 +27,9 @@ export function DatabaseCard() {
   const [message, setMessage] = useState<
     { readonly ok: boolean; readonly text: string } | undefined
   >(undefined);
+  const [working, setWorking] = useState(false);
+  // A chosen file waiting for confirmation counts too: a reload would drop the choice.
+  useActivity("a database export or import", working || pending !== undefined);
   const input = useRef<HTMLInputElement>(null);
   const statusId = useId();
   const ready = state.status === "ready" ? state : undefined;
@@ -43,6 +47,7 @@ export function DatabaseCard() {
 
   async function onExport(): Promise<void> {
     if (ready === undefined) return;
+    setWorking(true);
     try {
       download(
         exportFileName(new Date()),
@@ -52,18 +57,23 @@ export function DatabaseCard() {
       setMessage({ ok: true, text: "Exported the database." });
     } catch (cause) {
       setMessage({ ok: false, text: cause instanceof Error ? cause.message : String(cause) });
+    } finally {
+      setWorking(false);
     }
   }
 
   async function onImport(): Promise<void> {
     if (ready === undefined || pending === undefined) return;
     const file = pending;
+    setWorking(true);
     setPending(undefined);
     try {
       await ready.control.importFile(new Uint8Array(await file.arrayBuffer()));
       setMessage({ ok: true, text: `Replaced the stored data with ${file.name}.` });
     } catch (cause) {
       setMessage({ ok: false, text: cause instanceof Error ? cause.message : String(cause) });
+    } finally {
+      setWorking(false);
     }
   }
 

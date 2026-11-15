@@ -3,6 +3,7 @@ import type { GuardedOutcomeData, GuardedRequestData } from "obd-read";
 import { useState } from "react";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
+import { useActivity } from "../pwa/ActivityProvider";
 import { Button } from "../ui";
 import { actions, content, description, overlay, title } from "../ui/Dialog.css";
 import { error, muted, transcript } from "./screen.css";
@@ -47,6 +48,11 @@ export function GuardedOperation({
   const { service } = useDiagnostics();
   const [stage, setStage] = useState<Stage>({ kind: "idle" });
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  // From the request until the outcome is shown, including while the dialog asks: a reload would drop the question.
+  useActivity(
+    `an operation on the car (${heading})`,
+    stage.kind === "requesting" || stage.kind === "asking",
+  );
 
   async function ask(): Promise<void> {
     setProblem(undefined);

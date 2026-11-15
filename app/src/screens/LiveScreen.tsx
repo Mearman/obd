@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { LineChart, appendRolling, type RollingHistory } from "../charts";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
+import { useActivity } from "../pwa/ActivityProvider";
 import { FaultHistory } from "../faults/FaultHistory";
 import { formatReading } from "../format/reading";
 import { SATURATED_NOTE, isSaturated } from "../format/saturation";
@@ -33,6 +34,7 @@ export function LiveScreen() {
   const { connection, collection, service, startCollection, stopCollection } = useDiagnostics();
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  useActivity("starting or stopping a run", busy);
   const running = collection.run !== undefined;
   const stopping = collection.stopping;
   const supportedState = useSupportedValues(connection, !running);

@@ -9,6 +9,7 @@ import { useState } from "react";
 import { CaptureCard } from "../captures/CaptureCard";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
+import { useActivity } from "../pwa/ActivityProvider";
 import { Button, Card, TextField, type Column } from "../ui";
 import { PROFILE_REQUIRED_REASON, profileTitle } from "../profiles/generic";
 import { GuardedOperation } from "./GuardedOperation";
@@ -57,6 +58,7 @@ export function ScanScreen({ onCaptured }: { readonly onCaptured?: (id: string) 
   const [scanned, setScanned] = useState<ScanDetails | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [scanning, setScanning] = useState(false);
+  useActivity("a scan", scanning);
   const [writeUnit, setWriteUnit] = useState("engine");
   const [writeRequest, setWriteRequest] = useState("");
   const [writeRead, setWriteRead] = useState("");

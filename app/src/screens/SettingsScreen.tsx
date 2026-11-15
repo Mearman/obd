@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type ChangeEvent } from "react";
 import { DatabaseCard } from "../database/DatabaseCard";
 import { useProfiles, type ImportResult } from "../profiles/ProfilesProvider";
+import { UpdateCard } from "../pwa/UpdateCard";
 import { useAutoSaveShared } from "../settings/auto-save-shared";
 import { isThemePreference } from "../theme/preference";
 import { useTheme } from "../theme/ThemeProvider";
@@ -88,6 +89,7 @@ export function SettingsScreen() {
         </div>
       </Card>
       <DatabaseCard />
+      <UpdateCard />
       <Card title="About collection">
         <p className={muted}>{COLLECTION_LIMIT}</p>
       </Card>
