@@ -6,6 +6,9 @@ import {
   exportRunDelimitedText,
   importRunTable,
   parseRunTable,
+  runSamples,
+  CsvLog,
+  type Source,
   runTable,
   runTableDocument,
   type Sample,
@@ -120,6 +123,55 @@ describe("a run read from text", () => {
     ]);
   });
 
+  it.each([
+    ["2026-11-15T10:00:01Z", "2026-11-15T10:00:01.000Z"],
+    ["2026-11-15T10:00:01.5Z", "2026-11-15T10:00:01.500Z"],
+    ["2026-11-15T10:00:01.500Z", "2026-11-15T10:00:01.500Z"],
+    ["2026-11-15T10:00:01+00:00", "2026-11-15T10:00:01.000Z"],
+    ["2026-11-15T10:00:01.500+00:00", "2026-11-15T10:00:01.500Z"],
+    ["2026-11-15T10:00:01.500-00:00", "2026-11-15T10:00:01.500Z"],
+    ["2026-11-15T10:00:01.500+0000", "2026-11-15T10:00:01.500Z"],
+  ])("reads the UTC time %s", (time, instant) => {
+    const parsed = parseRunTable(csv([`${time},0.000,50,D`]));
+    expect(parsed.samples[0]?.timestamp).toBe(Date.parse(instant));
+  });
+
+  it("reads back what the live command's log writer wrote", async () => {
+    let text = "";
+    const source: Source = {
+      columns: [{ label: "engine speed", unit: "rpm" }],
+      read: () => Promise.resolve([850]),
+      available: [],
+      notes: [],
+    };
+    await runSamples(
+      source,
+      {
+        count: 2,
+        intervalMs: 0,
+        openLog: (header) =>
+          CsvLog.create(
+            {
+              write: (chunk) => {
+                text += chunk;
+                return Promise.resolve();
+              },
+              close: () => Promise.resolve(),
+            },
+            header,
+            "csv",
+          ),
+      },
+      () => undefined,
+    );
+    expect(text).toMatch(/\+00:00,/);
+    const parsed = parseRunTable(text);
+    expect(parsed.samples.map(({ signal, unit, value }) => ({ signal, unit, value }))).toEqual([
+      { signal: "engine speed", unit: "rpm", value: 850 },
+      { signal: "engine speed", unit: "rpm", value: 850 },
+    ]);
+  });
+
   it("reads a TSV export by its first header column", () => {
     const parsed = parseRunTable("time\telapsed (s)\ta\n2026-11-15T10:00:00.000Z\t0.000\t1\n");
     expect(parsed.samples).toEqual([
@@ -140,6 +192,10 @@ describe("a run read from text", () => {
     ["time,elapsed (s),a\r\n", /no rows/],
     ["time,elapsed (s),a\r\n2026-11-15T10:00:00.000Z,0.000\r\n", /row 2 has 2 columns/],
     ["time,elapsed (s),a\r\nyesterday,0.000,1\r\n", /row 2 has the time "yesterday"/],
+    [
+      "time,elapsed (s),a\r\n2026-11-15T10:00:00.000+01:00,0.000,1\r\n",
+      /which is not an ISO 8601 UTC time \(such as .*\+00:00\)/,
+    ],
     ["time,elapsed (s),a\r\n2026-11-15T10:00:00.000Z,soon,1\r\n", /elapsed time "soon"/],
   ])("refuses %j", (text, message) => {
     expect(() => parseRunTable(text)).toThrow(RunImportError);

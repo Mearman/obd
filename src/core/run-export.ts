@@ -173,7 +173,8 @@ export interface ParsedRun {
   readonly samples: readonly Omit<Sample, "runId">[];
 }
 
-const ISO_TIME = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
+/** An ISO 8601 instant in UTC: seconds, optional fractional seconds, and `Z` or a zero offset (`+00:00`, `-00:00`, `+0000` or `+00`). The app writes `Z` and the command line `+00:00`. */
+const ISO_TIME = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]00(?::?00)?)$/;
 const NUMBER = /^-?\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i;
 
 /** A title as {@link columnTitle} writes it, back to the signal and its unit. A signal whose own name ends in a parenthesised word and has no unit reads back with that word as the unit. */
@@ -193,7 +194,7 @@ function dialectOf(text: string): Dialect {
  *
  * A cell that is a plain number (digits, an optional fraction and exponent) is a number and any other text a string, so a text reading that looks like a number comes back as one. The run starts at the first row's time less its elapsed seconds.
  *
- * @throws RunImportError naming the first column that is not the writer's header, a row of the wrong width, a time or elapsed value that is not the writer's, or a file with no rows.
+ * @throws RunImportError naming the first column that is not the writer's header, a row of the wrong width, a time that is not an ISO 8601 UTC instant or an elapsed value that is not a number of seconds, or a file with no rows.
  * @throws TabularError for text that is not valid in its dialect.
  */
 export function parseRunTable(text: string): ParsedRun {
@@ -232,7 +233,7 @@ export function parseRunTable(text: string): ParsedRun {
     const timestamp = Date.parse(time);
     if (!ISO_TIME.test(time) || Number.isNaN(timestamp)) {
       throw new RunImportError(
-        `row ${String(line)} has the time "${time}", which is not an ISO 8601 UTC time with milliseconds`,
+        `row ${String(line)} has the time "${time}", which is not an ISO 8601 UTC time (such as 2026-11-15T10:00:00.000Z or 2026-11-15T10:00:00.000+00:00)`,
       );
     }
     if (!/^-?\d+(?:\.\d+)?$/.test(elapsed)) {

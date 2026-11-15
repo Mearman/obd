@@ -22,7 +22,6 @@ export * from "./slcan.js";
 export * from "./socketcan.js";
 export * from "./tcp.js";
 
-
 registerTransport("serial", serialTransportFor);
 registerTransport("slcan", (address) => slcanTransportFor(address));
 registerTransport("socketcan", (address) => socketcanTransportFor(address));
