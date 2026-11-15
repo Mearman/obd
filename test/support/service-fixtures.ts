@@ -69,6 +69,8 @@ export function newHost(): {
     transports,
     grants: new DeviceGrants(),
     now: () => clock.time,
+    loadProfile: (name) => Promise.resolve(loadBuiltinProfile(name)),
+    toolVersion: "test",
   });
   return { host, collector, storage, clock };
 }

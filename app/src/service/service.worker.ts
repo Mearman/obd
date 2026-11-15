@@ -5,6 +5,7 @@
  */
 
 import { remoteStorage, startDiagnosticsWorker } from "obd-read/web";
+import { APP_VERSION } from "../release/release";
 import { readWorkerInit } from "./protocol";
 
 self.addEventListener(
@@ -16,6 +17,7 @@ self.addEventListener(
       storage: remoteStorage(init.storage),
       diagnosticsPort: init.diagnostics,
       transportPort: init.transports,
+      toolVersion: APP_VERSION,
     });
   },
   { once: true },

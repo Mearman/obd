@@ -7,6 +7,7 @@ import {
   composeTransportHosts,
   createDiagnosticsService,
   isSimulatorUrl,
+  profileLoader,
   simulatedLiveCar,
   simulatorTransportHost,
   simulatorUrl,
@@ -16,7 +17,7 @@ import {
   type Transport,
   type TransportHost,
 } from "../../src/core/index.js";
-import { loadBuiltinProfile } from "../../src/profiles/index.js";
+import { builtinProfileData, loadBuiltinProfile } from "../../src/profiles/index.js";
 
 /** The simulated adapter of the Mercedes profile. */
 export const SIMULATOR = simulatorUrl("mercedes-w211");
@@ -116,8 +117,10 @@ export function newSimulatedService(
 ): DiagnosticsService & { storage: Storage; clock: { time: number } } {
   const storage = options.storage ?? new MemoryStorage();
   const clock = { time: 1_700_000_000_000 };
-  const loadProfile = (name: string) => Promise.resolve(loadBuiltinProfile(name));
+  // As the worker does: an imported profile is preferred over a shipped one of the same name.
+  const loadProfile = profileLoader(storage, builtinProfileData);
   const service = createDiagnosticsService({
+    toolVersion: "test",
     storage,
     loadProfile,
     transports: options.transports ?? composeTransportHosts(simulatorTransportHost(loadProfile)),

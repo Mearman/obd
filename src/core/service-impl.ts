@@ -10,6 +10,7 @@ import {
   type AdapterCapability,
   type Connection,
   type DiagnosticsContract,
+  type DecodedCaptureData,
   type GuardedRequestData,
   type UnitReportData,
 } from "./service.js";
@@ -52,13 +53,17 @@ import {
   profileCommand,
 } from "./operations.js";
 import { clearCodesCommand } from "./obd-clear.js";
-import { ProfileError, parseJson, parseProfile, profileUnit } from "./profile.js";
+import { ProfileError, parseJson, parseProfile, profileUnit, type Profile } from "./profile.js";
+import { CaptureError } from "./capture.js";
+import { CaptureBusy, CaptureJobs } from "./capture-jobs.js";
+import { ImportError, importRecord } from "./capture-import.js";
+import { decodeCapture, decodedLines, type DecodedCapture } from "./decode.js";
 import { checkProfile } from "./profile-check.js";
 import { exportRunCsvText, exportRunJson } from "./run-export.js";
 import { readSelection, userNotes, withSelection } from "./run-selection.js";
 import { isSimulatorUrl } from "./simulator-host.js";
 import { StorageSnapshotStore } from "./snapshot-store.js";
-import { isoNowSeconds, now as clockNow, sleep as realSleep } from "./time.js";
+import { isoNowSeconds, now as clockNow, randomSuffix, sleep as realSleep } from "./time.js";
 import { StorageError, jsonSchema, type Run, type Sample, type Storage } from "./storage.js";
 import { AdapterUrlError, SCHEMES, TransportError, type Scheme } from "./transport.js";
 import type { DeviceGrants } from "./transport-host.js";
@@ -81,6 +86,10 @@ export interface DiagnosticsDependencies {
   readonly sleep?: (milliseconds: number) => Promise<void>;
   /** How long a clear, write or actuator request waits for its confirmation, in milliseconds. */
   readonly confirmationTtlMs?: number;
+  /** Finds a shipped or imported profile by name, for decoding a capture; rejects when there is none. */
+  readonly loadProfile: (name: string) => Promise<Profile>;
+  /** The program's version, as captures record it. */
+  readonly toolVersion: string;
 }
 
 /** How long a guarded request waits for its confirmation unless the edge says otherwise, in milliseconds. */
@@ -222,7 +231,9 @@ function callerError(error: unknown): ORPCError<string, undefined> | undefined {
   if (
     error instanceof ProfileError ||
     error instanceof OptionError ||
-    error instanceof AdapterUrlError
+    error instanceof AdapterUrlError ||
+    error instanceof CaptureError ||
+    error instanceof ImportError
   ) {
     return new ORPCError("BAD_REQUEST", { message: error.message });
   }
@@ -231,7 +242,8 @@ function callerError(error: unknown): ORPCError<string, undefined> | undefined {
     error instanceof ClearRefused ||
     error instanceof WriteRefused ||
     error instanceof LinkBusy ||
-    error instanceof ConfirmationPending
+    error instanceof ConfirmationPending ||
+    error instanceof CaptureBusy
   ) {
     return new ORPCError("CONFLICT", { message: error.message });
   }
@@ -344,6 +356,20 @@ function obdUnitReports(scan: ObdScan, requestId: string): UnitReportData[] {
   });
 }
 
+/** A decoded capture as a caller sees it. */
+function decodedData(decoded: DecodedCapture): DecodedCaptureData {
+  return {
+    profile: decoded.profile,
+    units: decoded.units.map(unitReportData),
+    obd: decoded.obd,
+    values: decoded.values.map((value) => ({ ...value })),
+    discovered: decoded.discovered.map((found) => ({ ...found })),
+    undecoded: decoded.undecoded.map((exchange) => exchange.seq),
+    exchanges: decoded.exchanges,
+    lines: decodedLines(decoded),
+  };
+}
+
 /** The run as a caller sees it: its notes are what the user wrote, without the collection selection. */
 function presented(run: Run): Run {
   return { ...run, notes: userNotes(run.notes) };
@@ -351,9 +377,17 @@ function presented(run: Run): Run {
 
 /** The service's router: the contract's operations implemented over the dependencies. */
 function buildRouter(dependencies: DiagnosticsDependencies) {
-  const { storage, collector, link, transports, grants } = dependencies;
+  const { storage, collector, link, transports, grants, loadProfile } = dependencies;
   const now = dependencies.now ?? clockNow;
   const sleep = dependencies.sleep ?? realSleep;
+  const captures = new CaptureJobs({
+    link,
+    storage,
+    toolVersion: dependencies.toolVersion,
+    now,
+    sleep,
+    suffix: randomSuffix,
+  });
   const hub = new LiveHub();
   const confirmations = new PendingConfirmations(
     dependencies.confirmationTtlMs ?? CONFIRMATION_TTL_MS,
@@ -383,6 +417,18 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
         message: "a collection run holds the adapter; stop it first",
       });
     }
+    if (captures.busy) {
+      throw new ORPCError("CONFLICT", {
+        message: "a capture holds the adapter; stop it or wait for it to end",
+      });
+    }
+  };
+
+  /** A stored capture, or a `not-found` failure. */
+  const storedCapture = async (id: string) => {
+    const capture = await storage.getCapture(id);
+    if (capture === undefined) throw new StorageError("not-found", `no capture ${id}`);
+    return capture;
   };
 
   /** Runs `read` on the open connection while the adapter is free. */
@@ -782,6 +828,59 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
     },
     live: {
       samples: os.live.samples.handler(({ input, signal }) => hub.subscribe(input.runId, signal)),
+    },
+    captures: {
+      start: os.captures.start.handler(({ input }) =>
+        translated(() => {
+          requireFree();
+          if (link.session === undefined) throw new NotConnected("connect an adapter first");
+          return Promise.resolve(captures.start(input));
+        }),
+      ),
+      stop: os.captures.stop.handler(({ input }) =>
+        translated(() => {
+          const status = captures.stop(input.id);
+          if (status === undefined)
+            throw new StorageError("not-found", `no capture ${input.id} is running here`);
+          return Promise.resolve(status);
+        }),
+      ),
+      status: os.captures.status.handler(({ input }) => captures.status(input.id) ?? null),
+      progress: os.captures.progress.handler(({ input, signal }) =>
+        captures.progress(input.id, signal),
+      ),
+      list: os.captures.list.handler(({ input }) => translated(() => storage.listCaptures(input))),
+      get: os.captures.get.handler(({ input }) => translated(() => storedCapture(input.id))),
+      delete: os.captures.delete.handler(({ input }) =>
+        translated(async () => {
+          const existed = (await storage.getCapture(input.id)) !== undefined;
+          await storage.deleteCapture(input.id);
+          return { deleted: existed };
+        }),
+      ),
+      import: os.captures.import.handler(({ input }) =>
+        translated(async () => {
+          const at = now();
+          const { capture, unrecovered } = importRecord(
+            input.text,
+            `import-${new Date(at).toISOString().replace(/[-:.]/g, "")}-${randomSuffix()}`,
+            input.name,
+          );
+          return { summary: await storage.saveCapture(capture), unrecovered: [...unrecovered] };
+        }),
+      ),
+      decode: os.captures.decode.handler(({ input }) =>
+        translated(async () => {
+          const capture = await storedCapture(input.id);
+          const decoded = await decodeCapture(
+            capture,
+            input.profile === null
+              ? { kind: "generic" }
+              : { kind: "profile", profile: await loadProfile(input.profile) },
+          );
+          return decodedData(decoded);
+        }),
+      ),
     },
     profiles: {
       import: os.profiles.import.handler(({ input }) =>

@@ -32,6 +32,7 @@ export interface TestService extends AppService {
 export function createTestService(storage = new MemoryStorage()): TestService {
   const loadProfile = profileLoader(storage, builtinProfileData);
   const service = createDiagnosticsService({
+    toolVersion: "test",
     storage,
     loadProfile,
     transports: composeTransportHosts(simulatorTransportHost(loadProfile)),
