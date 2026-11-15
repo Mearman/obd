@@ -30,15 +30,24 @@ import { makeClient, type LineSink } from "./unit-access.js";
 /** One reading, or `undefined` where the value could not be read this time. */
 export type Reading = Value | undefined;
 
+/** What a caller of {@link Source.read} can ask of a cycle: to be told how far it is and to cut it short between requests. */
+export interface ReadControl {
+  /** Whether the cycle should end before its next request. The values not yet read come back as `undefined`. */
+  readonly stopped: () => boolean;
+  /** Called before each value is requested: its 1-based position, how many values the cycle holds and its name. */
+  readonly progress: (position: number, total: number, label: string) => void;
+}
+
 /** What a live run reads: one column per reading, and a way to read them all once. */
 export interface Source {
   /** One column per reading. */
   readonly columns: readonly Column[];
   /**
    * Reads every column once. Takes a printer for anything worth saying about a read and returns
-   * one entry per column.
+   * one entry per column. With a {@link ReadControl} the cycle checks `stopped` before each request,
+   * so it ends within the request in flight, and reports its progress before each one.
    */
-  readonly read: (out: LineSink) => Promise<readonly Reading[]>;
+  readonly read: (out: LineSink, control?: ReadControl) => Promise<readonly Reading[]>;
   /** The names that can be chosen. */
   readonly available: readonly string[];
   /** Lines shown before the first sample. */
@@ -86,9 +95,14 @@ export async function legislatedSource(elm: Elm, wanted: readonly string[]): Pro
   });
   return {
     columns: chosen.flatMap((pid) => pid.columns),
-    read: async () => {
+    read: async (_out, control) => {
       const readings: Reading[] = [];
-      for (const pid of chosen) {
+      for (const [index, pid] of chosen.entries()) {
+        if (control?.stopped() === true) {
+          readings.push(...pid.columns.map(() => undefined));
+          continue;
+        }
+        control?.progress(index + 1, chosen.length, pid.columns[0]?.label ?? pid.name);
         const answers = await readPid(elm, pid);
         // With several answering units the first one to reply is logged.
         const first = answers.values().next();
@@ -98,6 +112,41 @@ export async function legislatedSource(elm: Elm, wanted: readonly string[]): Pro
     },
     available,
     notes: [],
+  };
+}
+
+/** A legislated value a car supports: the name `runs.start` selects it by and the readings it yields. */
+export interface SupportedValue {
+  readonly name: string;
+  readonly columns: readonly Column[];
+}
+
+/** The legislated values a car supports and how long one request of the adapter took. */
+export interface SupportedValues {
+  readonly values: readonly SupportedValue[];
+  /** How long reading the first supported value took, in milliseconds: one request on this adapter and car. */
+  readonly requestMs: number;
+}
+
+/**
+ * Lists the legislated values the car supports, then times one request by reading the first of them.
+ *
+ * @throws OptionError when no unit reported any supported current-data value.
+ */
+export async function supportedValues(
+  elm: Elm,
+  clock: () => number = now,
+): Promise<SupportedValues> {
+  const pids = supportedPids(await supportedIds(elm, CURRENT_DATA));
+  const first = pids[0];
+  if (first === undefined) {
+    throw new OptionError("no unit reported any supported current-data value");
+  }
+  const started = clock();
+  await readPid(elm, first);
+  return {
+    values: pids.map((pid) => ({ name: pid.name, columns: pid.columns })),
+    requestMs: Math.max(0, clock() - started),
   };
 }
 
@@ -152,9 +201,16 @@ export async function unitSource(
   const unconfirmed = chosen.filter((item) => item.status !== "confirmed").map((item) => item.name);
   return {
     columns: chosen.map((item) => ({ label: item.label, unit: item.unit })),
-    read: async (out) => {
+    read: async (out, control) => {
       const readings: Reading[] = [];
-      for (const item of chosen) readings.push(await readOne(item, out));
+      for (const [index, item] of chosen.entries()) {
+        if (control?.stopped() === true) {
+          readings.push(undefined);
+          continue;
+        }
+        control?.progress(index + 1, chosen.length, item.label);
+        readings.push(await readOne(item, out));
+      }
       return readings;
     },
     available,

@@ -7,7 +7,7 @@
 import { ElmError } from "./elm.js";
 import { FAULT_LISTS, FAULT_SIGNALS, faultSampleValue, type FaultList } from "./fault-history.js";
 import { PENDING_CODES, PERMANENT_CODES, STORED_CODES, codes } from "./obd.js";
-import { buildSource, type Source } from "./live.js";
+import { buildSource, type ReadControl, type Source } from "./live.js";
 import { GENERIC_PROFILE, profileLabel, sessionBus } from "./generic.js";
 import type { DeviceLink, LinkSession } from "./device-link.js";
 import { now as clockNow, sleep as realSleep } from "./time.js";
@@ -35,6 +35,16 @@ export const COLLECTION_STATES = ["collecting", "reconnecting", "failed"] as con
 /** Where a run's collection is. */
 export type CollectionState = (typeof COLLECTION_STATES)[number];
 
+/** Which value of the current cycle the collector is requesting. */
+export interface CollectionProgress {
+  /** The 1-based position of the value being requested. */
+  readonly position: number;
+  /** How many values a cycle holds. */
+  readonly total: number;
+  /** The value's name, as its samples are labelled. */
+  readonly label: string;
+}
+
 /** How a run's collection is going. */
 export interface CollectionStatus {
   readonly state: CollectionState;
@@ -44,6 +54,8 @@ export interface CollectionStatus {
   readonly lastError: string | null;
   /** Samples handed to the sink since collection started in this process. */
   readonly samples: number;
+  /** The value being requested, or `null` before the first request and while reconnecting. */
+  readonly progress: CollectionProgress | null;
 }
 
 /** Polls an adapter for a run. */
@@ -55,7 +67,7 @@ export interface Collector {
    */
   start(run: Run, request: CollectionRequest, sink: SampleSink): Promise<void>;
 
-  /** Stops collecting for the run and stores what is buffered. Does nothing for a run this collector is not collecting. */
+  /** Stops collecting for the run and stores what is buffered. A cycle in progress ends before its next request, so the run ends within the request in flight, and the values it had not yet read are left out of the run. Does nothing for a run this collector is not collecting. */
   stop(runId: string): Promise<void>;
 
   /** The runs being collected, including those reconnecting or failed. */
@@ -185,7 +197,7 @@ export class LiveCollector implements Collector {
         stopping: false,
         wake: undefined,
         loop: Promise.resolve(),
-        status: { state: "collecting", attempt: 0, lastError: null, samples: 0 },
+        status: { state: "collecting", attempt: 0, lastError: null, samples: 0, progress: null },
         pending: [],
         lastFlush: this.now(),
         lastCodes: new Map(),
@@ -256,12 +268,21 @@ export class LiveCollector implements Collector {
 
   private async poll(job: Job, first: Source): Promise<void> {
     let source = first;
+    // Whether a stop cut the last cycle short, which also skips the fault code reads that would follow it.
+    let interrupted = false;
+    const control: ReadControl = {
+      stopped: () => job.stopping,
+      progress: (position, total, label) => {
+        job.status = { ...job.status, progress: { position, total, label } };
+      },
+    };
     try {
       while (!job.stopping) {
         try {
           const readings = await this.dependencies.link.withSession(() =>
-            source.read(() => undefined),
+            source.read(() => undefined, control),
           );
+          interrupted = isStopping(job);
           const timestamp = this.now();
           source.columns.forEach((column, index) => {
             const value = readings[index];
@@ -276,7 +297,8 @@ export class LiveCollector implements Collector {
               value,
             });
           });
-          await this.readCodes(job, timestamp, false);
+          if (!interrupted) await this.readCodes(job, timestamp, false);
+          interrupted = isStopping(job);
           job.status = { ...job.status, state: "collecting", attempt: 0 };
           if (job.pending.length >= this.batchSize || timestamp - job.lastFlush >= this.flushMs) {
             const count = job.pending.length;
@@ -292,8 +314,8 @@ export class LiveCollector implements Collector {
           source = recovered;
         }
       }
-      // One last read, so a code that changed since the previous one is recorded before the run ends. A run stopped while reconnecting has no link to read.
-      if (isCollecting(job)) await this.readCodes(job, this.now(), true);
+      // One last read, so a code that changed since the previous one is recorded before the run ends (skipped when a stop cut a cycle short, because it would add requests after the stop). A run stopped while reconnecting has no link to read.
+      if (isCollecting(job) && !interrupted) await this.readCodes(job, this.now(), true);
     } catch (error) {
       job.status = { ...job.status, state: "failed", lastError: describe(error) };
     } finally {
@@ -316,6 +338,8 @@ export class LiveCollector implements Collector {
       return;
     }
     for (const list of FAULT_LISTS) {
+      // A stop ends a due read between its three requests, as it ends a cycle between values.
+      if (!force && job.stopping) return;
       const answers = await this.dependencies.link.withSession((session) =>
         codes(session.elm, CODE_MODES[list]),
       );
@@ -343,7 +367,7 @@ export class LiveCollector implements Collector {
       lastError: describe(dropped),
     };
     for (let attempt = 1; !job.stopping; attempt++) {
-      job.status = { ...job.status, state: "reconnecting", attempt };
+      job.status = { ...job.status, state: "reconnecting", attempt, progress: null };
       await this.idle(job, this.delayFor(attempt));
       if (isStopping(job)) break;
       try {
