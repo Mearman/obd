@@ -31,6 +31,8 @@ export * from "./openlog.js";
 export * from "./battery.js";
 export * from "./rawcan.js";
 export * from "./slcan.js";
+export * from "./gsusb.js";
+export * from "./framequeue.js";
 export * from "./monitor.js";
 export * from "./live.js";
 export * from "./storage.js";
