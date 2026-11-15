@@ -31,7 +31,11 @@ describe("catalogue", () => {
   });
 
   it("sorts groups and keeps imported profiles last", () => {
-    const result = grouped([importedEntry("mine"), shippedEntry("vag-mqb"), shippedEntry("bmw-i3")]);
+    const result = grouped([
+      importedEntry("mine"),
+      shippedEntry("vag-mqb"),
+      shippedEntry("bmw-i3"),
+    ]);
     expect(result.map((g) => g.group)).toEqual(["BMW", "Volkswagen Group", "Imported"]);
   });
 });

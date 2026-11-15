@@ -1,13 +1,7 @@
 import * as RadixDialog from "@radix-ui/react-dialog";
 import { useId, useMemo, useState } from "react";
 import { Badge, Button } from "../ui";
-import {
-  grouped,
-  importedEntry,
-  matches,
-  shippedEntry,
-  type CatalogueEntry,
-} from "./catalogue";
+import { grouped, importedEntry, matches, shippedEntry, type CatalogueEntry } from "./catalogue";
 import { GENERIC_SUMMARY, GENERIC_TITLE } from "./generic";
 import {
   badges,
@@ -63,10 +57,21 @@ export function ProfilePicker({
     ],
     [builtin, imported],
   );
-  const groups = useMemo(() => grouped(entries.filter((entry) => matches(entry, query))), [entries, query]);
+  const groups = useMemo(
+    () => grouped(entries.filter((entry) => matches(entry, query))),
+    [entries, query],
+  );
   const current = value === undefined ? undefined : entries.find((entry) => entry.name === value);
   const showGeneric = matches(
-    { name: "generic", group: "", title: GENERIC_TITLE, detail: GENERIC_SUMMARY, units: 0, status: "", imported: false },
+    {
+      name: "generic",
+      group: "",
+      title: GENERIC_TITLE,
+      detail: GENERIC_SUMMARY,
+      units: 0,
+      status: "",
+      imported: false,
+    },
     query,
   );
 
@@ -78,100 +83,102 @@ export function ProfilePicker({
 
   return (
     <div className={field}>
-    <span id={labelId} className={fieldLabel}>
-      Vehicle profile
-    </span>
-    <RadixDialog.Root open={open} onOpenChange={setOpen}>
-      <RadixDialog.Trigger asChild>
-        <button
-          type="button"
-          className={trigger}
-          aria-labelledby={labelId}
-          disabled={disabled === true}
-        >
-          <span className={stack}>
-            <span className={primary}>{current?.title ?? (value ?? GENERIC_TITLE)}</span>
-            <span className={secondary}>
-              {current === undefined ? "Any compliant car, no control units" : current.detail || current.name}
+      <span id={labelId} className={fieldLabel}>
+        Vehicle profile
+      </span>
+      <RadixDialog.Root open={open} onOpenChange={setOpen}>
+        <RadixDialog.Trigger asChild>
+          <button
+            type="button"
+            className={trigger}
+            aria-labelledby={labelId}
+            disabled={disabled === true}
+          >
+            <span className={stack}>
+              <span className={primary}>{current?.title ?? value ?? GENERIC_TITLE}</span>
+              <span className={secondary}>
+                {current === undefined
+                  ? "Any compliant car, no control units"
+                  : current.detail || current.name}
+              </span>
             </span>
-          </span>
-          <span aria-hidden>▾</span>
-        </button>
-      </RadixDialog.Trigger>
-      <RadixDialog.Portal>
-        <RadixDialog.Overlay className={overlay} />
-        <RadixDialog.Content className={panel} aria-describedby={undefined}>
-          <RadixDialog.Title className={heading}>Vehicle profile</RadixDialog.Title>
-          <input
-            type="search"
-            className={search}
-            value={query}
-            placeholder="Search make, model or chassis"
-            aria-label="Search vehicle profiles"
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            onChange={(event) => {
-              setQuery(event.target.value);
-            }}
-          />
-          <div className={list} role="listbox" aria-label="Vehicle profiles">
-            {showGeneric && (
-              <button
-                type="button"
-                role="option"
-                aria-selected={value === undefined}
-                className={option}
-                data-profile=""
-                onClick={() => {
-                  choose(undefined);
-                }}
-              >
-                <span className={stack}>
-                  <span className={primary}>{GENERIC_TITLE}</span>
-                  <span className={secondary}>Any compliant car, no control units</span>
-                </span>
-              </button>
-            )}
-            {groups.map(({ group, entries: members }) => (
-              <div key={group} role="group" aria-label={group}>
-                <div className={groupLabel}>{group}</div>
-                {members.map((entry) => (
-                  <button
-                    key={entry.name}
-                    type="button"
-                    role="option"
-                    aria-selected={entry.name === value}
-                    className={option}
-                    data-profile={entry.name}
-                    onClick={() => {
-                      choose(entry.name);
-                    }}
-                  >
-                    <span className={stack}>
-                      <span className={primary}>{entry.title}</span>
-                      <span className={secondary}>{entry.detail || entry.name}</span>
-                    {!entry.imported && (
-                      <span className={badges}>
-                        <Badge>{units(entry)}</Badge>
-                        <Badge tone="warning">{entry.status}</Badge>
+            <span aria-hidden>▾</span>
+          </button>
+        </RadixDialog.Trigger>
+        <RadixDialog.Portal>
+          <RadixDialog.Overlay className={overlay} />
+          <RadixDialog.Content className={panel} aria-describedby={undefined}>
+            <RadixDialog.Title className={heading}>Vehicle profile</RadixDialog.Title>
+            <input
+              type="search"
+              className={search}
+              value={query}
+              placeholder="Search make, model or chassis"
+              aria-label="Search vehicle profiles"
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              onChange={(event) => {
+                setQuery(event.target.value);
+              }}
+            />
+            <div className={list} role="listbox" aria-label="Vehicle profiles">
+              {showGeneric && (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={value === undefined}
+                  className={option}
+                  data-profile=""
+                  onClick={() => {
+                    choose(undefined);
+                  }}
+                >
+                  <span className={stack}>
+                    <span className={primary}>{GENERIC_TITLE}</span>
+                    <span className={secondary}>Any compliant car, no control units</span>
+                  </span>
+                </button>
+              )}
+              {groups.map(({ group, entries: members }) => (
+                <div key={group} role="group" aria-label={group}>
+                  <div className={groupLabel}>{group}</div>
+                  {members.map((entry) => (
+                    <button
+                      key={entry.name}
+                      type="button"
+                      role="option"
+                      aria-selected={entry.name === value}
+                      className={option}
+                      data-profile={entry.name}
+                      onClick={() => {
+                        choose(entry.name);
+                      }}
+                    >
+                      <span className={stack}>
+                        <span className={primary}>{entry.title}</span>
+                        <span className={secondary}>{entry.detail || entry.name}</span>
+                        {!entry.imported && (
+                          <span className={badges}>
+                            <Badge>{units(entry)}</Badge>
+                            <Badge tone="warning">{entry.status}</Badge>
+                          </span>
+                        )}
                       </span>
-                    )}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ))}
-            {!showGeneric && groups.length === 0 && (
-              <p className={empty}>No profile matches “{query}”. Import one in Settings.</p>
-            )}
-          </div>
-          <RadixDialog.Close asChild>
-            <Button>Cancel</Button>
-          </RadixDialog.Close>
-        </RadixDialog.Content>
-      </RadixDialog.Portal>
-    </RadixDialog.Root>
+                    </button>
+                  ))}
+                </div>
+              ))}
+              {!showGeneric && groups.length === 0 && (
+                <p className={empty}>No profile matches “{query}”. Import one in Settings.</p>
+              )}
+            </div>
+            <RadixDialog.Close asChild>
+              <Button>Cancel</Button>
+            </RadixDialog.Close>
+          </RadixDialog.Content>
+        </RadixDialog.Portal>
+      </RadixDialog.Root>
     </div>
   );
 }

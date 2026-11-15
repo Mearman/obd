@@ -284,7 +284,10 @@ describe("Generic OBD-II (no profile)", () => {
   it("narrows the list as the user types and says when nothing matches", async () => {
     renderApp(<App support={CHROME} />);
     await userEvent.click(screen.getByRole("button", { name: /Vehicle profile/ }));
-    await userEvent.type(screen.getByRole("searchbox", { name: "Search vehicle profiles" }), "w211");
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: "Search vehicle profiles" }),
+      "w211",
+    );
     const options = await screen.findAllByRole("option");
     expect(options).toHaveLength(1);
     expect(options[0]).toHaveAttribute("data-profile", "mercedes-w211");

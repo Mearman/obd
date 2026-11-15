@@ -64,7 +64,15 @@ export function shippedEntry(name: string): CatalogueEntry {
 
 /** The entry for an imported profile, of which only the name is known to the screen. */
 export function importedEntry(name: string): CatalogueEntry {
-  return { name, group: IMPORTED_GROUP, title: name, detail: "", units: 0, status: "", imported: true };
+  return {
+    name,
+    group: IMPORTED_GROUP,
+    title: name,
+    detail: "",
+    units: 0,
+    status: "",
+    imported: true,
+  };
 }
 
 /** Whether `entry` matches every word of `query`, ignoring case, in its name, title, detail or group. */
