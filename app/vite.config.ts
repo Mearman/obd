@@ -2,6 +2,7 @@ import { vanillaExtractPlugin } from "@vanilla-extract/vite-plugin";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { readRootVersion, versionDefine } from "./app-version.ts";
 import { basePathFrom } from "./base-path.ts";
 
 /** Theme colours of the manifest: the icon's navy, and the light theme's background. */
@@ -12,6 +13,7 @@ const BACKGROUND_COLOUR = "#f5f7f9";
 const BASE_PATH = basePathFrom(process.env);
 
 export default defineConfig({
+  define: versionDefine(readRootVersion()),
   plugins: [
     vanillaExtractPlugin(),
     react(),

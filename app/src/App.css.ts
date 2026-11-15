@@ -18,6 +18,7 @@ export const header = style({
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
+  flexWrap: "wrap",
   gap: vars.space["3"],
   paddingBlock: vars.space["2"],
   paddingTop: `max(${vars.space["2"]}, env(safe-area-inset-top))`,
@@ -25,6 +26,8 @@ export const header = style({
   background: vars.color.surface,
   borderBottom: `1px solid ${vars.color.border}`,
 });
+
+export const identity = style({ display: "flex", alignItems: "center", gap: vars.space["1"] });
 
 export const brand = style({ fontSize: vars.fontSize.large, fontWeight: 700 });
 
