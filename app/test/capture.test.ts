@@ -99,10 +99,13 @@ describe("observeClient", () => {
   function fakeClient() {
     return {
       link: { status: () => Promise.resolve(null) },
-      scan: { run: (_input: object) => Promise.reject(new ORPCError("FORBIDDEN")) },
+      scan: {
+        run: (...input: unknown[]) =>
+          Promise.reject(new ORPCError("FORBIDDEN", { data: input.length })),
+      },
       runs: {
         start: () => Promise.reject(new TypeError("a bug")),
-        list: () => [] as string[],
+        list: (): string[] => [],
       },
       label: "plain value",
     };

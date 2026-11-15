@@ -88,7 +88,7 @@ test("a failing screen is contained, and its report carries nothing from the ses
   const [popup] = await Promise.all([page.waitForEvent("popup"), link.click()]);
   await popup.waitForURL(/github\.com\/Mearman\/obd\/issues\/new/);
   expect(popup.url()).toBe(href);
-  expect(await popup.evaluate(() => window.opener)).toBeNull();
+  expect(await popup.evaluate(() => window.opener === null)).toBe(true);
 
   // The app itself made no request outside its own origin.
   expect(outside).toEqual([]);
@@ -138,7 +138,9 @@ test.describe("the production build", () => {
   test("has no way to force an error", async ({ page }) => {
     rmSync(OUT, { recursive: true, force: true });
     mkdirSync(OUT, { recursive: true });
-    const { VITE_OBD_E2E: _removed, ...environment } = process.env;
+    const environment = Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => name !== "VITE_OBD_E2E"),
+    );
     execFileSync("pnpm", ["exec", "vite", "build", "--outDir", OUT, "--emptyOutDir"], {
       cwd: resolve(import.meta.dirname, ".."),
       env: environment,
