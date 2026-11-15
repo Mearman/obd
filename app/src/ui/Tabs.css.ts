@@ -22,7 +22,8 @@ export const trigger = style({
   minHeight: vars.size.touch,
   minWidth: vars.size.touch,
   paddingInline: vars.space["1"],
-  fontSize: vars.fontSize.small,
+  // A phone tab bar's label size: every label must fit beside the others at a phone's width, with the wider system fonts of some platforms.
+  fontSize: "0.75rem",
   "@media": { [WIDE]: { fontSize: vars.fontSize.body } },
   background: "transparent",
   border: 0,
