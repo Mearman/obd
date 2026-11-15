@@ -8,6 +8,7 @@ import {
   discoveryRangeSchema,
   identifierSweepSchema,
   parseCapture,
+  parseProfile,
   captureText,
   scan,
   type CaptureProgress,
@@ -16,6 +17,7 @@ import {
   type Profile,
 } from "../src/core/index.js";
 import { shipped, simulatedSession } from "./helpers/captures.js";
+import { MINIMAL, edit } from "./support/profiles.js";
 
 const W211 = shipped("mercedes-w211");
 const MQB = shipped("vag-mqb");
@@ -148,7 +150,11 @@ describe("the guard during a capture", () => {
   });
 
   it("refuses a profile whose session the guard does not allow", async () => {
-    const programming: Profile = { ...W211, session: 0x85 };
+    // Each unit carries its own session, so the refused one is set on every unit.
+    const programming: Profile = {
+      ...W211,
+      units: new Map([...W211.units].map(([name, unit]) => [name, { ...unit, session: 0x85 }])),
+    };
     await expect(capture(programming)).rejects.toThrow(GuardError);
   });
 
@@ -205,6 +211,38 @@ describe("the identifier sweep", () => {
     expect(decoded.undecoded.filter((exchange) => exchange.request === "220199")).toHaveLength(
       MQB.units.size,
     );
+  });
+
+  it("sweeps each unit with its own protocol's read service", async () => {
+    const mixed = parseProfile(
+      edit(MINIMAL, ["units"], {
+        kwp: {
+          description: "KWP2000 unit",
+          request: 0x7e0,
+          response: 0x7e8,
+          diagnostics: { protocol: "kwp2000", session: 0x92 },
+          source: "test",
+        },
+        uds: {
+          description: "UDS unit",
+          request: 0x7e1,
+          response: 0x7e9,
+          diagnostics: { protocol: "uds", session: 0x01 },
+          source: "test",
+        },
+      }),
+      "mixed",
+    );
+    const { result } = await capture(mixed, {
+      identifiers: { first: 0x99, last: 0x99, budget: 10, pauseMs: 10 },
+    });
+    const reads = result.exchanges
+      .filter((exchange) => ["2199", "220099"].includes(exchange.request))
+      .map((exchange) => [exchange.protocol, exchange.request]);
+    expect(reads).toEqual([
+      ["kwp2000", "2199"],
+      ["uds", "220099"],
+    ]);
   });
 
   it("stops when asked, mid-sweep, and says the capture is incomplete", async () => {

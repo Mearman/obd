@@ -29,7 +29,13 @@ import { readAddressedObdScan } from "./obd-scan.js";
 import { readUnit, scan, type UnitReport } from "./operations.js";
 import { FUNCTIONAL_ID } from "./obd.js";
 import { NegativeResponse } from "./diag.js";
-import { MAX_IDENTIFIER, parseProfile, type Profile, type ProfileProtocol } from "./profile.js";
+import {
+  MAX_IDENTIFIER,
+  parseProfile,
+  type Profile,
+  type ProfileProtocol,
+  type Unit,
+} from "./profile.js";
 import { sleep as defaultSleep } from "./time.js";
 import { TransportError } from "./transport.js";
 
@@ -115,16 +121,6 @@ export interface CaptureRunOptions {
   readonly stopped?: () => boolean;
   readonly now?: () => number;
   readonly sleep?: (milliseconds: number) => Promise<void>;
-}
-
-/** A unit a capture reads: its address and the protocol it answers. */
-interface ReadableUnit {
-  readonly name: string;
-  readonly protocol: ProfileProtocol;
-  readonly session: number;
-  readonly requestId: number;
-  readonly responseId: number;
-  readonly extendedAddress?: number;
 }
 
 /** The capture was stopped before it finished. */
@@ -217,19 +213,12 @@ export async function captureEverything(elm: Elm, options: CaptureRunOptions): P
       );
     }
 
-    const answered: ReadableUnit[] = [];
+    // Each unit carries its own protocol, session and identifier width, which the sweep reads it with.
+    const answered: Unit[] = [];
     const keep = (reading: Profile, reports: readonly UnitReport[]): void => {
       for (const report of reports) {
         const unit = reading.units.get(report.unit);
-        if (!report.answered || unit === undefined) continue;
-        answered.push({
-          name: unit.name,
-          protocol: reading.protocol,
-          session: reading.session,
-          requestId: unit.requestId,
-          responseId: unit.responseId,
-          ...(unit.extendedAddress === undefined ? {} : { extendedAddress: unit.extendedAddress }),
-        });
+        if (report.answered && unit !== undefined) answered.push(unit);
       }
     };
 
@@ -286,7 +275,7 @@ export async function captureEverything(elm: Elm, options: CaptureRunOptions): P
           "identifiers",
           `reading identifiers ${hexNumber(identifiers.first, 2)} to ${hexNumber(last, 2)} of ${unit.name}`,
         );
-        await elm.addressUnit(unit.requestId, unit.responseId, unit.extendedAddress);
+        await elm.addressUnit(unit.requestId, unit.responseId, unit.extendedAddress, unit.idBits);
         try {
           await elm.request(await permit(unit.protocol, Uint8Array.of(0x10, unit.session)));
         } catch (error) {
