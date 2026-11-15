@@ -16,11 +16,11 @@ import {
 } from "./storage.js";
 import { z } from "zod";
 
-/** The JSON export of a run: the run record and every sample in time order. */
+/** The JSON export of a run: the run record and every sample in time order. An export written before runs recorded their origin has none. */
 export const runExportSchema = z.object({
   format: z.literal("obd-read-run"),
   version: z.literal(1),
-  run: runSchema,
+  run: runSchema.partial({ origin: true }),
   samples: z.array(sampleSchema),
 });
 
@@ -49,7 +49,10 @@ async function* samplesOf(storage: Storage, runId: string): AsyncGenerator<Sampl
  *
  * @throws StorageError `not-found` for an unknown run.
  */
-export async function exportRunJson(storage: Storage, runId: string): Promise<RunExport> {
+export async function exportRunJson(
+  storage: Storage,
+  runId: string,
+): Promise<RunExport & { readonly run: Run }> {
   const run = await loadRun(storage, runId);
   const samples: Sample[] = [];
   for await (const sample of samplesOf(storage, runId)) samples.push(sample);

@@ -10,6 +10,7 @@ import {
   type CaptureSummary,
   type NewRun,
   type NewScanReport,
+  type Origin,
   type Run,
   type RunQuery,
   type Sample,
@@ -58,7 +59,7 @@ export class MemoryStorage implements Storage {
   private readonly samples = new Map<string, Sample[]>();
   private readonly reports = new Map<string, ScanReport>();
   private readonly profiles = new Map<string, StoredProfile>();
-  private readonly captures = new Map<string, string>();
+  private readonly captures = new Map<string, { readonly text: string; readonly origin: Origin }>();
   private readonly newId: () => string;
 
   /**
@@ -113,6 +114,7 @@ export class MemoryStorage implements Storage {
     return settle(() => {
       const matching = [...this.runs.values()]
         .filter((run) => query.profile === undefined || run.profile === query.profile)
+        .filter((run) => query.origin === undefined || run.origin === query.origin)
         .sort((a, b) => b.startedAt - a.startedAt || compareText(b.id, a.id));
       return page(matching, query.offset, query.limit).map((run) => ({ ...run }));
     });
@@ -202,12 +204,14 @@ export class MemoryStorage implements Storage {
       const matching = [...this.reports.values()]
         .filter((report) => query.profile === undefined || report.profile === query.profile)
         .sort((a, b) => b.takenAt - a.takenAt || compareText(b.id, a.id))
-        .map(({ id, profile, adapter, takenAt, label }) => ({
+        .filter((report) => query.origin === undefined || report.origin === query.origin)
+        .map(({ id, profile, adapter, takenAt, label, origin }) => ({
           id,
           profile,
           adapter,
           takenAt,
           label,
+          origin,
         }));
       return page(matching, query.offset, query.limit);
     });
@@ -243,29 +247,32 @@ export class MemoryStorage implements Storage {
     });
   }
 
-  saveCapture(capture: Capture): Promise<CaptureSummary> {
+  saveCapture(capture: Capture, origin: Origin): Promise<CaptureSummary> {
     return settle(() => {
       const valid = validateCapture(capture, "capture");
       if (this.captures.has(valid.id)) {
         throw new StorageError("conflict", `a capture ${valid.id} is stored already`);
       }
       // Kept as text, so a stored capture shares nothing with the caller's objects.
-      this.captures.set(valid.id, JSON.stringify(valid));
-      return captureSummary(valid);
+      this.captures.set(valid.id, { text: JSON.stringify(valid), origin });
+      return captureSummary(valid, origin);
     });
   }
 
   getCapture(id: string): Promise<Capture | undefined> {
     return settle(() => {
-      const text = this.captures.get(id);
-      return text === undefined ? undefined : validateCapture(JSON.parse(text), id);
+      const stored = this.captures.get(id);
+      return stored === undefined ? undefined : validateCapture(JSON.parse(stored.text), id);
     });
   }
 
   listCaptures(query: CaptureQuery = {}): Promise<CaptureSummary[]> {
     return settle(() => {
       const summaries = [...this.captures.values()]
-        .map((text) => captureSummary(validateCapture(JSON.parse(text), "capture")))
+        .filter((stored) => query.origin === undefined || stored.origin === query.origin)
+        .map((stored) =>
+          captureSummary(validateCapture(JSON.parse(stored.text), "capture"), stored.origin),
+        )
         .sort((a, b) => b.startedAt - a.startedAt || compareText(b.id, a.id));
       return page(summaries, query.offset, query.limit);
     });

@@ -386,6 +386,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
             adapter: newer.adapter,
             takenAt: T0 + 100,
             label: "",
+            origin: "local",
           },
           {
             id: older.id,
@@ -393,6 +394,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
             adapter: older.adapter,
             takenAt: T0,
             label: "before",
+            origin: "local",
           },
         ]);
         expect(
@@ -408,7 +410,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
       withStorage(async (storage) => {
         const older = inventedCapture("capture-a", T0);
         const newer = inventedCapture("capture-b", T0 + 100);
-        const summary = await storage.saveCapture(older);
+        const summary = await storage.saveCapture(older, "local");
         expect(summary).toEqual({
           id: "capture-a",
           startedAt: T0,
@@ -423,8 +425,9 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
             { address: "physical:2016:2024:null", label: "7E0 -> 7E8", exchanges: 2, answered: 2 },
             { address: "functional:2015", label: "functional 7DF", exchanges: 1, answered: 0 },
           ],
+          origin: "local",
         });
-        await storage.saveCapture(newer);
+        await storage.saveCapture(newer, "local");
         expect(await storage.getCapture("capture-a")).toEqual(older);
         expect(await storage.getCapture("nope")).toBeUndefined();
         expect((await storage.listCaptures()).map((capture) => capture.id)).toEqual([
@@ -432,7 +435,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
           "capture-a",
         ]);
         expect(await storage.listCaptures({ limit: 1, offset: 1 })).toEqual([summary]);
-        expect(await code(storage.saveCapture(older))).toBe("conflict");
+        expect(await code(storage.saveCapture(older, "shared"))).toBe("conflict");
         await storage.deleteCapture("capture-b");
         await storage.deleteCapture("nope");
         expect(await storage.getCapture("capture-b")).toBeUndefined();
@@ -443,8 +446,54 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
       withStorage(async (storage) => {
         const capture = inventedCapture("capture-a", T0);
         const reordered: Capture = { ...capture, exchanges: [...capture.exchanges].reverse() };
-        await expect(storage.saveCapture(reordered)).rejects.toThrow();
+        await expect(storage.saveCapture(reordered, "local")).rejects.toThrow();
         expect(await storage.listCaptures()).toEqual([]);
+      }));
+
+    it("records where each run, report and capture came from, local unless told otherwise, and filters by it", () =>
+      withStorage(async (storage) => {
+        const own = await storage.createRun({ profile: "p", adapter: "a", startedAt: T0 });
+        const shared = await storage.createRun({
+          profile: "p",
+          adapter: "a",
+          startedAt: T0 + 1,
+          origin: "shared",
+        });
+        expect(own.origin).toBe("local");
+        expect((await storage.getRun(shared.id))?.origin).toBe("shared");
+        expect((await storage.listRuns({ origin: "shared" })).map((run) => run.id)).toEqual([
+          shared.id,
+        ]);
+        expect((await storage.listRuns({ origin: "local" })).map((run) => run.id)).toEqual([
+          own.id,
+        ]);
+        expect(await storage.listRuns({ origin: "imported" })).toEqual([]);
+
+        const report = { profile: "p", adapter: "a", takenAt: T0, report: { tool: "obd-read" } };
+        const ownReport = await storage.saveScanReport(report);
+        const sharedReport = await storage.saveScanReport({ ...report, origin: "shared" });
+        expect(ownReport.origin).toBe("local");
+        expect((await storage.getScanReport(sharedReport.id))?.origin).toBe("shared");
+        expect(
+          (await storage.listScanReports({ origin: "shared" })).map((summary) => [
+            summary.id,
+            summary.origin,
+          ]),
+        ).toEqual([[sharedReport.id, "shared"]]);
+
+        await storage.saveCapture(inventedCapture("capture-own", T0), "local");
+        await storage.saveCapture(inventedCapture("capture-shared", T0 + 1), "shared");
+        await storage.saveCapture(inventedCapture("capture-file", T0 + 2), "imported");
+        expect(
+          (await storage.listCaptures()).map((capture) => [capture.id, capture.origin]),
+        ).toEqual([
+          ["capture-file", "imported"],
+          ["capture-shared", "shared"],
+          ["capture-own", "local"],
+        ]);
+        expect((await storage.listCaptures({ origin: "shared" })).map((c) => c.id)).toEqual([
+          "capture-shared",
+        ]);
       }));
 
     it("keeps imported profiles by name, replacing a profile imported twice", () =>

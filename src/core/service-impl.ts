@@ -64,7 +64,14 @@ import { readSelection, userNotes, withSelection } from "./run-selection.js";
 import { isSimulatorUrl } from "./simulator-host.js";
 import { StorageSnapshotStore } from "./snapshot-store.js";
 import { isoNowSeconds, now as clockNow, randomSuffix, sleep as realSleep } from "./time.js";
-import { StorageError, jsonSchema, type Run, type Sample, type Storage } from "./storage.js";
+import {
+  StorageError,
+  allowsWrites,
+  jsonSchema,
+  type Run,
+  type Sample,
+  type Storage,
+} from "./storage.js";
 import { AdapterUrlError, SCHEMES, TransportError, type Scheme } from "./transport.js";
 import type { DeviceGrants } from "./transport-host.js";
 import { type TransportHost } from "./transport-host.js";
@@ -509,6 +516,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
         adapter: saved.adapter,
         takenAt: saved.takenAt,
         label: saved.label,
+        origin: saved.origin,
       },
       units,
       obd,
@@ -596,6 +604,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
               adapter: saved.adapter,
               takenAt: saved.takenAt,
               label: saved.label,
+              origin: saved.origin,
             },
             units: reports.map(unitReportData),
             obd: null,
@@ -779,6 +788,12 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
           requirePassive();
           const run = await storage.getRun(input.runId);
           if (run === undefined) throw new StorageError("not-found", `no run ${input.runId}`);
+          if (!allowsWrites(run.origin)) {
+            throw new StorageError(
+              "conflict",
+              `run ${run.id} is ${run.origin} data, not read here, and cannot be collected into`,
+            );
+          }
           if (run.stoppedAt !== null) {
             throw new StorageError("conflict", `run ${run.id} is stopped and cannot be resumed`);
           }
@@ -866,7 +881,10 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
             `import-${new Date(at).toISOString().replace(/[-:.]/g, "")}-${randomSuffix()}`,
             input.name,
           );
-          return { summary: await storage.saveCapture(capture), unrecovered: [...unrecovered] };
+          return {
+            summary: await storage.saveCapture(capture, "imported"),
+            unrecovered: [...unrecovered],
+          };
         }),
       ),
       decode: os.captures.decode.handler(({ input }) =>

@@ -22,6 +22,22 @@ const limitSchema = z.number().int().positive();
 /** A count of records to skip. */
 const offsetSchema = z.number().int().nonnegative();
 
+/**
+ * Where a stored record came from: `local` when this device read it from an adapter, `shared` when it was saved from a share link, `imported` when it was read from a file. Only a local record may be added to or acted on as the user's own reading of the car.
+ */
+export const ORIGINS = ["local", "shared", "imported"] as const;
+
+/** Where a stored record came from. */
+export const originSchema = z.enum(ORIGINS);
+
+/** Where a stored record came from. */
+export type Origin = z.output<typeof originSchema>;
+
+/** Whether a record of this origin may take write-type actions (resuming a run, collecting into it): only one this device read itself. */
+export function allowsWrites(origin: Origin): boolean {
+  return origin === "local";
+}
+
 /** One collection run: a period during which a profile's signals were polled through one adapter. */
 export const runSchema = z.object({
   /** Assigned by storage when the run is created. */
@@ -34,6 +50,7 @@ export const runSchema = z.object({
   /** `null` while the run is open. */
   stoppedAt: timestampSchema.nullable(),
   notes: z.string(),
+  origin: originSchema,
 });
 
 /** A collection run. */
@@ -45,6 +62,7 @@ export const newRunSchema = z.object({
   adapter: nameSchema,
   startedAt: timestampSchema,
   notes: z.string().default(""),
+  origin: originSchema.default("local"),
 });
 
 /** The fields a caller gives to {@link Storage.createRun}. */
@@ -74,6 +92,8 @@ export type Sample = z.output<typeof sampleSchema>;
 export const runQuerySchema = z.object({
   /** Only runs collected for this profile. */
   profile: nameSchema.optional(),
+  /** Only runs of this origin. */
+  origin: originSchema.optional(),
   limit: limitSchema.optional(),
   offset: offsetSchema.optional(),
 });
@@ -142,8 +162,9 @@ export const newScanReportSchema = z.object({
   takenAt: timestampSchema,
   /** A short name the user gave the report; may be empty. */
   label: z.string().default(""),
-  /** The report as `scan --output` writes it, so a saved scan compares and describes unchanged. */
+  /** The report as `scan --output` writes it, so a saved scan compares and describes unchanged, or a generic OBD-II read as `obd --output` writes it. */
   report: jsonSchema,
+  origin: originSchema.default("local"),
 });
 
 /** The fields a caller gives to {@link Storage.saveScanReport}. */
@@ -156,6 +177,7 @@ export const scanReportSummarySchema = z.object({
   adapter: nameSchema,
   takenAt: timestampSchema,
   label: z.string(),
+  origin: originSchema,
 });
 
 /** A saved scan report without its body. */
@@ -170,6 +192,8 @@ export type ScanReport = z.output<typeof scanReportSchema>;
 /** Which saved scan reports {@link Storage.listScanReports} returns, newest first. */
 export const scanReportQuerySchema = z.object({
   profile: nameSchema.optional(),
+  /** Only reports of this origin. */
+  origin: originSchema.optional(),
   limit: limitSchema.optional(),
   offset: offsetSchema.optional(),
 });
@@ -220,6 +244,7 @@ export const captureSummarySchema = z.object({
   adapter: z.string(),
   exchanges: z.number().int().nonnegative(),
   units: z.array(captureUnitSchema),
+  origin: originSchema,
 });
 
 /** A stored capture without its exchanges. */
@@ -227,6 +252,8 @@ export type CaptureSummary = z.output<typeof captureSummarySchema>;
 
 /** Which stored captures {@link Storage.listCaptures} returns, newest first. */
 export const captureQuerySchema = z.object({
+  /** Only captures of this origin. */
+  origin: originSchema.optional(),
   limit: limitSchema.optional(),
   offset: offsetSchema.optional(),
 });
@@ -258,8 +285,8 @@ export function captureUnits(capture: Capture): CaptureUnit[] {
   }));
 }
 
-/** A capture's summary, as storage lists it. */
-export function captureSummary(capture: Capture): CaptureSummary {
+/** A capture's summary, as storage lists it, stored with `origin`. */
+export function captureSummary(capture: Capture, origin: Origin): CaptureSummary {
   return {
     id: capture.id,
     startedAt: capture.startedAt,
@@ -271,6 +298,7 @@ export function captureSummary(capture: Capture): CaptureSummary {
     adapter: capture.sessions[0]?.adapter.identity ?? "",
     exchanges: capture.exchanges.length,
     units: captureUnits(capture),
+    origin,
   };
 }
 
@@ -366,11 +394,11 @@ export interface Storage {
   listProfiles(): Promise<StoredProfile[]>;
 
   /**
-   * Stores a capture under its own id.
+   * Stores a capture under its own id, recording where it came from.
    *
    * @throws StorageError `conflict` when a capture with that id is stored already.
    */
-  saveCapture(capture: Capture): Promise<CaptureSummary>;
+  saveCapture(capture: Capture, origin: Origin): Promise<CaptureSummary>;
 
   /** The capture with this id, or `undefined`. */
   getCapture(id: string): Promise<Capture | undefined>;
