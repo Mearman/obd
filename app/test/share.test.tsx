@@ -540,7 +540,9 @@ describe("a shared link with automatic saving off", () => {
     window.location.hash = await captureFragment(capture);
     window.dispatchEvent(new HashChangeEvent("hashchange"));
     await userEvent.click(await screen.findByRole("button", { name: "Save this capture" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/already stored on this device/);
+    expect(await screen.findByText(/Already saved to this device earlier/)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Saved" })).toBeDisabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(await storage.listCaptures({})).toHaveLength(1);
   });
 });
@@ -650,8 +652,8 @@ describe("a shared link with the default setting", () => {
 
     window.location.hash = "";
     openLink(fragment, storage);
-    expect(await screen.findByText(/saved to this device earlier/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save this run" })).toBeEnabled();
+    expect(await screen.findByText(/Already saved to this device earlier/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save again" })).toBeEnabled();
     expect(await storage.listRuns({})).toHaveLength(1);
   });
 
@@ -675,8 +677,9 @@ describe("a shared link with the default setting", () => {
     const storage = new MemoryStorage();
     await storage.saveCapture(capture, "shared");
     openLink(await captureFragment(capture), storage);
-    expect(await screen.findByRole("alert")).toHaveTextContent(/already stored on this device/);
-    expect(screen.getByRole("button", { name: "Save this capture" })).toBeEnabled();
+    expect(await screen.findByText(/Already saved to this device earlier/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Saved" })).toBeDisabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(await storage.listCaptures({})).toHaveLength(1);
   });
 

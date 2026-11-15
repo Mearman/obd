@@ -18,7 +18,14 @@ import { error, muted, page, row, title as headingStyle, heading } from "../scre
 import { Badge, Button, Card, DataTable } from "../ui";
 import { fragmentDigest, recordAutoSaved, wasAutoSaved } from "./auto-saved";
 import { SharedCaptureView } from "./SharedCaptureView";
-import { KIND_NAMES, NotSaved, SAVE_LABELS, saveShared, type SavedShare } from "./saved";
+import {
+  AlreadyStored,
+  KIND_NAMES,
+  NotSaved,
+  SAVE_LABELS,
+  saveShared,
+  type SavedShare,
+} from "./saved";
 
 /** How the viewer's decoding went. */
 type Decoded =
@@ -173,6 +180,10 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
       await saveShared(storage, envelope);
       return true;
     } catch (caught) {
+      if (caught instanceof AlreadyStored) {
+        setAlreadySaved(true);
+        return false;
+      }
       setProblem(
         caught instanceof NotSaved
           ? caught.message
@@ -198,7 +209,12 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
     autoStarted.current = fragment;
     void (async () => {
       const digest = await fragmentDigest(fragment);
-      if (wasAutoSaved(digest)) {
+      // A capture carries its own id, so whether it is stored is known exactly; every other kind relies on the remembered digest.
+      const stored =
+        readyEnvelope.kind === "capture"
+          ? (await storage.getCapture(readyEnvelope.data.capture.id)) !== undefined
+          : wasAutoSaved(digest);
+      if (stored) {
         setAlreadySaved(true);
         return;
       }
@@ -216,7 +232,7 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
   const unsavedNote = saved
     ? "It never goes to the adapter."
     : alreadySaved
-      ? "This link was saved to this device earlier, so it has not been saved again. It never goes to the adapter."
+      ? "It never goes to the adapter."
       : autoSave && state.status === "opening"
         ? "It is saved to this device automatically, marked as shared, once the database is open. It never goes to the adapter."
         : "Nothing in it has been saved. It never goes to the adapter.";
@@ -232,6 +248,9 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
         you have connected. {unsavedNote}
       </p>
       {saved && <p role="status">Saved to this device, marked as shared.</p>}
+      {!saved && alreadySaved && (
+        <p role="status">Already saved to this device earlier, so it was not saved again.</p>
+      )}
       {decoded.status === "decoding" && <p className={muted}>Reading the link…</p>}
       {decoded.status === "failed" && (
         <p role="alert" className={error}>
@@ -256,10 +275,19 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
         {envelope !== undefined && (
           <Button
             variant="primary"
-            disabled={state.status !== "ready" || saving || saved}
+            disabled={
+              state.status !== "ready" ||
+              saving ||
+              saved ||
+              (alreadySaved && envelope.kind === "capture")
+            }
             onClick={() => void save(envelope)}
           >
-            {saved ? "Saved" : SAVE_LABELS[envelope.kind]}
+            {saved || (alreadySaved && envelope.kind === "capture")
+              ? "Saved"
+              : alreadySaved
+                ? "Save again"
+                : SAVE_LABELS[envelope.kind]}
           </Button>
         )}
         <Button

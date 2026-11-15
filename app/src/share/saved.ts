@@ -50,6 +50,11 @@ export const SAVED_NOTICES: Readonly<
   },
 };
 
+/** The item a link carries is already stored on this device, so saving it again would only duplicate it (or, for a capture with the same id, is refused). */
+export class AlreadyStored extends Error {
+  override name = "AlreadyStored";
+}
+
 /** A shared item could not be saved for a reason the user can read. */
 export class NotSaved extends Error {
   override name = "NotSaved";
@@ -103,7 +108,7 @@ export async function saveShared(storage: Storage, envelope: ShareEnvelope): Pro
     }
     case "capture":
       if ((await storage.getCapture(envelope.data.capture.id)) !== undefined) {
-        throw new NotSaved(
+        throw new AlreadyStored(
           `A capture with the id ${envelope.data.capture.id} is already stored on this device.`,
         );
       }
