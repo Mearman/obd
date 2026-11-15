@@ -15,6 +15,7 @@ import type { CapturedError } from "./capture";
 import {
   formatEvent,
   type LoggedEvent,
+  type ScreenId,
   type ServiceWorkerState,
   type StorageState,
 } from "./events";
@@ -85,16 +86,19 @@ function errorLines(error: CapturedError, context: ScrubContext): string[] {
   return lines;
 }
 
+/** Each place by name, completing "on the ...". */
 const SCREEN_NAMES = {
-  connect: "Connect",
-  scan: "Scan",
-  live: "Live",
-  library: "Library",
-  guide: "Guide",
-  settings: "Settings",
-  shared: "shared data",
-  app: "app",
-} as const;
+  session: "Session screen",
+  connection: "Connection section",
+  read: "Read section",
+  live: "Live section",
+  advanced: "Advanced section",
+  library: "Library screen",
+  guide: "Guide screen",
+  settings: "Settings screen",
+  shared: "shared data screen",
+  app: "app screen",
+} as const satisfies Record<ScreenId, string>;
 
 const SOURCE_NAMES = {
   react: "while showing a screen",
@@ -110,7 +114,7 @@ export function buildReport(input: ReportInput, context: ScrubContext): Report {
   const eventLines = input.events.map(formatEvent);
   const errorText = errorLines(error, context).join("\n");
   const environmentText = environmentLines(input.environment).join("\n");
-  const heading = `App error on ${SCREEN_NAMES[error.screen]}: ${errorText.split("\n")[0] ?? "Error"}`;
+  const heading = `App error on the ${SCREEN_NAMES[error.screen]}: ${errorText.split("\n")[0] ?? "Error"}`;
   const title =
     heading.length > MAX_TITLE_LENGTH ? `${heading.slice(0, MAX_TITLE_LENGTH - 3)}...` : heading;
 
@@ -124,7 +128,7 @@ export function buildReport(input: ReportInput, context: ScrubContext): Report {
     return [
       "## What happened",
       "",
-      `The app caught an unexpected error ${SOURCE_NAMES[error.source]} on the ${SCREEN_NAMES[error.screen]} screen. Add what you were doing just before it, if you can.`,
+      `The app caught an unexpected error ${SOURCE_NAMES[error.source]} on the ${SCREEN_NAMES[error.screen]}. Add what you were doing just before it, if you can.`,
       "",
       "## Error",
       "",

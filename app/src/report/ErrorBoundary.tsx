@@ -69,9 +69,11 @@ function useLatestError(store: ErrorStore): CapturedError | undefined {
 
 /** The label the fallbacks use for each place. */
 export const SCREEN_LABELS: Readonly<Record<ScreenId, string>> = {
-  connect: "Connect",
-  scan: "Scan",
+  session: "Session",
+  connection: "Connection",
+  read: "Read",
   live: "Live",
+  advanced: "Advanced",
   library: "Library",
   guide: "Guide",
   settings: "Settings",
@@ -83,7 +85,7 @@ export const SCREEN_LABELS: Readonly<Record<ScreenId, string>> = {
 export interface ScreenFallbackProps extends FallbackProps {
   readonly screen: ScreenId;
   readonly store?: ErrorStore;
-  /** Leaves the failed screen for Connect; omitted on Connect itself. */
+  /** Leaves the failed screen or section for the Session screen's Connection section; omitted on Connection itself. */
   readonly onGoToConnect?: (() => void) | undefined;
 }
 

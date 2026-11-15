@@ -22,7 +22,7 @@ export const UNIT_COLUMNS: readonly Column<UnitReportData>[] = [
   { header: "Fault codes", render: (unit) => (unit.answered ? String(faultCount(unit)) : "-") },
 ];
 
-/** A scan's units as a table; `extraColumns` follow the shared ones (the Scan screen adds its Clear column). */
+/** A scan's units as a table; `extraColumns` follow the shared ones (the Read section adds its Clear column). */
 export function ScanResultsTable({
   label,
   units,

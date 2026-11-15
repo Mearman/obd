@@ -5,7 +5,7 @@ import type { AdapterKind } from "../diagnostics/client";
 export const KNOWN_BLUETOOTH_PREFIX = "vLinker";
 
 /**
- * The adapter URL for a choice on the Connect screen. A simulated car with no profile is `simulator://generic-obd2`. The target of a browser scheme is only a label, because the browser's picker chooses the device.
+ * The adapter URL for a choice in the Connection section. A simulated car with no profile is `simulator://generic-obd2`. The target of a browser scheme is only a label, because the browser's picker chooses the device.
  */
 export function adapterUrl(
   kind: AdapterKind,

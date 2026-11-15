@@ -1,4 +1,5 @@
 import { chooseProfile } from "./profile";
+import { openSection } from "./session";
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -20,14 +21,14 @@ async function connectAndScan(page: Page): Promise<void> {
   await chooseProfile(page, "vag-mqb");
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
-  await page.getByRole("tab", { name: "Scan" }).click();
+  await openSection(page, "Read");
   await page.getByRole("button", { name: "Start scan" }).click();
   await expect(page.getByRole("table", { name: /Scan of vag-mqb/ })).toBeVisible();
 }
 
 async function failScan(page: Page): Promise<void> {
   await page.evaluate((message) => {
-    window.obdE2eFail?.({ kind: "render", screen: "scan", message });
+    window.obdE2eFail?.({ kind: "render", screen: "read", message });
   }, MESSAGE);
 }
 
@@ -42,13 +43,13 @@ test("a failing screen is contained, and its report carries nothing from the ses
   await connectAndScan(page);
   await failScan(page);
 
-  await expect(page.getByRole("heading", { name: "Scan could not be shown" })).toBeVisible();
-  // The rest of the app is still up: the shell, the connection and the other screens.
-  await expect(page.getByText("Simulator", { exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "Live" }).click();
-  await expect(page.getByRole("heading", { name: "Live", level: 1 })).toBeVisible();
-  await page.getByRole("tab", { name: "Scan" }).click();
-  await expect(page.getByRole("heading", { name: "Scan could not be shown" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Read could not be shown" })).toBeVisible();
+  // The rest of the app is still up: the shell, the connection and the other sections.
+  await expect(page.getByRole("banner").getByText("Simulator", { exact: true })).toBeVisible();
+  await openSection(page, "Live");
+  await expect(page.getByRole("button", { name: "Start collecting" })).toBeVisible();
+  await openSection(page, "Read");
+  await expect(page.getByRole("heading", { name: "Read could not be shown" })).toBeVisible();
 
   await page.getByRole("button", { name: "Report this problem" }).click();
   const dialog = page.getByRole("dialog", { name: "Report this problem" });
@@ -65,15 +66,15 @@ test("a failing screen is contained, and its report carries nothing from the ses
   // What the app did, as kinds and outcomes.
   expect(report).toContain("connect simulator");
   expect(report).toContain("operation scan.run ok");
-  expect(report).toContain("screen scan");
-  expect(report).toContain("error react on scan");
+  expect(report).toContain("screen session");
+  expect(report).toContain("error react on read");
 
   // The new-issue link carries the title, the same body and the bug label.
   const link = dialog.getByRole("link", { name: "Continue to GitHub" });
   const href = (await link.getAttribute("href")) ?? "";
   const url = new URL(href);
   expect(`${url.origin}${url.pathname}`).toBe("https://github.com/Mearman/obd/issues/new");
-  expect(url.searchParams.get("title")).toMatch(/^App error on Scan: Error: /);
+  expect(url.searchParams.get("title")).toMatch(/^App error on the Read section: Error: /);
   expect(url.searchParams.get("labels")).toBe("bug");
   expect(url.searchParams.get("body")).toBe(report);
   await expect(link).toHaveAttribute("target", "_blank");
@@ -97,13 +98,13 @@ test("a failing screen is contained, and its report carries nothing from the ses
 test("Try again recovers the screen once the cause is gone", async ({ page }) => {
   await connectAndScan(page);
   await failScan(page);
-  await expect(page.getByRole("heading", { name: "Scan could not be shown" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Read could not be shown" })).toBeVisible();
   await page.evaluate(() => {
     window.obdE2eFail?.({ kind: "clear" });
   });
   await page.getByRole("button", { name: "Try again" }).click();
-  await expect(page.getByRole("heading", { name: "Scan", level: 1 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Scan could not be shown" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Start scan" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Read could not be shown" })).toHaveCount(0);
 });
 
 test("an uncaught error and an unhandled rejection offer a report and leave the screen alone", async ({
@@ -159,13 +160,13 @@ test.describe("the production build", () => {
     const server = await serveUnderPrefix(OUT, "/");
     try {
       await page.goto(`${server.origin}/`);
-      await expect(page.getByRole("heading", { name: "Connect", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Session", level: 1 })).toBeVisible();
       expect(await page.evaluate(() => "obdE2eFail" in window || "obdE2e" in window)).toBe(false);
       // Nothing a page script can call makes a screen fail.
       await page.evaluate(() => {
-        window.obdE2eFail?.({ kind: "render", screen: "connect", message: "forced" });
+        window.obdE2eFail?.({ kind: "render", screen: "connection", message: "forced" });
       });
-      await expect(page.getByRole("heading", { name: "Connect", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Session", level: 1 })).toBeVisible();
       await expect(page.getByText("could not be shown")).toHaveCount(0);
     } finally {
       await server.close();

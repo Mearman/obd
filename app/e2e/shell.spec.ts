@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openSection } from "./session";
 
 const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },
@@ -8,7 +9,7 @@ const VIEWPORTS = [
 
 const SCHEMES = ["light", "dark"] as const;
 
-const SCREENS = ["Connect", "Scan", "Live", "Library", "Settings"] as const;
+const SCREENS = ["Session", "Library", "Settings"] as const;
 
 /** The smallest touch target, in CSS pixels. */
 const MIN_TARGET = 44;
@@ -57,12 +58,8 @@ for (const viewport of VIEWPORTS) {
 
         for (const name of SCREENS) {
           await openScreen(page, name);
-          if (name === "Scan") await page.getByRole("button", { name: "Start scan" }).click();
-          if (name === "Live") {
-            await page.getByRole("button", { name: "Start collecting" }).click();
-            await expect(page.getByText("engine speed")).toBeVisible();
-          }
-          if (name === "Scan") {
+          if (name === "Session") {
+            await page.getByRole("button", { name: "Start scan" }).click();
             await expect(page.getByRole("table", { name: /^Scan of / })).toBeVisible();
           }
 
@@ -124,10 +121,10 @@ test("the shell loads offline from the service worker and makes no outside reque
 
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Connect", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Session", level: 1 })).toBeVisible();
 
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
-  await openScreen(page, "Scan");
+  await openSection(page, "Read");
   await page.getByRole("button", { name: "Start scan" }).click();
   await expect(page.getByRole("table", { name: /Scan of/ })).toBeVisible();
 

@@ -4,9 +4,18 @@
  * It records kinds and outcomes only. Every field of an {@link AppEvent} is a member of a closed set, a number or a boolean, so a value from the car or the user cannot be put into one by construction: no data values, payloads, VINs, serial numbers, fault codes, adapter names or addresses, device identifiers, file names, share-link fragments or typed text. The log is bounded in count and in size, never written to storage and never sent anywhere.
  */
 
-/** The places the app can be showing. */
+/** The places the app can be showing: a screen, or one section of the Session screen. */
 export type ScreenId =
-  "connect" | "scan" | "live" | "library" | "guide" | "settings" | "shared" | "app";
+  | "session"
+  | "connection"
+  | "read"
+  | "live"
+  | "advanced"
+  | "library"
+  | "guide"
+  | "settings"
+  | "shared"
+  | "app";
 
 /** How a connection reaches the car, by transport type only. */
 export type TransportKind = "webserial" | "webbluetooth" | "webusb" | "simulator" | "other";

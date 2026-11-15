@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
+import { installMatchMedia, setWideLayout } from "./media";
 
 afterEach(cleanup);
 
@@ -29,4 +30,8 @@ if (typeof Element !== "undefined") {
   Element.prototype.scrollIntoView = () => {
     // jsdom has no layout or pointer capture.
   };
+  installMatchMedia();
+  afterEach(() => {
+    setWideLayout(false);
+  });
 }

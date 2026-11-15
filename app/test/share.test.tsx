@@ -1,4 +1,4 @@
-import { pickProfile } from "./ui-helpers";
+import { openSection, pickProfile } from "./ui-helpers";
 import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -63,7 +63,7 @@ async function scanWithSimulator(): Promise<void> {
   await pickProfile("vag-mqb");
   await userEvent.click(screen.getByRole("button", { name: /connect with the simulator/i }));
   await screen.findByText("Connected to Simulator");
-  await openTab("Scan");
+  await openSection("Read");
   await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
   await screen.findByRole("table", { name: /Scan of vag-mqb/ });
 }
@@ -136,7 +136,7 @@ describe("the Share dialog on a generic OBD-II scan", () => {
     renderApp(<App support={CHROME} />);
     await userEvent.click(screen.getByRole("button", { name: /connect with the simulator/i }));
     await screen.findByText("Connected to Simulator");
-    await openTab("Scan");
+    await openSection("Read");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
     await screen.findByRole("table", { name: /Scan of Generic OBD-II/ });
     await userEvent.click(screen.getByRole("button", { name: "Share scan" }));

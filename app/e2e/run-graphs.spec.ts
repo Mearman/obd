@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openSection } from "./session";
 
 const VIEWPORTS = [
   { name: "narrow", width: 320, height: 640 },
@@ -53,7 +54,7 @@ async function openCollectedRunGraphs(page: Page): Promise<void> {
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
 
-  await openScreen(page, "Live");
+  await openSection(page, "Live");
   await page.getByRole("button", { name: "Start collecting" }).click();
   await expect(page.getByText("engine speed")).toBeVisible();
   // The live values carry a trend per value while the run collects.

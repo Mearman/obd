@@ -8,15 +8,14 @@ import { FaultHistory } from "../faults/FaultHistory";
 import { formatReading } from "../format/reading";
 import { SATURATED_NOTE, isSaturated } from "../format/saturation";
 import { Badge, Button, Card, DataTable, TextField, type Column } from "../ui";
-import { groupRows } from "./live/groups";
-import { groupHeading, groups, note } from "./live/live.css";
-import { initialSelection, sameSelection } from "./live/presets";
-import { readPins, readSelection, writePins, writeSelection } from "./live/remembered";
-import { useSupportedValues } from "./live/useSupportedValues";
-import { ValuePicker } from "./live/ValuePicker";
-import { COLLECTION_LIMIT } from "./limits";
-import { error, muted, page } from "./screen.css";
-import { ScreenHeading } from "./ScreenHeading";
+import { groupRows } from "../screens/live/groups";
+import { groupHeading, groups, note } from "../screens/live/live.css";
+import { initialSelection, sameSelection } from "../screens/live/presets";
+import { readPins, readSelection, writePins, writeSelection } from "../screens/live/remembered";
+import { useSupportedValues } from "../screens/live/useSupportedValues";
+import { ValuePicker } from "../screens/live/ValuePicker";
+import { COLLECTION_LIMIT } from "../screens/limits";
+import { error, muted } from "../screens/screen.css";
 
 const PINNED = "Pinned";
 
@@ -29,8 +28,8 @@ const STATE_LABEL = {
   failed: "Stopped by an error",
 } as const;
 
-/** Live values: start a collection run on the connection, watch the readings arrive and stop it. */
-export function LiveScreen() {
+/** The Live section: choose values, start a collection run on the connection, watch the readings arrive and stop it. */
+export function LivePanel() {
   const { connection, collection, service, startCollection, stopCollection } = useDiagnostics();
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
@@ -154,8 +153,7 @@ export function LiveScreen() {
   }
 
   return (
-    <div className={page}>
-      <ScreenHeading simulated={connection?.simulated === true}>Live values</ScreenHeading>
+    <>
       <Card
         title="Collection"
         description="A run stores every reading, so it can be exported afterwards. The screen is kept awake while it runs."
@@ -191,7 +189,6 @@ export function LiveScreen() {
         >
           {stopping ? "Stopping…" : running ? "Stop collecting" : "Start collecting"}
         </Button>
-        {connection === undefined && <p className={muted}>Connect an adapter first.</p>}
         {collection.lastError !== null && collection.state !== "collecting" && (
           <p className={muted}>{collection.lastError}</p>
         )}
@@ -250,6 +247,6 @@ export function LiveScreen() {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }

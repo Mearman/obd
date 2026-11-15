@@ -1,12 +1,13 @@
 import { ORPCError } from "@orpc/client";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
-import type * as ConnectScreenModule from "../src/screens/ConnectScreen";
-import type * as ScanScreenModule from "../src/screens/ScanScreen";
-import type * as LiveScreenModule from "../src/screens/LiveScreen";
+import type * as ConnectPanelModule from "../src/session/ConnectPanel";
+import type * as ReadCardModule from "../src/screens/scan/ReadCard";
+import type * as LivePanelModule from "../src/session/LivePanel";
+import type * as AdvancedSectionModule from "../src/screens/scan/AdvancedSection";
 import type * as GuideScreenModule from "../src/screens/GuideScreen";
 import type * as LibraryScreenModule from "../src/library/LibraryScreen";
 import type * as SettingsScreenModule from "../src/screens/SettingsScreen";
@@ -17,34 +18,45 @@ import { ErrorBoundary, RootBoundary, ScreenFallback } from "../src/report/Error
 import { appLog } from "../src/report/events";
 import { ReportHost } from "../src/report/ReportHost";
 import { createTestService, renderApp } from "./render";
+import { openSection } from "./ui-helpers";
 
 /** The screens that are made to throw, by name. */
 const failing = vi.hoisted(() => new Set<string>());
 
-vi.mock("../src/screens/ConnectScreen", async (original) => {
-  const real = await original<typeof ConnectScreenModule>();
+vi.mock("../src/session/ConnectPanel", async (original) => {
+  const real = await original<typeof ConnectPanelModule>();
   return {
-    ConnectScreen: (props: Parameters<typeof real.ConnectScreen>[0]) => {
-      if (failing.has("connect")) throw new Error("connect failed");
-      return real.ConnectScreen(props);
+    ...real,
+    ConnectPanel: (props: Parameters<typeof real.ConnectPanel>[0]) => {
+      if (failing.has("connection")) throw new Error("connection failed");
+      return real.ConnectPanel(props);
     },
   };
 });
-vi.mock("../src/screens/ScanScreen", async (original) => {
-  const real = await original<typeof ScanScreenModule>();
+vi.mock("../src/screens/scan/ReadCard", async (original) => {
+  const real = await original<typeof ReadCardModule>();
   return {
-    ScanScreen: () => {
-      if (failing.has("scan")) throw new Error("scan failed");
-      return real.ScanScreen();
+    ReadCard: (props: Parameters<typeof real.ReadCard>[0]) => {
+      if (failing.has("read")) throw new Error("read failed");
+      return real.ReadCard(props);
     },
   };
 });
-vi.mock("../src/screens/LiveScreen", async (original) => {
-  const real = await original<typeof LiveScreenModule>();
+vi.mock("../src/session/LivePanel", async (original) => {
+  const real = await original<typeof LivePanelModule>();
   return {
-    LiveScreen: () => {
+    LivePanel: () => {
       if (failing.has("live")) throw new Error("live failed");
-      return real.LiveScreen();
+      return real.LivePanel();
+    },
+  };
+});
+vi.mock("../src/screens/scan/AdvancedSection", async (original) => {
+  const real = await original<typeof AdvancedSectionModule>();
+  return {
+    AdvancedSection: (props: Parameters<typeof real.AdvancedSection>[0]) => {
+      if (failing.has("advanced")) throw new Error("advanced failed");
+      return real.AdvancedSection(props);
     },
   };
 });
@@ -107,13 +119,29 @@ afterEach(() => {
 });
 
 const SCREENS = [
-  ["connect", "Connect"],
-  ["scan", "Scan"],
-  ["live", "Live"],
   ["library", "Library"],
   ["guide", "Guide"],
   ["settings", "Settings"],
 ] as const;
+
+const SECTIONS = [
+  ["connection", "Connection"],
+  ["read", "Read"],
+  ["live", "Live"],
+  ["advanced", "Advanced"],
+] as const;
+
+/** What every fallback says, and that the shell and its navigation are untouched. */
+function expectContained(label: string): void {
+  expect(screen.getByRole("heading", { name: `${label} could not be shown` })).toBeVisible();
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    /rest of the app, your connection and any run in progress are still working/,
+  );
+  expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "Report this problem" })).toBeVisible();
+  expect(screen.getByText("obd-read")).toBeVisible();
+  expect(screen.getAllByRole("tab")).toHaveLength(SCREENS.length + 1);
+}
 
 describe("a screen's boundary", () => {
   it.each(SCREENS)(
@@ -123,65 +151,74 @@ describe("a screen's boundary", () => {
       failing.add(id);
       renderApp(<App support={SUPPORT} />);
       await user.click(screen.getByRole("tab", { name: label }));
+      await screen.findByRole("heading", { name: `${label} could not be shown` });
+      expectContained(label);
+      expect(screen.getByRole("button", { name: "Go to Connect" })).toBeVisible();
+      expect(within(screen.getByRole("banner")).getByText("Not connected")).toBeVisible();
+    },
+  );
 
-      expect(
-        await screen.findByRole("heading", { name: `${label} could not be shown` }),
-      ).toBeVisible();
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        /rest of the app, your connection and any run in progress are still working/,
-      );
-      expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
-      expect(screen.getByRole("button", { name: "Report this problem" })).toBeVisible();
-      if (id === "connect") {
+  it.each(SECTIONS)(
+    "contains a failing %s section: the fallback shows in its place and the other sections work",
+    async (id, label) => {
+      failing.add(id);
+      renderApp(<App support={SUPPORT} />);
+      await openSection(label);
+      await screen.findByRole("heading", { name: `${label} could not be shown` });
+      expectContained(label);
+      if (id === "connection") {
         expect(screen.queryByRole("button", { name: "Go to Connect" })).toBeNull();
       } else {
         expect(screen.getByRole("button", { name: "Go to Connect" })).toBeVisible();
       }
-      // The shell, the navigation and the other screens are untouched.
-      expect(screen.getByText("obd-read")).toBeVisible();
-      expect(screen.getByText("Not connected")).toBeVisible();
-      expect(screen.getAllByRole("tab")).toHaveLength(SCREENS.length);
+      const others = SECTIONS.filter(([other]) => other !== id);
+      for (const [, other] of others) {
+        await openSection(other);
+        expect(screen.queryByRole("heading", { name: `${other} could not be shown` })).toBeNull();
+      }
     },
   );
 
-  it("keeps the connection and an open run while a screen fails, and Try again recovers it", async () => {
+  it("keeps the connection and an open run while a section fails, and Try again recovers it", async () => {
     const user = userEvent.setup();
     const service = createTestService();
+    failing.add("read");
     renderApp(<App support={SUPPORT} />, service);
     await user.click(screen.getByRole("button", { name: /connect with the simulator/i }));
     await screen.findByText("Connected to Simulator");
-    await user.click(screen.getByRole("tab", { name: "Live" }));
+    await openSection("Live");
     await user.click(await screen.findByRole("button", { name: "Start collecting" }));
     await screen.findByText("engine speed");
 
-    failing.add("scan");
-    await user.click(screen.getByRole("tab", { name: "Scan" }));
-    await screen.findByRole("heading", { name: "Scan could not be shown" });
-    expect(screen.getByText("Simulator")).toBeVisible();
+    await openSection("Read");
+    await screen.findByRole("heading", { name: "Read could not be shown" });
     expect((await service.client.link.status())?.simulated).toBe(true);
     const runs = await service.client.runs.list({});
     expect(runs.some((run) => run.stoppedAt === null)).toBe(true);
 
     // Try again fails again while the cause remains, and recovers once it is gone.
     await user.click(screen.getByRole("button", { name: "Try again" }));
-    await screen.findByRole("heading", { name: "Scan could not be shown" });
-    failing.delete("scan");
+    await screen.findByRole("heading", { name: "Read could not be shown" });
+    failing.delete("read");
     await user.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByRole("heading", { name: "Scan", level: 1 })).toBeVisible();
-    expect(screen.queryByText("Scan could not be shown")).toBeNull();
+    expect(await screen.findByRole("button", { name: "Start scan" })).toBeVisible();
+    expect(screen.queryByText("Read could not be shown")).toBeNull();
 
-    // The other screens never noticed.
-    await user.click(screen.getByRole("tab", { name: "Live" }));
+    // The other sections never noticed.
+    await openSection("Live");
     expect(await screen.findByText("engine speed")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Stop collecting" }));
   });
 
-  it("Go to Connect leaves the failed screen", async () => {
+  it("Go to Connect leaves the failed screen for the Session's Connection section", async () => {
     const user = userEvent.setup();
     failing.add("library");
     renderApp(<App support={SUPPORT} />);
+    await openSection("Read");
     await user.click(screen.getByRole("tab", { name: "Library" }));
     await user.click(await screen.findByRole("button", { name: "Go to Connect" }));
-    expect(await screen.findByRole("heading", { name: "Connect", level: 1 })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Session", level: 1 })).toBeVisible();
+    expect(screen.getByRole("button", { name: /connect with the simulator/i })).toBeVisible();
   });
 
   it("navigating away and back shows the screen afresh", async () => {
@@ -191,7 +228,7 @@ describe("a screen's boundary", () => {
     await user.click(screen.getByRole("tab", { name: "Settings" }));
     await screen.findByRole("heading", { name: "Settings could not be shown" });
     failing.delete("settings");
-    await user.click(screen.getByRole("tab", { name: "Connect" }));
+    await user.click(screen.getByRole("tab", { name: "Session" }));
     await user.click(screen.getByRole("tab", { name: "Settings" }));
     expect(await screen.findByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
   });
@@ -206,7 +243,7 @@ describe("a screen's boundary", () => {
     ).toBeVisible();
     expect(screen.getByText("Shared data")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Go to Connect" }));
-    expect(await screen.findByRole("heading", { name: "Connect", level: 1 })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Session", level: 1 })).toBeVisible();
     expect(window.location.hash).toBe("");
   });
 
@@ -221,14 +258,13 @@ describe("a screen's boundary", () => {
     expect(await screen.findByRole("heading", { name: "Shared viewer" })).toBeVisible();
   });
 
-  it("records the visit and the failure in the event log", async () => {
-    const user = userEvent.setup();
+  it("records the visit and a section's failure in the event log", async () => {
     failing.add("live");
     renderApp(<App support={SUPPORT} />);
-    await user.click(screen.getByRole("tab", { name: "Live" }));
+    await openSection("Live");
     await screen.findByRole("heading", { name: "Live could not be shown" });
     const events = appLog.snapshot();
-    expect(events).toContainEqual(expect.objectContaining({ kind: "screen", screen: "live" }));
+    expect(events).toContainEqual(expect.objectContaining({ kind: "screen", screen: "session" }));
     expect(events).toContainEqual(
       expect.objectContaining({ kind: "error", source: "react", screen: "live" }),
     );
@@ -288,20 +324,20 @@ describe("ErrorBoundary", () => {
       return <p>child ok</p>;
     }
     const view = render(
-      <ErrorBoundary screen="scan" store={store} resetKeys={[1]} fallback={() => <p>fallback</p>}>
+      <ErrorBoundary screen="read" store={store} resetKeys={[1]} fallback={() => <p>fallback</p>}>
         <Child />
       </ErrorBoundary>,
     );
     expect(screen.getByText("fallback")).toBeVisible();
     fail = false;
     view.rerender(
-      <ErrorBoundary screen="scan" store={store} resetKeys={[1]} fallback={() => <p>fallback</p>}>
+      <ErrorBoundary screen="read" store={store} resetKeys={[1]} fallback={() => <p>fallback</p>}>
         <Child />
       </ErrorBoundary>,
     );
     expect(screen.getByText("fallback")).toBeVisible();
     view.rerender(
-      <ErrorBoundary screen="scan" store={store} resetKeys={[2]} fallback={() => <p>fallback</p>}>
+      <ErrorBoundary screen="read" store={store} resetKeys={[2]} fallback={() => <p>fallback</p>}>
         <Child />
       </ErrorBoundary>,
     );
@@ -318,7 +354,7 @@ describe("ErrorBoundary", () => {
     };
     window.addEventListener("error", onError);
     render(
-      <ErrorBoundary screen="scan" store={store} fallback={() => <p>fallback</p>}>
+      <ErrorBoundary screen="read" store={store} fallback={() => <p>fallback</p>}>
         <button
           type="button"
           onClick={() => {
@@ -383,7 +419,7 @@ describe("expected typed errors stay ordinary UI states", () => {
     );
     await user.click(screen.getByRole("button", { name: /connect with the simulator/i }));
     await screen.findByText("Connected to Simulator");
-    await user.click(screen.getByRole("tab", { name: "Scan" }));
+    await openSection("Read");
     await user.click(await screen.findByRole("button", { name: "Start scan" }));
 
     expect(await screen.findByText("The guard refused this.")).toBeVisible();
@@ -412,11 +448,11 @@ describe("expected typed errors stay ordinary UI states", () => {
     );
     await user.click(screen.getByRole("button", { name: /connect with the simulator/i }));
     await screen.findByText("Connected to Simulator");
-    await user.click(screen.getByRole("tab", { name: "Scan" }));
+    await openSection("Read");
     await user.click(await screen.findByRole("button", { name: "Start scan" }));
 
     expect(await screen.findByText("Something went wrong")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Scan", level: 1 })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Start scan" })).toBeVisible();
     expect(screen.queryByText(/could not be shown/)).toBeNull();
     expect(store.getState().latest).toMatchObject({ source: "rpc", message: "service bug" });
   });

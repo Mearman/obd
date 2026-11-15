@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openSection } from "./session";
 
 const VIEWPORTS = [
   { name: "narrow", width: 320, height: 640 },
@@ -57,7 +58,7 @@ for (const viewport of VIEWPORTS) {
         await page.goto("/");
         await page.getByRole("button", { name: /connect with the simulator/i }).click();
         await expect(page.getByText("Connected to Simulator")).toBeVisible();
-        await page.getByRole("tab", { name: "Live" }).click();
+        await openSection(page, "Live");
 
         const engine = page.getByRole("button", { name: "Engine", exact: true });
         await expect(engine).toHaveAttribute("aria-pressed", "true");

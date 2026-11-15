@@ -1,7 +1,7 @@
 import { capabilities, type Capabilities } from "obd-read/web";
 import { browserFamily, type BrowserFamily } from "./availability";
 
-/** What the running browser offers, as the Connect screen needs it. */
+/** What the running browser offers, as the Connection section needs it. */
 export interface BrowserSupport {
   readonly capabilities: Capabilities;
   readonly family: BrowserFamily;

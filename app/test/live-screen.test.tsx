@@ -1,3 +1,4 @@
+import { openSection } from "./ui-helpers";
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -20,10 +21,9 @@ const SUPPORT: BrowserSupport = {
 
 async function openLive(service: AppService = createTestService()): Promise<void> {
   renderApp(<App support={SUPPORT} />, service);
-  await userEvent.click(screen.getByRole("tab", { name: "Connect" }));
   await userEvent.click(screen.getByRole("button", { name: /connect with the simulator/i }));
   await screen.findByText("Connected to Simulator");
-  await userEvent.click(screen.getByRole("tab", { name: "Live" }));
+  await openSection("Live");
 }
 
 /** `target` with the named members replaced, everything else passed through. */

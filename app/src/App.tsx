@@ -3,13 +3,11 @@ import { detectBrowserSupport, type BrowserSupport } from "./connect/support";
 import { DatabaseNotice } from "./database/DatabaseNotice";
 import { useDiagnostics } from "./diagnostics/DiagnosticsProvider";
 import { app, brand, header, identity, main, nav, status } from "./App.css";
-import { ConnectScreen } from "./screens/ConnectScreen";
 import { GuideScreen } from "./screens/GuideScreen";
-import { LiveScreen } from "./screens/LiveScreen";
 import type { LibraryOpen } from "./library/items";
 import { LibraryScreen } from "./library/LibraryScreen";
-import { ScanScreen } from "./screens/ScanScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { SessionScreen } from "./session/SessionScreen";
 import { VersionLink } from "./release/VersionLink";
 import { ScreenBoundary } from "./report";
 import { SAVED_NOTICES, type SavedShare } from "./share/saved";
@@ -19,13 +17,11 @@ import { THEME_PREFERENCES } from "./theme/preference";
 import { useTheme } from "./theme/ThemeProvider";
 import { Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger, Toast, Tooltip } from "./ui";
 
-const SCREENS = ["connect", "scan", "live", "library", "guide", "settings"] as const;
+const SCREENS = ["session", "library", "guide", "settings"] as const;
 type ScreenName = (typeof SCREENS)[number];
 
 const TITLES: Readonly<Record<ScreenName, string>> = {
-  connect: "Connect",
-  scan: "Scan",
-  live: "Live",
+  session: "Session",
   library: "Library",
   guide: "Guide",
   settings: "Settings",
@@ -56,12 +52,15 @@ function ThemeButton() {
 
 /** The application shell: header, the screens and the navigation between them. */
 export function App({ support = detectBrowserSupport() }: { readonly support?: BrowserSupport }) {
-  const [screen, setScreen] = useState<ScreenName>("connect");
+  const [screen, setScreen] = useState<ScreenName>("session");
   const { connection } = useDiagnostics();
   const shared = useSharedLink();
   const [saved, setSaved] = useState<SavedShare | undefined>(undefined);
+  // Each increment asks the Session screen to show its Connection section.
+  const [connectRequest, setConnectRequest] = useState(0);
   const goConnect = () => {
-    setScreen("connect");
+    setScreen("session");
+    setConnectRequest((count) => count + 1);
   };
   // Held here, so the Library's viewer stays open when the user looks at another screen and comes back.
   const [opened, setOpened] = useState<LibraryOpen | undefined>(undefined);
@@ -121,7 +120,7 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
             resetKeys={[shared.fragment]}
             onGoToConnect={() => {
               shared.clear();
-              setScreen("connect");
+              goConnect();
             }}
           >
             <SharedViewer
@@ -144,19 +143,14 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
         >
           <main className={main}>
             <DatabaseNotice />
-            <TabsContent value="connect">
-              <ScreenBoundary screen="connect">
-                <ConnectScreen support={support} onCaptured={viewCapture} />
-              </ScreenBoundary>
-            </TabsContent>
-            <TabsContent value="scan">
-              <ScreenBoundary screen="scan" onGoToConnect={goConnect}>
-                <ScanScreen onCaptured={viewCapture} />
-              </ScreenBoundary>
-            </TabsContent>
-            <TabsContent value="live">
-              <ScreenBoundary screen="live" onGoToConnect={goConnect}>
-                <LiveScreen />
+            {/* Kept mounted while another screen shows, so a scan's results and typed fields survive a visit to the Library. */}
+            <TabsContent value="session" forceMount hidden={screen !== "session"}>
+              <ScreenBoundary screen="session" onGoToConnect={goConnect}>
+                <SessionScreen
+                  support={support}
+                  onCaptured={viewCapture}
+                  connectRequest={connectRequest}
+                />
               </ScreenBoundary>
             </TabsContent>
             <TabsContent value="library">

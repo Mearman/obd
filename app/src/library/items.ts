@@ -50,7 +50,7 @@ export const KIND_FILTER_OPTIONS: readonly SelectOption[] = [
 
 /** What the Library says when the kind filter's value finds nothing of any origin. */
 export const EMPTY_NOTES: Readonly<Record<LibraryKind | typeof ALL_KINDS, string>> = {
-  all: "Nothing here yet. Capture or scan on Connect or Scan, collect a run on Live, or import a file.",
+  all: "Nothing here yet. Scan, capture or collect a run on the Session screen, or import a file.",
   run: "No runs yet.",
   capture: "No captures yet. Capture from Connect or Scan, or import a file.",
   report: "No saved reports yet.",

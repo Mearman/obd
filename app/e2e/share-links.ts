@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import { openSection } from "./session";
 import { chooseProfile } from "./profile";
 
 /** What the page's real database holds as saved scan reports. */
@@ -22,7 +23,7 @@ export async function shareLinkOfSimulatorScan(page: Page, redact: boolean): Pro
   await chooseProfile(page, "vag-mqb");
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
-  await page.getByRole("tab", { name: "Scan" }).click();
+  await openSection(page, "Read");
   await page.getByRole("button", { name: "Start scan" }).click();
   await expect(page.getByRole("table", { name: /Scan of vag-mqb/ })).toBeVisible();
   await page.getByRole("button", { name: "Share scan" }).click();

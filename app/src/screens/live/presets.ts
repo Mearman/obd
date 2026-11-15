@@ -18,7 +18,7 @@ const ENGINE = [
 /** Fuel trims, oxygen and lambda sensors and the fuel system status. */
 const MIXTURE = /^(short-fuel-trim|long-fuel-trim|o2-sensor|lambda|fuel-system-status)/;
 
-/** The presets the Live screen offers. */
+/** The presets the Live section offers. */
 export const PRESETS: readonly Preset[] = [
   {
     label: "Engine",

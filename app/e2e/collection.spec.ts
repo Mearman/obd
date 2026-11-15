@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openSection } from "./session";
 
 async function openScreen(page: Page, name: string): Promise<void> {
   await page.getByRole("tab", { name }).click();
@@ -16,7 +17,7 @@ test("a simulator collection is stored, survives a reload and resumes", async ({
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
 
-  await openScreen(page, "Live");
+  await openSection(page, "Live");
   await expect(page.getByText(/No web API guarantees collection in the background/)).toBeVisible();
   await page.getByRole("button", { name: "Start collecting" }).click();
   await expect(page.getByText("engine speed")).toBeVisible();
@@ -37,7 +38,7 @@ test("a simulator collection is stored, survives a reload and resumes", async ({
   // The open simulator run is resumed on its own: it carries on storing into the same run.
   await expect(page.getByRole("table", { name: "Library" }).getByText("Collecting")).toBeVisible();
   await expect.poll(() => sampleCount(page)).toBeGreaterThan(before);
-  await openScreen(page, "Live");
+  await openSection(page, "Live");
   await expect(page.getByText("engine speed")).toBeVisible();
 
   await page.getByRole("button", { name: "Stop collecting" }).click();
@@ -45,7 +46,7 @@ test("a simulator collection is stored, survives a reload and resumes", async ({
   await expect(page.getByText("Stopped", { exact: true })).toBeVisible();
   const stopped = await sampleCount(page);
   await page.waitForTimeout(1500);
-  await openScreen(page, "Live");
+  await openSection(page, "Live");
   await openScreen(page, "Library");
   expect(await sampleCount(page)).toBe(stopped);
 });

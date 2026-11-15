@@ -1,4 +1,4 @@
-import { pickProfile } from "./ui-helpers";
+import { openSection, pickProfile } from "./ui-helpers";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { builtinProfileData } from "obd-read/profiles";
@@ -96,7 +96,7 @@ async function connectSimulator(profile?: string): Promise<void> {
   await screen.findByText("Connected to Simulator");
 }
 
-async function openTab(name: string): Promise<void> {
+async function openTab(name: "Library" | "Settings"): Promise<void> {
   await userEvent.click(screen.getByRole("tab", { name }));
 }
 
@@ -105,7 +105,7 @@ describe("Updates while something runs", () => {
     const tab = openFakeTab(APP_VERSION);
     renderApp(<App support={CHROME} />, undefined, undefined, undefined, tab);
     await connectSimulator();
-    await openTab("Live");
+    await openSection("Live");
     await userEvent.click(screen.getByRole("button", { name: "Start collecting" }));
     expect(await screen.findByText("engine speed")).toBeInTheDocument();
     act(() => {
@@ -124,11 +124,11 @@ describe("Updates while something runs", () => {
 describe("Scan", () => {
   it("scans with the simulator once connected", async () => {
     renderApp(<App support={CHROME} />);
-    await openTab("Scan");
+    await openSection("Read");
     expect(screen.getByRole("button", { name: "Start scan" })).toBeDisabled();
-    await openTab("Connect");
+    await openSection("Connection");
     await connectSimulator("mercedes-w211");
-    await openTab("Scan");
+    await openSection("Read");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
     expect(await screen.findByRole("table", { name: /Scan of mercedes-w211/ })).toBeInTheDocument();
     expect((await screen.findAllByText("Faults stored")).length).toBeGreaterThan(0);
@@ -138,7 +138,7 @@ describe("Scan", () => {
     const service = createTestService();
     renderApp(<App support={CHROME} />, service);
     await connectSimulator("mercedes-w211");
-    await openTab("Scan");
+    await openSection("Read");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
     await userEvent.click(await screen.findByRole("button", { name: "Clear engine codes" }));
 
@@ -161,7 +161,7 @@ describe("Scan", () => {
     const service = createTestService();
     renderApp(<App support={CHROME} />, service);
     await connectSimulator("mercedes-w211");
-    await openTab("Scan");
+    await openSection("Read");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
     await userEvent.click(await screen.findByRole("button", { name: "Clear engine codes" }));
     const dialog = await screen.findByRole("dialog");
@@ -175,7 +175,7 @@ describe("Scan", () => {
   it("shows the guard's refusal of a request that is not a write", async () => {
     renderApp(<App support={CHROME} />);
     await connectSimulator("mercedes-w211");
-    await openTab("Scan");
+    await openSection("Advanced");
     await userEvent.type(screen.getByLabelText("Write request (hexadecimal)"), "10 03");
     await userEvent.type(screen.getByLabelText("Read request for the same value"), "21 99");
     await userEvent.click(screen.getByRole("button", { name: "Write a value" }));
@@ -191,11 +191,11 @@ describe("Live values and Runs", () => {
     Object.defineProperty(navigator, "wakeLock", { value: { request }, configurable: true });
     try {
       renderApp(<App support={CHROME} />);
-      await openTab("Live");
+      await openSection("Live");
       expect(screen.getByRole("button", { name: "Start collecting" })).toBeDisabled();
-      await openTab("Connect");
+      await openSection("Connection");
       await connectSimulator();
-      await openTab("Live");
+      await openSection("Live");
       expect(
         screen.getByText(/No web API guarantees collection in the background/),
       ).toBeInTheDocument();
@@ -208,7 +208,7 @@ describe("Live values and Runs", () => {
       expect(within(table).getByText("Collecting")).toBeInTheDocument();
       expect(within(table).getByText("Simulated")).toBeInTheDocument();
 
-      await openTab("Live");
+      await openSection("Live");
       await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
       await waitFor(() => {
         expect(release).toHaveBeenCalled();
@@ -230,7 +230,7 @@ describe("Live values and Runs", () => {
     // The earlier page and its collector are gone; the stored run is not.
     const later = createTestService(storage);
     renderApp(<App support={CHROME} />, later);
-    await openTab("Live");
+    await openSection("Live");
     expect(await screen.findByText("engine speed")).toBeInTheDocument();
     expect(await later.client.runs.status({ runId: run.id })).toMatchObject({
       state: "collecting",
@@ -330,7 +330,7 @@ describe("Generic OBD-II (no profile)", () => {
   it("scans the legislated services and shows the OBD report in the existing table", async () => {
     renderApp(<App support={CHROME} />);
     await connectSimulator();
-    await openTab("Scan");
+    await openSection("Read");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
     const table = await screen.findByRole("table", { name: /Scan of Generic OBD-II/ });
     expect(within(table).getByText("Emissions control unit 7E8")).toBeInTheDocument();
@@ -344,12 +344,16 @@ describe("Generic OBD-II (no profile)", () => {
   it("disables every unit-level action with the reason, and leaves the emissions clear enabled", async () => {
     renderApp(<App support={CHROME} />);
     await connectSimulator();
-    await openTab("Scan");
+    await openSection("Read");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
     await screen.findByRole("table", { name: /Scan of Generic OBD-II/ });
 
     const reason = /needs a vehicle profile/;
-    for (const name of ["Write a value", "Run an actuator test", "Clear 7E8 codes"]) {
+    const clearUnit = screen.getByRole("button", { name: "Clear 7E8 codes" });
+    expect(clearUnit).toBeDisabled();
+    expect(clearUnit).toHaveAccessibleDescription(reason);
+    await openSection("Advanced");
+    for (const name of ["Write a value", "Run an actuator test"]) {
       const button = screen.getByRole("button", { name });
       expect(button).toBeDisabled();
       expect(button).toHaveAccessibleDescription(reason);
@@ -366,7 +370,7 @@ describe("Generic OBD-II (no profile)", () => {
     const service = createTestService();
     renderApp(<App support={CHROME} />, service);
     await connectSimulator();
-    await openTab("Scan");
+    await openSection("Advanced");
     await userEvent.click(
       screen.getByRole("button", { name: "Clear every emissions code (mode 04)" }),
     );
@@ -381,21 +385,21 @@ describe("Generic OBD-II (no profile)", () => {
   it("collects the legislated values in a run listed under the generic name", async () => {
     renderApp(<App support={CHROME} />);
     await connectSimulator();
-    await openTab("Live");
+    await openSection("Live");
     expect(screen.getByText(/This connection has no profile/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Start collecting" }));
     expect(await screen.findByText("engine speed")).toBeInTheDocument();
     await openTab("Library");
     const table = await screen.findByRole("table", { name: "Library" });
     expect(within(table).getByText("Generic OBD-II (no profile)")).toBeInTheDocument();
-    await openTab("Live");
+    await openSection("Live");
     await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
   });
 
   it("shows the fault codes a run read, on Live while it collects and under Fault codes on Runs", async () => {
     renderApp(<App support={CHROME} />);
     await connectSimulator();
-    await openTab("Live");
+    await openSection("Live");
     await userEvent.click(screen.getByRole("button", { name: "Start collecting" }));
     const live = await screen.findByRole("table", { name: "Fault code changes" });
     expect(live).toHaveTextContent("P0420");

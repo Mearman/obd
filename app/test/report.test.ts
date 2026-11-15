@@ -40,7 +40,7 @@ const ENVIRONMENT: ReportEnvironment = {
 
 const ERROR: CapturedError = {
   source: "react",
-  screen: "scan",
+  screen: "read",
   name: "TypeError",
   message: `Cannot read properties of undefined (reading 'map') for ${VIN} from OBDII Veepeak at 00:1A:7D:DA:71:13 payload 7E8 10 14 49 02 01 57 44 42 in /Users/someone/scan.json`,
   stack: [
@@ -67,25 +67,25 @@ function input(logged: readonly LoggedEvent[]): ReportInput {
 }
 
 const LOGGED: readonly LoggedEvent[] = [
-  { kind: "screen", screen: "connect", at: 0, count: 1 },
+  { kind: "screen", screen: "connection", at: 0, count: 1 },
   { kind: "storage", state: "ready", at: 100, count: 1 },
   { kind: "connect", transport: "simulator", at: 1200, count: 1 },
   { kind: "operation", name: "scan.run", outcome: "ok", at: 2000, count: 1 },
   { kind: "operation", name: "guarded.request", outcome: "refused", at: 3100, count: 2 },
-  { kind: "error", source: "react", screen: "scan", at: 3200, count: 1 },
+  { kind: "error", source: "react", screen: "read", at: 3200, count: 1 },
 ];
 
 describe("buildReport", () => {
   it("is the golden report for a full error", () => {
     const report = buildReport(input(LOGGED), CONTEXT);
     expect(report.title).toBe(
-      "App error on Scan: TypeError: Cannot read properties of undefined (reading 'map') for [vin] from ...",
+      "App error on the Read section: TypeError: Cannot read properties of undefined (reading 'map') for...",
     );
     expect(report.body(LOGGED.length)).toBe(
       [
         "## What happened",
         "",
-        "The app caught an unexpected error while showing a screen on the Scan screen. Add what you were doing just before it, if you can.",
+        "The app caught an unexpected error while showing a screen on the Read section. Add what you were doing just before it, if you can.",
         "",
         "## Error",
         "",
@@ -106,12 +106,12 @@ describe("buildReport", () => {
         "## Recent events",
         "",
         "```text",
-        "+0.0s screen connect",
+        "+0.0s screen connection",
         "+0.1s storage ready",
         "+1.2s connect simulator",
         "+2.0s operation scan.run ok",
         "+3.1s operation guarded.request refused x2",
-        "+3.2s error react on scan",
+        "+3.2s error react on read",
         "```",
         "",
         "Kinds and outcomes only: no readings, VINs, serial numbers, fault codes, adapter names or addresses, file names or typed text.",

@@ -1,7 +1,7 @@
 import { useReducer } from "react";
 import { useDiagnostics } from "../../diagnostics/DiagnosticsProvider";
 import { PROFILE_REQUIRED_REASON } from "../../profiles/generic";
-import { Collapsible, TextField } from "../../ui";
+import { Card, TextField } from "../../ui";
 import { GuardedOperation } from "../GuardedOperation";
 import { muted, row } from "../screen.css";
 import { INITIAL_ADVANCED_FORM, advancedFormReducer, type AdvancedForm } from "./advanced-form";
@@ -11,15 +11,11 @@ const REASON_ID = "advanced-profile-required-reason";
 /**
  * Advanced: the operations that change the car (clearing every emissions code, writing a value and running an actuator test), each in two steps behind the read-only guard.
  *
- * The typed fields are held here, in the part that stays mounted, so collapsing the section keeps them.
+ * The typed fields are held here, and the Session screen hides a collapsed section without unmounting it, so collapsing the section keeps them.
  *
- * @param defaultExpanded Whether the section starts expanded.
+ * @param stopRunHint Where the person stops a collection run that holds the adapter.
  */
-export function AdvancedSection({
-  defaultExpanded = false,
-}: {
-  readonly defaultExpanded?: boolean;
-}) {
+export function AdvancedSection({ stopRunHint }: { readonly stopRunHint: string }) {
   const { service, connection, collection } = useDiagnostics();
   const { client } = service;
   const [form, change] = useReducer(advancedFormReducer, INITIAL_ADVANCED_FORM);
@@ -35,12 +31,13 @@ export function AdvancedSection({
   const unitActions = idle && !generic;
 
   return (
-    <Collapsible title="Advanced: changes to the car" defaultExpanded={defaultExpanded}>
-      <p className={muted}>
-        Each one is two steps. The first reads the car, saves a snapshot and shows exactly what
-        would be sent. Only the second sends it, through the read-only guard&apos;s single-use
-        permission.
-      </p>
+    <Card
+      title="Changes to the car"
+      description="Each one is two steps. The first reads the car, saves a snapshot and shows exactly what would be sent. Only the second sends it, through the read-only guard's single-use permission."
+    >
+      {collection.run !== undefined && (
+        <p className={muted}>A collection run holds the adapter. {stopRunHint}</p>
+      )}
       {generic && (
         <p id={REASON_ID} className={muted}>
           {PROFILE_REQUIRED_REASON} Clearing every emissions code below needs no profile.
@@ -117,6 +114,6 @@ export function AdvancedSection({
           confirm={(confirmation) => client.actuate.confirm({ confirmation })}
         />
       </div>
-    </Collapsible>
+    </Card>
   );
 }

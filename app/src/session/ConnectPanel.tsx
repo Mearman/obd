@@ -1,15 +1,15 @@
+import type { Connection } from "obd-read";
 import { useState } from "react";
 import { adapterAvailability } from "../connect/availability";
 import type { BrowserSupport } from "../connect/support";
-import { CaptureCard } from "../captures/CaptureCard";
 import { failureMessage, type AdapterKind } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { GENERIC_SUMMARY, profileTitle } from "../profiles/generic";
 import { ProfilePicker } from "../profiles/ProfilePicker";
 import { useProfiles } from "../profiles/ProfilesProvider";
-import { Badge, Button, Card, Dialog, Switch } from "../ui";
-import { error, list, muted, optionGrid, page } from "./screen.css";
-import { ScreenHeading } from "./ScreenHeading";
+import { Button, Card, Dialog, Switch } from "../ui";
+import { error, list, muted, optionGrid } from "../screens/screen.css";
+import { details } from "./session.css";
 
 interface Option {
   readonly kind: AdapterKind;
@@ -42,18 +42,10 @@ const OPTIONS: readonly Option[] = [
 ];
 
 /**
- * Connect: choose how to reach the car, with clear reasons when this browser cannot, and capture everything once connected.
- *
- * @param onCaptured Called with a capture's id once it is stored, to open it.
+ * The Connection section: choose a vehicle profile and how to reach the car, with clear reasons when this browser cannot; once connected, what the adapter said about itself.
  */
-export function ConnectScreen({
-  support,
-  onCaptured,
-}: {
-  readonly support: BrowserSupport;
-  readonly onCaptured?: (id: string) => void;
-}) {
-  const { connection, connect, disconnect, profile, setProfile } = useDiagnostics();
+export function ConnectPanel({ support }: { readonly support: BrowserSupport }) {
+  const { connection, connect, profile, setProfile } = useDiagnostics();
   const { builtin, imported } = useProfiles();
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState<AdapterKind | undefined>(undefined);
@@ -72,26 +64,38 @@ export function ConnectScreen({
     }
   }
 
+  if (connection !== undefined) {
+    return (
+      <Card title="This connection">
+        <dl className={details}>
+          <dt>Through</dt>
+          <dd>{connectionLabel(connection)}</dd>
+          <dt>Profile</dt>
+          <dd>{profileTitle(connection.profile)}</dd>
+          <dt>Adapter</dt>
+          <dd>{connection.info.identity}</dd>
+          {connection.info.description !== null && (
+            <>
+              <dt>Description</dt>
+              <dd>{connection.info.description}</dd>
+            </>
+          )}
+          {connection.info.stnIdentity !== null && (
+            <>
+              <dt>STN chip</dt>
+              <dd>{connection.info.stnIdentity}</dd>
+            </>
+          )}
+          <dt>Battery at connection</dt>
+          <dd>{connection.info.voltage ?? "Not reported"}</dd>
+        </dl>
+        <p className={muted}>Disconnect from the bar above to choose another profile or adapter.</p>
+      </Card>
+    );
+  }
+
   return (
-    <div className={page}>
-      <ScreenHeading simulated={connection?.simulated === true}>Connect</ScreenHeading>
-
-      {connection !== undefined && (
-        <Card
-          title={`Connected to ${connection.simulated ? "Simulator" : adapterLabel(connection.adapter)}`}
-          description={`Profile: ${profileTitle(connection.profile)}. Adapter ${connection.info.identity}.`}
-        >
-          <div>
-            <Badge tone={connection.simulated ? "simulated" : "success"}>
-              {connection.simulated ? "Simulator" : "Connected"}
-            </Badge>
-          </div>
-          <Button block onClick={() => void disconnect()}>
-            Disconnect
-          </Button>
-        </Card>
-      )}
-
+    <>
       <Card
         title="Vehicle"
         description="A profile names the control units to talk to. Generic OBD-II needs none. Choose before connecting."
@@ -101,7 +105,6 @@ export function ConnectScreen({
           imported={imported}
           value={profile}
           onValueChange={setProfile}
-          disabled={connection !== undefined}
         />
         {profile === undefined && <p className={muted}>{GENERIC_SUMMARY}</p>}
       </Card>
@@ -126,7 +129,7 @@ export function ConnectScreen({
               <Button
                 variant={option.kind === "simulator" ? "secondary" : "primary"}
                 block
-                disabled={!state.available || busy !== undefined || connection !== undefined}
+                disabled={!state.available || busy !== undefined}
                 {...(state.reason === undefined ? {} : { "aria-describedby": reasonId })}
                 onClick={() => void choose(option.kind)}
               >
@@ -136,10 +139,6 @@ export function ConnectScreen({
           );
         })}
       </div>
-
-      {connection !== undefined && (
-        <CaptureCard {...(onCaptured === undefined ? {} : { onSaved: onCaptured })} />
-      )}
 
       <Card title="Options">
         <Switch
@@ -167,8 +166,13 @@ export function ConnectScreen({
           Safari, Firefox and every iPhone or iPad browser cannot use either API.
         </p>
       </Dialog>
-    </div>
+    </>
   );
+}
+
+/** What the connection is called: Simulator, or the adapter the person chose. */
+export function connectionLabel(connection: Connection): string {
+  return connection.simulated ? "Simulator" : adapterLabel(connection.adapter);
 }
 
 /** The adapter URL's target, which is the name the user knows the adapter by. */

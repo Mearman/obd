@@ -9,7 +9,7 @@ export const GENERIC_SUMMARY =
 
 /** Why a unit-level action is disabled on a generic connection. */
 export const PROFILE_REQUIRED_REASON =
-  "This addresses one control unit, so it needs a vehicle profile. Disconnect and choose a profile on Connect to use it.";
+  "This addresses one control unit, so it needs a vehicle profile. Disconnect and choose a profile under Connection to use it.";
 
 /** The text for a profile name as stored on a run or report, or for a connection's profile (`null` when generic). */
 export function profileTitle(name: string | null): string {
