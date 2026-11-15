@@ -12,6 +12,10 @@ import bmwI3 from "./bmw-i3.json" with { type: "json" };
 import hondaAcura29bit from "./honda-acura-29bit.json" with { type: "json" };
 import mazdaSkyactiv from "./mazda-skyactiv.json" with { type: "json" };
 import mercedesW211 from "./mercedes-w211.json" with { type: "json" };
+import mitsubishiPhevImiev from "./mitsubishi-phev-imiev.json" with { type: "json" };
+import nissanInfinitiCan from "./nissan-infiniti-can.json" with { type: "json" };
+import nissanInfinitiCan29bit from "./nissan-infiniti-can-29bit.json" with { type: "json" };
+import nissanLeaf from "./nissan-leaf.json" with { type: "json" };
 import psaKwp2000 from "./psa-kwp2000.json" with { type: "json" };
 import psaUds from "./psa-uds.json" with { type: "json" };
 import renaultDaciaCore from "./renault-dacia-core.json" with { type: "json" };
@@ -29,6 +33,10 @@ const SHIPPED: ReadonlyMap<string, unknown> = new Map<string, unknown>([
   ["honda-acura-29bit", hondaAcura29bit],
   ["mazda-skyactiv", mazdaSkyactiv],
   ["mercedes-w211", mercedesW211],
+  ["mitsubishi-phev-imiev", mitsubishiPhevImiev],
+  ["nissan-infiniti-can", nissanInfinitiCan],
+  ["nissan-infiniti-can-29bit", nissanInfinitiCan29bit],
+  ["nissan-leaf", nissanLeaf],
   ["psa-kwp2000", psaKwp2000],
   ["psa-uds", psaUds],
   ["renault-dacia-core", renaultDaciaCore],

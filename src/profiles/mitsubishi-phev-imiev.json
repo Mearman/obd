@@ -1,0 +1,206 @@
+{
+  "notes": "Mitsubishi cars on the diagnostic socket's CAN pair (11-bit identifiers, 500 kbit/s): Outlander PHEV (2013 onwards), and the i-MiEV with its badge-engineered twins, the Citroen C-Zero and Peugeot iOn. The i-MiEV family rows come from OVMS (0x761, 0x765, 0x771, 0x782); the Outlander PHEV rows come from OBDb. The units at 0x761 and 0x765 are in both sets, so they are the best supported.\n\nEvery address is a fact transcribed from open diagnostic-tool sources; no signal definition is copied. Treat every row as unconfirmed until `obd-read probe` shows the unit answering.\n\nThe identifiers are not the legislated ones and the response offset varies: 1 for most (0x761 to 0x762, 0x765 to 0x766, 0x771 to 0x772), but 0x600 answers at 0x500, 0x688 at 0x511 and 0x6A0 at 0x514. Each unit names its own response identifier.\n\nUnits are read with service 21 (local identifier, one byte) in the sources, so the profile carries KWP2000; the unit at 0x743 is read with service 22 in OBDb and carries UDS. Session 0x81 is the KWP2000 default session and is not confirmed on a Mitsubishi.\n\nA profile takes one response per request identifier. OBDb also has 0x600 answering at 0x601 (keyless reads) and 0x688 answering at 0x689, which are not listed because those request identifiers already name a unit above; and the 29-bit unit at header DA15 is not listed because a profile has one identifier width.\n\nA Nissan secure gateway from 2020 does not apply here, but the vendor handout that lists it says nothing about Mitsubishi; a unit that stays silent is reported as no response.",
+  "name": "mitsubishi-phev-imiev",
+  "description": "Mitsubishi Outlander PHEV, i-MiEV, C-Zero and iOn",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "kwp2000",
+    "session": 129
+  },
+  "units": {
+    "unit-600": {
+      "description": "Unit at 0x600, which answers tyre-pressure reads (service 21) in OBDb",
+      "request": 1536,
+      "response": 1280,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x600 to 0x500, service 21)"
+    },
+    "unit-61e": {
+      "description": "Unit at 0x61E, which answers battery reads in OBDb",
+      "request": 1566,
+      "response": 1567,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x61E to 0x61F, service 21)"
+    },
+    "unit-62e": {
+      "description": "Unit at 0x62E, which answers battery reads in OBDb",
+      "request": 1582,
+      "response": 1583,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x62E to 0x62F, service 21)"
+    },
+    "unit-63e": {
+      "description": "Unit at 0x63E, which answers battery reads in OBDb",
+      "request": 1598,
+      "response": 1599,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x63E to 0x63F, service 21)"
+    },
+    "unit-64e": {
+      "description": "Unit at 0x64E, which answers battery reads in OBDb",
+      "request": 1614,
+      "response": 1615,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x64E to 0x64F, service 21)"
+    },
+    "unit-65e": {
+      "description": "Unit at 0x65E, which answers battery reads in OBDb",
+      "request": 1630,
+      "response": 1631,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x65E to 0x65F, service 21)"
+    },
+    "unit-66e": {
+      "description": "Unit at 0x66E, which answers battery reads in OBDb",
+      "request": 1646,
+      "response": 1647,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x66E to 0x66F, service 21)"
+    },
+    "unit-67e": {
+      "description": "Unit at 0x67E, which answers battery reads in OBDb",
+      "request": 1662,
+      "response": 1663,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x67E to 0x67F, service 21)"
+    },
+    "unit-688": {
+      "description": "Unit at 0x688, which answers climate reads (service 21) in OBDb",
+      "request": 1672,
+      "response": 1297,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x688 to 0x511, service 21)"
+    },
+    "unit-68e": {
+      "description": "Unit at 0x68E, which answers battery reads in OBDb",
+      "request": 1678,
+      "response": 1679,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x68E to 0x68F, service 21)"
+    },
+    "unit-69e": {
+      "description": "Unit at 0x69E, which answers battery reads in OBDb",
+      "request": 1694,
+      "response": 1695,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x69E to 0x69F, service 21)"
+    },
+    "unit-6a0": {
+      "description": "Unit at 0x6A0, which answers trip and fuel reads (service 21) in OBDb",
+      "request": 1696,
+      "response": 1300,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x6A0 to 0x514, service 21)"
+    },
+    "unit-6ae": {
+      "description": "Unit at 0x6AE, which answers battery reads in OBDb",
+      "request": 1710,
+      "response": 1711,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x6AE to 0x6AF, service 21)"
+    },
+    "unit-6be": {
+      "description": "Unit at 0x6BE, which answers battery reads in OBDb",
+      "request": 1726,
+      "response": 1727,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x6BE to 0x6BF, service 21)"
+    },
+    "unit-718": {
+      "description": "Unit at 0x718, which answers cruise-control reads (service 21) in OBDb",
+      "request": 1816,
+      "response": 1817,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x718 to 0x719, service 21)"
+    },
+    "unit-71a": {
+      "description": "Unit at 0x71A, which answers electrical reads (service 21) in OBDb",
+      "request": 1818,
+      "response": 1819,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x71A to 0x71B, service 21)"
+    },
+    "unit-724": {
+      "description": "Unit at 0x724, which answers climate reads (service 21) in OBDb",
+      "request": 1828,
+      "response": 1829,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x724 to 0x725, service 21)"
+    },
+    "unit-73a": {
+      "description": "Unit at 0x73A, which answers battery reads (service 21) in OBDb",
+      "request": 1850,
+      "response": 1851,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x73A to 0x73B, service 21)"
+    },
+    "unit-743": {
+      "description": "Unit at 0x743, which answers tyre and movement reads in OBDb",
+      "request": 1859,
+      "response": 1891,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x743 to 0x763, service 22)"
+    },
+    "unit-753": {
+      "description": "Unit at 0x753, which answers drivetrain reads (service 21) in OBDb",
+      "request": 1875,
+      "response": 1876,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x753 to 0x754, service 21)"
+    },
+    "unit-755": {
+      "description": "Unit at 0x755, which answers drivetrain reads (service 21) in OBDb",
+      "request": 1877,
+      "response": 1878,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x755 to 0x756, service 21)"
+    },
+    "battery": {
+      "description": "Battery management unit (OVMS reads cell data here) at 0x761",
+      "request": 1889,
+      "response": 1890,
+      "source": "https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/ca04b74626d482f0deaf5e43793e82fba0aeece1/vehicle/OVMS.V3/components/vehicle_mitsubishi/src/vehicle_mitsubishi.cpp (poll table 0x761 to 0x762, service 21 groups 01 02 03; i-MiEV, C-Zero, iOn); https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x761 to 0x762, service 21)"
+    },
+    "charger": {
+      "description": "On-board charger (OVMS 'OBC') at 0x765",
+      "request": 1893,
+      "response": 1894,
+      "source": "https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/ca04b74626d482f0deaf5e43793e82fba0aeece1/vehicle/OVMS.V3/components/vehicle_mitsubishi/src/vehicle_mitsubishi.cpp (poll table 0x765 to 0x766, service 21 group 01); https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x765 to 0x766, service 21)"
+    },
+    "unit-771": {
+      "description": "Unit at 0x771, where OVMS reads the external and internal temperatures",
+      "request": 1905,
+      "response": 1906,
+      "source": "https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/ca04b74626d482f0deaf5e43793e82fba0aeece1/vehicle/OVMS.V3/components/vehicle_mitsubishi/src/vehicle_mitsubishi.cpp (poll table 0x771 to 0x772, service 21 group 13)"
+    },
+    "unit-773": {
+      "description": "Unit at 0x773, which answers tyre-pressure reads (service 21) in OBDb",
+      "request": 1907,
+      "response": 1908,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x773 to 0x774, service 21)"
+    },
+    "unit-782": {
+      "description": "Unit at 0x782, where OVMS reads trip A and B",
+      "request": 1922,
+      "response": 1923,
+      "source": "https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/ca04b74626d482f0deaf5e43793e82fba0aeece1/vehicle/OVMS.V3/components/vehicle_mitsubishi/src/vehicle_mitsubishi.cpp (poll table 0x782 to 0x783, service 21 group CE)"
+    },
+    "unit-784": {
+      "description": "Unit at 0x784, which answers movement reads (service 21) in OBDb",
+      "request": 1924,
+      "response": 1925,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x784 to 0x785, service 21)"
+    },
+    "unit-796": {
+      "description": "Unit at 0x796, which answers engine reads (service 21) in OBDb",
+      "request": 1942,
+      "response": 1943,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x796 to 0x797, service 21)"
+    },
+    "unit-7b6": {
+      "description": "Unit at 0x7B6, which answers drivetrain reads (service 21) in OBDb",
+      "request": 1974,
+      "response": 1975,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x7B6 to 0x7B7, service 21)"
+    },
+    "unit-7e0": {
+      "description": "Unit at 0x7E0, which answers engine reads (service 21) in OBDb",
+      "request": 2016,
+      "response": 2024,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x7E0 to 0x7E8, service 21)"
+    },
+    "unit-7e2": {
+      "description": "Unit at 0x7E2, which answers drivetrain reads (service 21) in OBDb",
+      "request": 2018,
+      "response": 2026,
+      "source": "https://github.com/OBDb/Mitsubishi-Outlander-PHEV/blob/979472345e6b719493f146071147b07c56cc883e/signalsets/v3/default.json (0x7E2 to 0x7EA, service 21)"
+    }
+  }
+}
