@@ -20,6 +20,10 @@ export interface DatabaseSession {
   readonly connection: Promise<DatabaseConnection>;
   /** Calls `listener` after any tab of the app writes to the database. Returns the unsubscribe. */
   subscribe(listener: () => void): () => void;
+  /** Whether a database call this tab made, or serves for another tab, is in flight; see `SharedDatabase.busy`. */
+  busy(): boolean;
+  /** Calls `listener` whenever {@link busy} may have changed. Returns the unsubscribe. */
+  subscribeBusy(listener: () => void): () => void;
   /** Ends the worker, which releases the database to another tab. */
   close(): void;
 }
@@ -76,6 +80,8 @@ export function startDatabaseSession(): DatabaseSession {
   return {
     connection: shared.connection,
     subscribe: (listener) => shared.subscribe(listener),
+    busy: () => shared.busy(),
+    subscribeBusy: (listener) => shared.subscribeBusy(listener),
     close: () => {
       shared.close();
       worker.terminate();

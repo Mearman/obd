@@ -48,6 +48,8 @@ function sessionOver(storage: MemoryStorage): DatabaseSession {
   return {
     connection: Promise.resolve({ storage, control: fakeControl() }),
     subscribe: () => () => undefined,
+    busy: () => false,
+    subscribeBusy: () => () => undefined,
     close: () => undefined,
   };
 }
