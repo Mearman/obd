@@ -60,12 +60,61 @@ describe("applyMigrations", () => {
   });
 });
 
+describe("the origin migration", () => {
+  it("marks a capture imported from a file and a scan saved from a share link, and every other record local", async () => {
+    const database = new DatabaseSync(":memory:");
+    const execute = createNodeSqliteExecutor(database);
+    const origin = MIGRATIONS.findIndex((migration) =>
+      migration.statements.some((statement) => statement.includes("ADD `origin`")),
+    );
+    expect(origin).toBeGreaterThan(0);
+    await applyMigrations(execute, MIGRATIONS.slice(0, origin));
+    const capture = (id: string, kind: string) =>
+      execute(
+        "INSERT INTO captures (id, started_at, ended_at, kind, profile, complete, description, adapter, exchanges, document) VALUES (?, 0, 0, ?, NULL, 1, '', '', 0, x'00')",
+        [id, kind],
+        "run",
+      );
+    await capture("from-file", "import");
+    await capture("from-car", "capture");
+    const report = (id: string, adapter: string) =>
+      execute(
+        "INSERT INTO scan_reports (id, profile, adapter, taken_at, label, report) VALUES (?, 'p', ?, 0, '', '{}')",
+        [id, adapter],
+        "run",
+      );
+    await report("from-link", "shared://link");
+    await report("from-adapter", "ble://adapter");
+    await execute(
+      "INSERT INTO runs (id, profile, adapter, started_at, stopped_at, notes) VALUES ('r', 'p', 'a', 0, NULL, '')",
+      [],
+      "run",
+    );
+
+    await applyMigrations(execute);
+    expect(await execute("SELECT id, origin FROM captures ORDER BY id", [], "all")).toEqual([
+      ["from-car", "local"],
+      ["from-file", "imported"],
+    ]);
+    expect(await execute("SELECT id, origin FROM scan_reports ORDER BY id", [], "all")).toEqual([
+      ["from-adapter", "local"],
+      ["from-link", "shared"],
+    ]);
+    expect(await execute("SELECT origin FROM runs", [], "all")).toEqual([["local"]]);
+    database.close();
+  });
+});
+
 describe("the schema", () => {
   it("refuses a sample holding both or neither of a numeric and a text value", async () => {
     const database = new DatabaseSync(":memory:");
     const execute = createNodeSqliteExecutor(database);
     await applyMigrations(execute);
-    await execute("INSERT INTO runs VALUES ('r', 'p', 'a', 0, NULL, '')", [], "run");
+    await execute(
+      "INSERT INTO runs (id, profile, adapter, started_at, stopped_at, notes) VALUES ('r', 'p', 'a', 0, NULL, '')",
+      [],
+      "run",
+    );
     const insert =
       "INSERT INTO samples (run_id, signal, unit, timestamp, value_num, value_text) VALUES ('r', 's', '', 0, ?, ?)";
     await expect(execute(insert, [1, "x"], "run")).rejects.toThrow(/CHECK/);

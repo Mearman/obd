@@ -19,6 +19,7 @@ import {
   captureSummarySchema,
   newRunSchema,
   newScanReportSchema,
+  originSchema,
   runQuerySchema,
   runSchema,
   sampleQuerySchema,
@@ -55,7 +56,9 @@ export const storageContract = {
   saveProfile: oc.input(storedProfileSchema).output(z.object({ replaced: z.boolean() })),
   getProfile: oc.input(z.object({ name })).output(storedProfileSchema.nullable()),
   listProfiles: oc.output(z.array(storedProfileSchema)),
-  saveCapture: oc.input(storedCaptureSchema).output(captureSummarySchema),
+  saveCapture: oc
+    .input(z.object({ capture: storedCaptureSchema, origin: originSchema }))
+    .output(captureSummarySchema),
   getCapture: oc.input(z.object({ id: name })).output(storedCaptureSchema.nullable()),
   listCaptures: oc.input(captureQuerySchema).output(z.array(captureSummarySchema)),
   deleteCapture: oc.input(z.object({ id: name })).output(done),
@@ -140,7 +143,9 @@ export function serveStorage(port: SupportedMessagePort, current: () => Promise<
       through(async (s) => (await s.getProfile(input.name)) ?? null),
     ),
     listProfiles: os.listProfiles.handler(() => through((s) => s.listProfiles())),
-    saveCapture: os.saveCapture.handler(({ input }) => through((s) => s.saveCapture(input))),
+    saveCapture: os.saveCapture.handler(({ input }) =>
+      through((s) => s.saveCapture(input.capture, input.origin)),
+    ),
     getCapture: os.getCapture.handler(({ input }) =>
       through(async (s) => (await s.getCapture(input.id)) ?? null),
     ),
@@ -197,7 +202,7 @@ export function remoteStorage(port: SupportedMessagePort): Storage {
     getProfile: async (profileName) =>
       (await through(() => client.getProfile({ name: profileName }))) ?? undefined,
     listProfiles: () => through(() => client.listProfiles()),
-    saveCapture: (capture) => through(() => client.saveCapture(capture)),
+    saveCapture: (capture, origin) => through(() => client.saveCapture({ capture, origin })),
     getCapture: async (id) => (await through(() => client.getCapture({ id }))) ?? undefined,
     listCaptures: (query = {}) => through(() => client.listCaptures(query)),
     deleteCapture: async (id) => {

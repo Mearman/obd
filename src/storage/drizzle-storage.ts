@@ -27,6 +27,7 @@ import {
   type CaptureSummary,
   type NewRun,
   type NewScanReport,
+  type Origin,
   type Run,
   type RunQuery,
   type Sample,
@@ -126,7 +127,12 @@ export class DrizzleStorage implements Storage {
       const rows = await this.db
         .select()
         .from(runs)
-        .where(query.profile === undefined ? undefined : eq(runs.profile, query.profile))
+        .where(
+          and(
+            query.profile === undefined ? undefined : eq(runs.profile, query.profile),
+            query.origin === undefined ? undefined : eq(runs.origin, query.origin),
+          ),
+        )
         .orderBy(desc(runs.startedAt), desc(runs.id))
         .limit(query.limit ?? Number.MAX_SAFE_INTEGER)
         .offset(query.offset ?? 0);
@@ -237,9 +243,15 @@ export class DrizzleStorage implements Storage {
           adapter: scanReports.adapter,
           takenAt: scanReports.takenAt,
           label: scanReports.label,
+          origin: scanReports.origin,
         })
         .from(scanReports)
-        .where(query.profile === undefined ? undefined : eq(scanReports.profile, query.profile))
+        .where(
+          and(
+            query.profile === undefined ? undefined : eq(scanReports.profile, query.profile),
+            query.origin === undefined ? undefined : eq(scanReports.origin, query.origin),
+          ),
+        )
         .orderBy(desc(scanReports.takenAt), desc(scanReports.id))
         .limit(query.limit ?? Number.MAX_SAFE_INTEGER)
         .offset(query.offset ?? 0);
@@ -283,9 +295,9 @@ export class DrizzleStorage implements Storage {
     });
   }
 
-  saveCapture(capture: Capture): Promise<CaptureSummary> {
+  saveCapture(capture: Capture, origin: Origin): Promise<CaptureSummary> {
     return this.serial(async () => {
-      const summary = captureSummary(validateCapture(capture, "capture"));
+      const summary = captureSummary(validateCapture(capture, "capture"), origin);
       const [existing] = await this.db
         .select({ id: captures.id })
         .from(captures)
@@ -305,6 +317,7 @@ export class DrizzleStorage implements Storage {
           adapter: summary.adapter,
           exchanges: summary.exchanges,
           document: compressCapture(capture),
+          origin: summary.origin,
         });
         for (let start = 0; start < summary.units.length; start += INSERT_ROWS) {
           await tx.insert(captureUnits).values(
@@ -343,8 +356,10 @@ export class DrizzleStorage implements Storage {
           description: captures.description,
           adapter: captures.adapter,
           exchanges: captures.exchanges,
+          origin: captures.origin,
         })
         .from(captures)
+        .where(query.origin === undefined ? undefined : eq(captures.origin, query.origin))
         .orderBy(desc(captures.startedAt), desc(captures.id))
         .limit(query.limit ?? Number.MAX_SAFE_INTEGER)
         .offset(query.offset ?? 0);

@@ -5,6 +5,7 @@
  */
 
 import { sql } from "drizzle-orm";
+import { ORIGINS } from "../core/storage.js";
 import {
   check,
   customType,
@@ -15,6 +16,9 @@ import {
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
+
+/** Where a record came from (`local`, `shared` or `imported`, as `ORIGINS` in core lists them); rows from before the column existed are local, except those the migration that added it could tell apart. */
+const origin = () => text({ enum: ORIGINS }).notNull().default("local");
 
 /** A SQLite blob read and written as bytes. */
 const bytes = customType<{ data: Uint8Array; driverData: Uint8Array }>({
@@ -31,6 +35,7 @@ export const runs = sqliteTable(
     startedAt: integer("started_at").notNull(),
     stoppedAt: integer("stopped_at"),
     notes: text().notNull(),
+    origin: origin(),
   },
   (table) => [index("runs_started_at_idx").on(table.startedAt)],
 );
@@ -68,6 +73,7 @@ export const scanReports = sqliteTable(
     takenAt: integer("taken_at").notNull(),
     label: text().notNull(),
     report: text().notNull(),
+    origin: origin(),
   },
   (table) => [index("scan_reports_taken_at_idx").on(table.takenAt)],
 );
@@ -96,6 +102,7 @@ export const captures = sqliteTable(
     adapter: text().notNull(),
     exchanges: integer().notNull(),
     document: bytes().notNull(),
+    origin: origin(),
   },
   (table) => [index("captures_started_at_idx").on(table.startedAt)],
 );

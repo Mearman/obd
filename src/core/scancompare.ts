@@ -29,6 +29,8 @@ export interface SavedScan {
   readonly path: string;
   readonly taken: string;
   readonly profile: string;
+  /** Whether the report was saved from a share link (`origin: "shared"`) rather than read from the user's own adapter. */
+  readonly shared: boolean;
   readonly units: ReadonlyMap<string, SavedUnit>;
 }
 
@@ -62,6 +64,7 @@ export class UnitChange {
 
 const scanSchema = z.object({
   taken: z.string(),
+  origin: z.string().optional(),
   profile: z.object({ name: z.string() }),
   units: z.array(
     z.object({
@@ -121,7 +124,13 @@ export function parseScan(text: string, path: string): SavedScan {
       ),
     });
   }
-  return { path, taken: parsed.data.taken, profile: parsed.data.profile.name, units };
+  return {
+    path,
+    taken: parsed.data.taken,
+    profile: parsed.data.profile.name,
+    shared: parsed.data.origin === "shared",
+    units,
+  };
 }
 
 function joined(statuses: readonly string[]): string {
@@ -214,6 +223,14 @@ export function renderComparison(
     `first scan:  ${before.path} (taken ${before.taken}, profile ${before.profile})`,
     `second scan: ${after.path} (taken ${after.taken}, profile ${after.profile})`,
   ];
+  for (const [side, scan] of [
+    ["first", before],
+    ["second", after],
+  ] as const) {
+    if (scan.shared) {
+      lines.push(`note: the ${side} scan is shared data from a link, not read from your adapter`);
+    }
+  }
   if (before.profile !== after.profile) {
     lines.push("note: the scans used different profiles, so unit names may not line up");
   }
