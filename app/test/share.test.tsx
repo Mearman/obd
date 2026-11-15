@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   MemoryStorage,
+  jsonSchema,
   decodeShare,
   encodeShare,
   fragmentOfLink,
@@ -9,6 +10,7 @@ import {
   type ScanShareData,
   type ShareEnvelope,
 } from "obd-read";
+import { builtinProfileData } from "obd-read/profiles";
 import { streamShareCodec } from "obd-read/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
@@ -402,15 +404,96 @@ describe("a shared link", () => {
     expect(screen.queryByRole("button", { name: "Save this scan" })).not.toBeInTheDocument();
   });
 
-  it("shows a shared capture's raw exchanges read-only and writes nothing", async () => {
+  it("decodes a shared capture with the profile chosen in the selector, live, and writes nothing", async () => {
     window.location.hash = await captureFragment(await simulatedCapture());
     const storage = new MemoryStorage();
     renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
-    const table = await screen.findByRole("table", { name: "Shared exchanges" });
-    expect(table).toHaveTextContent("0902");
+    const summary = await screen.findByRole("status", { name: "Decoding summary" });
+    await waitFor(() => {
+      expect(summary).toHaveTextContent(
+        /Decoded \d+ Left raw 0 of \d+ exchanges with mercedes-w211/,
+      );
+    });
+    expect(screen.getByRole("table", { name: "Units decoded with mercedes-w211" })).toBeVisible();
     expect(
-      screen.getByText(/The VIN, calibration identifiers and serial numbers are included/),
-    ).toBeInTheDocument();
+      within(
+        screen.getByRole("table", { name: "Every exchange under mercedes-w211" }),
+      ).queryAllByText("Left raw"),
+    ).toEqual([]);
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Decode with" }));
+    await userEvent.click(screen.getByRole("option", { name: "Generic OBD-II (no profile)" }));
+    await waitFor(() => {
+      expect(screen.getByRole("status", { name: "Decoding summary" })).toHaveTextContent(
+        /Left raw [1-9]\d* of \d+ exchanges with Generic OBD-II/,
+      );
+    });
+    const every = screen.getByRole("table", {
+      name: "Every exchange under Generic OBD-II (no profile)",
+    });
+    expect(within(every).getAllByText("Left raw").length).toBeGreaterThan(0);
+    expect(within(every).getAllByText("Decoded").length).toBeGreaterThan(0);
+    expect(screen.getByRole("table", { name: /leaves raw/ })).toBeVisible();
+
     expect(await storage.listCaptures({})).toEqual([]);
+    expect(await storage.listScanReports({})).toEqual([]);
+  });
+
+  it("decodes a shared capture with an imported profile", async () => {
+    window.location.hash = await captureFragment(await simulatedCapture());
+    const storage = new MemoryStorage();
+    const document = builtinProfileData("mercedes-w211");
+    const engineOnly: unknown = JSON.parse(JSON.stringify(document));
+    if (typeof engineOnly !== "object" || engineOnly === null) throw new Error("no profile");
+    Reflect.set(engineOnly, "name", "w211-engine-only");
+    const units: unknown = Reflect.get(engineOnly, "units");
+    if (typeof units !== "object" || units === null) throw new Error("no units");
+    const engine: unknown = Reflect.get(units, "engine");
+    Reflect.set(engineOnly, "units", { engine });
+    await storage.saveProfile({
+      name: "w211-engine-only",
+      importedAt: 0,
+      document: jsonSchema.parse(engineOnly),
+    });
+    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await screen.findByRole("status", { name: "Decoding summary" });
+    await userEvent.click(screen.getByRole("combobox", { name: "Decode with" }));
+    await userEvent.click(
+      await screen.findByRole("option", { name: "w211-engine-only (imported)" }),
+    );
+    await waitFor(() => {
+      expect(screen.getByRole("status", { name: "Decoding summary" })).toHaveTextContent(
+        /Left raw [1-9]\d* of \d+ exchanges with w211-engine-only/,
+      );
+    });
+    expect(
+      screen.getByRole("table", { name: "Units decoded with w211-engine-only" }),
+    ).toBeVisible();
+    expect(await storage.listCaptures({})).toEqual([]);
+  });
+
+  it("stores a shared capture only on Save, and refuses one already stored", async () => {
+    const capture = await simulatedCapture();
+    window.location.hash = await captureFragment(capture);
+    const storage = new MemoryStorage();
+    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await screen.findByRole("status", { name: "Decoding summary" });
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Save this capture" })).toBeEnabled();
+    });
+    expect(await storage.listCaptures({})).toEqual([]);
+    await userEvent.click(screen.getByRole("button", { name: "Save this capture" }));
+    expect(await screen.findByText("Saved the shared capture")).toBeInTheDocument();
+    expect(window.location.hash).toBe("");
+    const [stored, ...others] = await storage.listCaptures({});
+    expect(others).toEqual([]);
+    expect(stored?.id).toBe(capture.id);
+    expect((await storage.getCapture(capture.id))?.sessions[0]?.adapter.url).toBeNull();
+
+    window.location.hash = await captureFragment(capture);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await userEvent.click(await screen.findByRole("button", { name: "Save this capture" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/already stored on this device/);
+    expect(await storage.listCaptures({})).toHaveLength(1);
   });
 });

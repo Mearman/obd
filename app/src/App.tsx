@@ -11,6 +11,7 @@ import { ScanScreen } from "./screens/ScanScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { VersionLink } from "./release/VersionLink";
 import { ScreenBoundary } from "./report";
+import { SAVED_NOTICES, type SavedShare } from "./share/saved";
 import { SharedViewer } from "./share/SharedViewer";
 import { useSharedLink } from "./share/useSharedLink";
 import { THEME_PREFERENCES } from "./theme/preference";
@@ -57,7 +58,7 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
   const [screen, setScreen] = useState<ScreenName>("connect");
   const { connection } = useDiagnostics();
   const shared = useSharedLink();
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved] = useState<SavedShare | undefined>(undefined);
   const goConnect = () => {
     setScreen("connect");
   };
@@ -98,12 +99,16 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
           <ThemeButton />
         </div>
       </header>
-      <Toast
-        open={saved}
-        onOpenChange={setSaved}
-        title="Saved the shared scan"
-        description="It is stored as a scan report marked as shared."
-      />
+      {saved !== undefined && (
+        <Toast
+          open
+          onOpenChange={(open) => {
+            if (!open) setSaved(undefined);
+          }}
+          title={SAVED_NOTICES[saved].title}
+          description={SAVED_NOTICES[saved].description}
+        />
+      )}
       {shared.fragment !== undefined ? (
         <main className={main}>
           <ScreenBoundary
