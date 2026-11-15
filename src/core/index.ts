@@ -45,6 +45,7 @@ export * from "./service.js";
 export * from "./service-impl.js";
 export * from "./service-compose.js";
 export * from "./collector.js";
+export * from "./fault-history.js";
 export * from "./device-link.js";
 export * from "./guarded.js";
 export * from "./run-selection.js";

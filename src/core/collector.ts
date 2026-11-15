@@ -1,10 +1,12 @@
 /**
  * The collection loop: polls the values a run selected, stores them in batches, rides out a dropped link and stops on request.
  *
- * {@link LiveCollector} implements the service's {@link Collector} over a {@link DeviceLink}. A run reads either the named values of one unit in the profile or the legislated values the car supports; each reading becomes a sample whose signal is the value's label. When the link drops (a transport or adapter error) the collector reconnects with exponential backoff and carries on; any other error ends collection with the state `failed`, leaving the run open so the user decides. This module is platform-free.
+ * {@link LiveCollector} implements the service's {@link Collector} over a {@link DeviceLink}. A run reads either the named values of one unit in the profile or the legislated values the car supports; each reading becomes a sample whose signal is the value's label. A run of all the legislated values also reads the stored, pending and permanent fault codes (see fault-history.ts), at the start, every {@link CollectorTiming.codesMs} and once more when it stops, and stores a sample when a list has changed. When the link drops (a transport or adapter error) the collector reconnects with exponential backoff and carries on; any other error ends collection with the state `failed`, leaving the run open so the user decides. This module is platform-free.
  */
 
 import { ElmError } from "./elm.js";
+import { FAULT_LISTS, FAULT_SIGNALS, faultSampleValue, type FaultList } from "./fault-history.js";
+import { PENDING_CODES, PERMANENT_CODES, STORED_CODES, codes } from "./obd.js";
 import { buildSource, type Source } from "./live.js";
 import { GENERIC_PROFILE, profileLabel, sessionBus } from "./generic.js";
 import type { DeviceLink, LinkSession } from "./device-link.js";
@@ -84,6 +86,8 @@ export interface CollectorTiming {
   readonly batchSize?: number;
   /** The delay before each reconnection attempt. */
   readonly reconnectDelay?: (attempt: number) => number;
+  /** The gap between reads of the fault code lists, in milliseconds. */
+  readonly codesMs?: number;
 }
 
 /** What {@link LiveCollector} needs. */
@@ -98,6 +102,15 @@ export interface LiveCollectorDependencies extends CollectorTiming {
 const DEFAULT_POLL_MS = 250;
 const DEFAULT_FLUSH_MS = 1000;
 const DEFAULT_BATCH_SIZE = 100;
+// Three requests per read, on an adapter that may take about a second for each.
+const DEFAULT_CODES_MS = 15_000;
+
+/** The legislated service that reads each fault code list. */
+const CODE_MODES: Readonly<Record<FaultList, number>> = {
+  stored: STORED_CODES,
+  pending: PENDING_CODES,
+  permanent: PERMANENT_CODES,
+};
 
 /** A failure of the link rather than of the request: worth reconnecting for. */
 function isLinkDrop(error: unknown): boolean {
@@ -115,6 +128,10 @@ interface Job {
   status: CollectionStatus;
   pending: Sample[];
   lastFlush: number;
+  /** The value each fault code list was last recorded with; empty until the first read. */
+  readonly lastCodes: Map<FaultList, string>;
+  /** When the fault code lists were last read; `undefined` before the first read. */
+  lastCodesRead: number | undefined;
 }
 
 /** A {@link Collector} that reads a {@link DeviceLink}. */
@@ -122,6 +139,7 @@ export class LiveCollector implements Collector {
   private readonly jobs = new Map<string, Job>();
   private readonly pollMs: number;
   private readonly flushMs: number;
+  private readonly codesMs: number;
   private readonly batchSize: number;
   private readonly delayFor: (attempt: number) => number;
   private readonly now: () => number;
@@ -130,6 +148,7 @@ export class LiveCollector implements Collector {
   constructor(private readonly dependencies: LiveCollectorDependencies) {
     this.pollMs = dependencies.pollMs ?? DEFAULT_POLL_MS;
     this.flushMs = dependencies.flushMs ?? DEFAULT_FLUSH_MS;
+    this.codesMs = dependencies.codesMs ?? DEFAULT_CODES_MS;
     this.batchSize = dependencies.batchSize ?? DEFAULT_BATCH_SIZE;
     this.delayFor = dependencies.reconnectDelay ?? reconnectDelay;
     this.now = dependencies.now ?? clockNow;
@@ -169,6 +188,8 @@ export class LiveCollector implements Collector {
         status: { state: "collecting", attempt: 0, lastError: null, samples: 0 },
         pending: [],
         lastFlush: this.now(),
+        lastCodes: new Map(),
+        lastCodesRead: undefined,
       };
       this.jobs.set(run.id, job);
       job.loop = this.poll(job, source);
@@ -255,6 +276,7 @@ export class LiveCollector implements Collector {
               value,
             });
           });
+          await this.readCodes(job, timestamp, false);
           job.status = { ...job.status, state: "collecting", attempt: 0 };
           if (job.pending.length >= this.batchSize || timestamp - job.lastFlush >= this.flushMs) {
             const count = job.pending.length;
@@ -270,6 +292,8 @@ export class LiveCollector implements Collector {
           source = recovered;
         }
       }
+      // One last read, so a code that changed since the previous one is recorded before the run ends. A run stopped while reconnecting has no link to read.
+      if (isCollecting(job)) await this.readCodes(job, this.now(), true);
     } catch (error) {
       job.status = { ...job.status, state: "failed", lastError: describe(error) };
     } finally {
@@ -281,6 +305,32 @@ export class LiveCollector implements Collector {
         job.status = { ...job.status, state: "failed", lastError: describe(error) };
       }
     }
+  }
+
+  /**
+   * Reads the fault code lists when one is due (or `force`), and buffers a sample for each list that differs from its last recorded value. A run of one unit's profile values reads none, because the legislated services address every emissions unit, not that unit, and neither does a run that names the signals it wants, which asks for nothing else.
+   */
+  private async readCodes(job: Job, timestamp: number, force: boolean): Promise<void> {
+    if (job.request.unit !== undefined || (job.request.signals?.length ?? 0) > 0) return;
+    if (!force && job.lastCodesRead !== undefined && timestamp - job.lastCodesRead < this.codesMs) {
+      return;
+    }
+    for (const list of FAULT_LISTS) {
+      const answers = await this.dependencies.link.withSession((session) =>
+        codes(session.elm, CODE_MODES[list]),
+      );
+      const value = faultSampleValue([...answers.values()].flat());
+      if (job.lastCodes.get(list) === value) continue;
+      job.lastCodes.set(list, value);
+      job.pending.push({
+        runId: job.run.id,
+        signal: FAULT_SIGNALS[list],
+        unit: "",
+        timestamp,
+        value,
+      });
+    }
+    job.lastCodesRead = timestamp;
   }
 
   /** Stores what is buffered, then reconnects with backoff until it works; `undefined` when the job was stopped first. */
@@ -308,6 +358,11 @@ export class LiveCollector implements Collector {
     }
     return undefined;
   }
+}
+
+/** Whether the job is collecting, with a working link; a function so the narrowing of `job.status` does not outlive an await. */
+function isCollecting(job: Job): boolean {
+  return job.status.state === "collecting";
 }
 
 /** Whether the job has been told to stop; a function so the narrowing of `job.stopping` does not outlive an await. */

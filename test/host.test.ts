@@ -102,14 +102,16 @@ describe("collecting a run", () => {
 
     await eventually(async () => {
       const aggregate = await host.client.runs.aggregate({ runId: run.id });
-      return aggregate.length === 3 && aggregate.every((row) => row.count >= 3)
-        ? aggregate
-        : undefined;
+      const values = aggregate.filter((row) => !row.signal.endsWith("fault codes"));
+      return values.length === 3 && values.every((row) => row.count >= 3) ? aggregate : undefined;
     });
     const aggregate = await host.client.runs.aggregate({ runId: run.id });
     expect(aggregate.map((row) => row.signal)).toEqual([
       "coolant temperature",
       "engine speed",
+      "pending fault codes",
+      "permanent fault codes",
+      "stored fault codes",
       "vehicle speed",
     ]);
     const rpm = aggregate.find((row) => row.signal === "engine speed");
