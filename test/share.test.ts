@@ -4,6 +4,7 @@ import {
   MAX_DECODED_BYTES,
   MAX_ENCODED_LENGTH,
   MAX_SERIES_POINTS,
+  aggregateSamples,
   canonicalJson,
   decodeShare,
   describeSharedScan,
@@ -12,7 +13,12 @@ import {
   fromBase64Url,
   isIdentifyingLabel,
   redactScan,
+  runExportShareData,
   runSummaryShareData,
+  savedTime,
+  scanShareFromUnits,
+  shareContents,
+  unitReportOf,
   scanShareData,
   shareLink,
   sharedScanReport,
@@ -592,5 +598,87 @@ describe("a run summary", () => {
     );
     if (!result.ok) throw new Error(result.error.message);
     expect(result.value.fragment.length).toBeLessThan(MAX_ENCODED_LENGTH);
+  });
+});
+
+describe("a scan from the service", () => {
+  it("is shared with the saved report's field names and read back into the same units", () => {
+    const units = scanData().units.map(unitReportOf);
+    const result = scanShareFromUnits(units, {
+      profile: "mercedes-w211",
+      adapterLabel: "ELM327 v1.5",
+      takenAt: Date.UTC(2026, 10, 15, 10, 0, 0),
+    });
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.value).toEqual(scanData());
+    expect(savedTime(Date.UTC(2026, 10, 15, 10, 0, 0))).toBe("2026-11-15T10:00:00+00:00");
+  });
+
+  it("refuses a unit whose identification label is a forbidden key", () => {
+    const [first] = scanData().units.map(unitReportOf);
+    if (first === undefined) throw new Error("no unit");
+    const hostile = { ...first, identification: [{ label: "__proto__", hex: "", text: "" }] };
+    const result = scanShareFromUnits([hostile], { profile: "p", adapterLabel: "", takenAt: 0 });
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("what a link carries", () => {
+  it("lists a scan's contents, saying whether the VIN is in it", () => {
+    const included = shareContents(scanEnvelope()).join("\n");
+    expect(included).toContain("2 control units");
+    expect(included).toContain("2 fault codes with their status bytes");
+    expect(included).toContain("2 freeze frames");
+    expect(included).toContain("VIN and serial numbers: included (2 values)");
+    expect(included).toContain("Not included: the raw adapter transcript");
+    const removed = shareContents(scanEnvelope(redactScan(scanData()))).join("\n");
+    expect(removed).toContain("VIN and serial numbers: removed.");
+  });
+
+  it("lists a run summary's contents", () => {
+    const lines = shareContents(runEnvelope()).join("\n");
+    expect(lines).toContain("1 signal with count, minimum, maximum and mean");
+    expect(lines).toContain("and your notes");
+  });
+});
+
+describe("a run export", () => {
+  const samples = [10, 20, 30].map((value, index) => ({
+    runId: "r",
+    signal: "speed",
+    unit: "km/h",
+    timestamp: 1000 + index,
+    value: index === 1 ? "n/a" : value,
+  }));
+
+  it("is summarised from its samples", () => {
+    expect(aggregateSamples(samples)).toEqual([
+      {
+        signal: "speed",
+        unit: "km/h",
+        count: 3,
+        numericCount: 2,
+        min: 10,
+        max: 30,
+        mean: 20,
+        firstAt: 1000,
+        lastAt: 1002,
+      },
+    ]);
+    const result = runExportShareData({
+      format: "obd-read-run",
+      version: 1,
+      run: { id: "r", profile: "p", adapter: "a", startedAt: 1000, stoppedAt: null, notes: "" },
+      samples,
+    });
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.value.signals[0]?.series).toEqual([
+      [0, 10],
+      [2, 30],
+    ]);
+  });
+
+  it("is refused when it is not a run export", () => {
+    expect(runExportShareData({ format: "other" }).ok).toBe(false);
   });
 });

@@ -10,6 +10,7 @@
 
 import { z } from "zod";
 import { runExportSchema } from "./run-export.js";
+import type { UnitReportData } from "./service.js";
 import type { Run, Sample, SignalAggregate } from "./storage.js";
 
 /** The envelope version this module writes and reads. */
@@ -684,4 +685,96 @@ export function describeSharedRun(data: RunSummaryShareData, createdAt: number):
     );
   }
   return lines;
+}
+
+/** The ISO 8601 time to the second with a `+00:00` offset that a saved report records, from milliseconds since the Unix epoch. */
+export function savedTime(milliseconds: number): string {
+  return `${new Date(milliseconds).toISOString().slice(0, 19)}+00:00`;
+}
+
+/**
+ * What a scan the service returned shares: its units, the profile it used and the adapter's own name for itself. Units without a name are not possible in the contract, so this never fails on a valid scan; an invalid one gives `invalid`.
+ */
+export function scanShareFromUnits(
+  units: readonly UnitReportData[],
+  scan: { readonly profile: string; readonly adapterLabel: string; readonly takenAt: number },
+): ShareResult<ScanShareData> {
+  const candidate = {
+    taken: savedTime(scan.takenAt),
+    profile: { name: scan.profile },
+    adapter: { label: scan.adapterLabel },
+    redacted: false,
+    units: units.map((unit) => ({
+      unit: unit.unit,
+      description: unit.description,
+      request_id: unit.requestId,
+      response_id: unit.responseId,
+      answered: unit.answered,
+      notes: unit.notes,
+      identification: Object.fromEntries(
+        unit.identification.map((item) => [item.label, { hex: item.hex, text: item.text }]),
+      ),
+      faults: unit.faults,
+      freeze_frames: unit.freezeFrames,
+    })),
+  };
+  const forbidden = forbiddenKey(candidate);
+  if (forbidden !== undefined) return failure("invalid", `the key ${forbidden} is not allowed`);
+  const parsed = scanShareSchema.safeParse(candidate);
+  if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
+  return { ok: true, value: parsed.data };
+}
+
+/** A shared scan's unit in the shape the screens show a scan the car gave. */
+export function unitReportOf(unit: ScanShareData["units"][number]): UnitReportData {
+  return {
+    unit: unit.unit,
+    description: unit.description,
+    requestId: unit.request_id,
+    responseId: unit.response_id,
+    answered: unit.answered,
+    notes: unit.notes,
+    identification: Object.entries(unit.identification).map(([label, value]) => ({
+      label,
+      hex: value.hex,
+      text: value.text,
+    })),
+    faults: unit.faults,
+    freezeFrames: unit.freeze_frames,
+  };
+}
+
+function plural(count: number, noun: string): string {
+  return `${String(count)} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+/**
+ * What a link made from this envelope carries, one plain sentence per kind of content, for a person to read before sharing. Redact first ({@link redactScan}) to describe a link that will have its VIN removed.
+ */
+export function shareContents(envelope: ShareEnvelope): string[] {
+  if (envelope.kind === "run-summary") {
+    const { run, signals } = envelope.data;
+    return [
+      `Run details: profile ${run.profile}, adapter ${run.adapter}, start and stop times${run.notes === "" ? "" : " and your notes"}.`,
+      `${plural(signals.length, "signal")} with count, minimum, maximum and mean, and at most ${String(MAX_SERIES_POINTS)} readings of each over time.`,
+      "Not included: the other readings of the run.",
+    ];
+  }
+  const { units, redacted } = envelope.data;
+  const faults = units.reduce((total, unit) => total + (unit.faults?.length ?? 0), 0);
+  const frames = units.reduce((total, unit) => total + Object.keys(unit.freeze_frames).length, 0);
+  const identifying = units.flatMap((unit) =>
+    Object.entries(unit.identification).filter(([label]) => isIdentifyingLabel(label)),
+  );
+  const present = identifying.filter(([, value]) => value.hex !== "" || value.text !== "");
+  return [
+    `${plural(units.length, "control unit")}, with whether each answered and any notes it gave.`,
+    `${plural(faults, "fault code")} with their status bytes.`,
+    `${plural(frames, "freeze frame")}.`,
+    redacted || present.length === 0
+      ? "VIN and serial numbers: removed."
+      : `VIN and serial numbers: included (${plural(present.length, "value")}).`,
+    "Profile name, the time of the scan and the adapter's own name for itself.",
+    "Not included: the raw adapter transcript and the adapter's address.",
+  ];
 }
