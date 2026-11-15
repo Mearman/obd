@@ -1,11 +1,12 @@
 import { PlanError, parsePlanText, type StartPlanInput } from "obd-read";
-import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { announcePhase } from "../guide/announce";
 import { confirmButton, controls, visuallyHidden } from "../guide/guide.css";
 import { PhaseCard, phaseStepText } from "../guide/PhaseCard";
 import { PlanPreview, PlanSafety } from "../guide/PlanPreview";
+import { MyPlans } from "../guide/MyPlans";
 import { PlanSummary } from "../guide/PlanSummary";
 import {
   EMPTY_VIEW,
@@ -185,12 +186,22 @@ function RunningPlan({
 }
 
 /** Choosing a plan: the shipped ones, a plan file, the chosen plan's phases and Start. */
-function PlanPicker() {
+function PlanPicker({ offeredPlan }: { readonly offeredPlan: string | undefined }) {
   const { service, connection, collection, trackPlan } = useDiagnostics();
   const { client } = service;
   const [shipped, setShipped] = useState<readonly ViewPlan[] | undefined>(undefined);
   const [imported, setImported] = useState<Choice | undefined>(undefined);
   const [chosen, setChosen] = useState<string | undefined>(undefined);
+  const [kept, setKept] = useState<Choice | undefined>(undefined);
+  const chooseKept = useCallback((key: string, plan: ViewPlan, text: string) => {
+    setKept({
+      key,
+      plan,
+      input: { kind: "file", text, name: `${plan.name}.obdplan.json` },
+      fromFile: false,
+    });
+    setChosen(key);
+  }, []);
   const [problems, setProblems] = useState<{ file: string; lines: readonly string[] }>();
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [starting, setStarting] = useState(false);
@@ -214,6 +225,7 @@ function PlanPicker() {
       fromFile: false,
     })),
     ...(imported === undefined ? [] : [imported]),
+    ...(kept === undefined ? [] : [kept]),
   ];
   const choice = choices.find((entry) => entry.key === chosen);
   const blocker = startBlocker(connection !== undefined, collection.run !== undefined, choice);
@@ -277,19 +289,21 @@ function PlanPicker() {
       >
         {shipped === undefined && <p className={muted}>Loading plans…</p>}
         <ul className={list} aria-label="Plans">
-          {choices.map((entry) => (
-            <li key={entry.key}>
-              <Button
-                aria-pressed={entry.key === chosen}
-                onClick={() => {
-                  setChosen(entry.key);
-                }}
-              >
-                {entry.fromFile ? `From file: ${entry.plan.title}` : entry.plan.title}
-              </Button>
-              <p className={muted}>{entry.plan.description}</p>
-            </li>
-          ))}
+          {choices
+            .filter((entry) => entry !== kept)
+            .map((entry) => (
+              <li key={entry.key}>
+                <Button
+                  aria-pressed={entry.key === chosen}
+                  onClick={() => {
+                    setChosen(entry.key);
+                  }}
+                >
+                  {entry.fromFile ? `From file: ${entry.plan.title}` : entry.plan.title}
+                </Button>
+                <p className={muted}>{entry.plan.description}</p>
+              </li>
+            ))}
         </ul>
         <input
           ref={input}
@@ -314,6 +328,7 @@ function PlanPicker() {
           </div>
         )}
       </Card>
+      <MyPlans chosen={chosen} onChoose={chooseKept} offered={offeredPlan} />
       {choice !== undefined && (
         <Card title={choice.plan.title} description={`Source: ${choice.plan.source}`}>
           <PlanPreview plan={choice.plan} />
@@ -340,7 +355,14 @@ function PlanPicker() {
 /**
  * Guide: runs a recording plan on the connected adapter and tells the person what to do, phase by phase, in type readable from arm's length, with each new phase announced to assistive technology, by a short vibration and, when switched on, aloud. The screen is kept awake while the plan runs, and the plan carries on when another screen is opened.
  */
-export function GuideScreen({ onOpenRun }: { readonly onOpenRun: (runId: string) => void }) {
+export function GuideScreen({
+  onOpenRun,
+  offeredPlan,
+}: {
+  readonly onOpenRun: (runId: string) => void;
+  /** A plan kept in My plans to choose at once, as Open in Guide on a plan link asks. */
+  readonly offeredPlan?: string | undefined;
+}) {
   const { connection, guided, interruptedPlans } = useDiagnostics();
   return (
     <div className={page}>
@@ -370,7 +392,7 @@ export function GuideScreen({ onOpenRun }: { readonly onOpenRun: (runId: string)
         </Card>
       )}
       {guided === undefined ? (
-        <PlanPicker />
+        <PlanPicker offeredPlan={offeredPlan} />
       ) : (
         <RunningPlan key={guided.runId} runId={guided.runId} onOpenRun={onOpenRun} />
       )}

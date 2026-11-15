@@ -1,6 +1,6 @@
 import type { Run } from "obd-read";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { LineChart, formatElapsed, valueAt, type Series } from "../charts";
+import { LineChart, formatElapsed, valueAt, type ChartMarker, type Series } from "../charts";
 import { formatReadingWithUnit } from "../format/reading";
 import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { Button, Card, DataTable } from "../ui";
@@ -68,7 +68,16 @@ function usePlayback(end: number) {
   return { cursor, move, playing, toggle, speed, setSpeed };
 }
 
-function Player({ data }: { readonly data: RunSeries }) {
+/**
+ * Playback of a run's series: a chart per signal on the shared time axis with one cursor across them, play and pause, 1x, 2x and 4x speed, a scrubber and the values at the cursor as a table. `markers` are drawn on every chart, such as where each phase of a plan began.
+ */
+export function RunPlayer({
+  data,
+  markers,
+}: {
+  readonly data: RunSeries;
+  readonly markers?: readonly ChartMarker[];
+}) {
   const end = data.domain[1];
   const { cursor, move, playing, toggle, speed, setSpeed } = usePlayback(end);
 
@@ -135,6 +144,7 @@ function Player({ data }: { readonly data: RunSeries }) {
             domain={data.domain}
             cursor={cursor}
             onCursorChange={move}
+            {...(markers === undefined ? {} : { markers })}
           />
         ))}
       </div>
@@ -211,7 +221,7 @@ export function RunGraphs({ client, run, onClose }: RunGraphsProps) {
       {data?.series.length === 0 && (
         <p className={muted}>This run has no numeric readings to chart.</p>
       )}
-      {data !== undefined && data.series.length > 0 && <Player data={data} />}
+      {data !== undefined && data.series.length > 0 && <RunPlayer data={data} />}
       {data !== undefined && data.textReadings > 0 && (
         <p className={muted}>Text readings are not charted; they are in the exports.</p>
       )}

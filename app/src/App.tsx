@@ -69,6 +69,8 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
     setOpened({ kind: "capture", id });
     setScreen("library");
   };
+  // A plan from a link, kept in My plans, that the Guide screen opens on ready to record.
+  const [offeredPlan, setOfferedPlan] = useState<string | undefined>(undefined);
   const viewRun = (id: string): void => {
     setOpened({ kind: "run", id });
     setScreen("library");
@@ -131,6 +133,11 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
                 shared.clear();
                 setSaved(kept);
               }}
+              onOpenPlan={(planId) => {
+                shared.clear();
+                setOfferedPlan(planId);
+                setScreen("guide");
+              }}
             />
           </ScreenBoundary>
         </main>
@@ -166,7 +173,7 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
             </TabsContent>
             <TabsContent value="guide">
               <ScreenBoundary screen="guide" onGoToConnect={goConnect}>
-                <GuideScreen onOpenRun={viewRun} />
+                <GuideScreen onOpenRun={viewRun} offeredPlan={offeredPlan} />
               </ScreenBoundary>
             </TabsContent>
             <TabsContent value="settings">
