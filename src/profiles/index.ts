@@ -9,6 +9,8 @@ import { ProfileError, parseProfile, type Profile } from "../core/profile.js";
 import bmwFFem from "./bmw-f-fem.json" with { type: "json" };
 import bmwG29 from "./bmw-g29.json" with { type: "json" };
 import bmwI3 from "./bmw-i3.json" with { type: "json" };
+import fordFocus from "./ford-focus.json" with { type: "json" };
+import fordRanger from "./ford-ranger.json" with { type: "json" };
 import hondaAcura29bit from "./honda-acura-29bit.json" with { type: "json" };
 import mazdaSkyactiv from "./mazda-skyactiv.json" with { type: "json" };
 import mercedesW211 from "./mercedes-w211.json" with { type: "json" };
@@ -30,6 +32,8 @@ const SHIPPED: ReadonlyMap<string, unknown> = new Map<string, unknown>([
   ["bmw-f-fem", bmwFFem],
   ["bmw-g29", bmwG29],
   ["bmw-i3", bmwI3],
+  ["ford-focus", fordFocus],
+  ["ford-ranger", fordRanger],
   ["honda-acura-29bit", hondaAcura29bit],
   ["mazda-skyactiv", mazdaSkyactiv],
   ["mercedes-w211", mercedesW211],
