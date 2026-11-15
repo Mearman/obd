@@ -25,11 +25,15 @@
       "default": "./dist/node/index.js"
     }
   },
+  "bin": {
+    "obd-read": "./dist/node/bin.js"
+  },
   "scripts": {
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit -p tsconfig.core.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
+    "test:parity": "vitest run test/parity",
     "build": "tsc -p tsconfig.build.json",
     "storage:generate": "drizzle-kit generate && node scripts/embed-migrations.ts"
   },
@@ -42,6 +46,7 @@
     "drizzle-kit": "1.0.0-rc.5",
     "eslint": "10.15.0",
     "prettier": "3.10.1",
+    "smol-toml": "1.9.1",
     "typescript": "~6.0.3",
     "typescript-eslint": "8.72.2",
     "vitest": "5.1.0"
