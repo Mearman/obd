@@ -217,6 +217,7 @@ export class Elm {
   private readonly maxRequest: number;
   private readonly log: Transcript;
   private idBits = 11;
+  private bitrate: number | undefined;
   private stn = false;
   private requestId: number | undefined;
   private extendedAddress: number | undefined;
@@ -361,6 +362,7 @@ export class Elm {
       await this.selectUserProtocol(idBits, bitrate);
     }
     this.idBits = idBits;
+    this.bitrate = bitrate;
   }
 
   private async selectStnRate(idBits: 11 | 29, bitrate: number): Promise<void> {
@@ -443,12 +445,24 @@ export class Elm {
    * with one: the adapter puts it first in every frame it sends, flow control included, and passes
    * only replies that start with {@link EXTENDED_TESTER_ADDRESS}. Absent, extended addressing is
    * off.
+   * @param idBits The width of the unit's CAN identifiers, for a profile whose units mix 11-bit
+   * and 29-bit addressing: when it differs from the width selected, the adapter is switched to
+   * the protocol of that width at the bit rate already selected, as the ELM327 protocols fix the
+   * width. Absent, the width selected stays.
+   * @throws ElmError when `idBits` differs from the selected width before any bus was selected.
    */
   async addressUnit(
     requestId: number,
     responseId: number,
     extendedAddress?: number,
+    idBits?: 11 | 29,
   ): Promise<void> {
+    if (idBits !== undefined && idBits !== this.idBits) {
+      if (this.bitrate === undefined) {
+        throw new ElmError("select the CAN bus before addressing a unit with another width");
+      }
+      await this.selectCan(idBits, this.bitrate);
+    }
     await this.setHeader(requestId);
     await this.require(`ATCRA${this.formatId(responseId)}`);
     // Flow control for multi-frame replies goes back to the unit on its request identifier: send

@@ -124,7 +124,7 @@ export async function unitSource(
     const item = unit.values.get(name);
     return item === undefined ? [] : [item];
   });
-  await elm.addressUnit(unit.requestId, unit.responseId, unit.extendedAddress);
+  await elm.addressUnit(unit.requestId, unit.responseId, unit.extendedAddress, unit.idBits);
   const client = makeClient(elm, profile, unit);
   await client.start();
   const refused = new Set<string>();
