@@ -233,6 +233,20 @@ describe("the legislated values", () => {
   });
 });
 
+it("rejects a display name before any request and lists the valid slugs", async () => {
+  const rig = new Rig(new FakeElmCore({}));
+  const rejected = rig.run(undefined, { values: ["engine speed"] });
+  await expect(rejected).rejects.toThrow(OptionError);
+  await expect(rejected).rejects.toThrow(/^unknown value engine speed; available: .*engine-speed/);
+  expect(rig.core.requests).toEqual([]);
+});
+
+it("rejects an unknown profile value before the bus is selected", async () => {
+  const rig = kwpRig();
+  await expect(rig.run(KWP, { unit: "engine", values: ["boots"] })).rejects.toThrow(OptionError);
+  expect(rig.core.requests).toEqual([]);
+});
+
 it("refuses a count below one", async () => {
   const rig = new Rig(new FakeElmCore({}));
   await expect(rig.run(undefined, { count: 0 })).rejects.toThrow(OptionError);

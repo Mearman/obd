@@ -13,7 +13,7 @@ import { formatSignificant } from "./format.js";
 import { formatValue, readPid, supportedIds, supportedPids } from "./legislated.js";
 import { CURRENT_DATA, FUNCTIONAL_ID } from "./obd.js";
 import { OptionError } from "./options.js";
-import type { Column, Value } from "./pids.js";
+import { PIDS, type Column, type Value } from "./pids.js";
 import {
   ProfileError,
   canBus,
@@ -253,17 +253,25 @@ export async function buildSource(
   out: LineSink,
 ): Promise<Source> {
   if (options.unit === undefined) {
+    // Rejected before the first request: a name no car could have is not worth a scan of the supported table.
+    choose(
+      Array.from(PIDS.values(), (pid) => pid.name),
+      options.values,
+      "value",
+    );
     await elm.selectCan(options.idBits, options.bitrate);
     await elm.addressFunctional(FUNCTIONAL_ID[options.idBits]);
     return legislatedSource(elm, options.values);
   }
   if (profile === undefined) throw new ProfileError(["naming a unit needs --profile"]);
   const { idBits, bitrate } = canBus(profile);
+  const unit = profileUnit(profile, options.unit);
+  choose(Array.from(unit.values.keys()), options.values, "value");
   await elm.selectCan(idBits, bitrate);
   if (profile.status !== "confirmed") {
     out(`profile ${profile.name}: address table is ${profile.status}`);
   }
-  return unitSource(elm, profile, profileUnit(profile, options.unit), options.values);
+  return unitSource(elm, profile, unit, options.values);
 }
 
 /** What the `live` command was asked to do. */
