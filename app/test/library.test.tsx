@@ -1,3 +1,4 @@
+import { openSection } from "./ui-helpers";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -391,14 +392,14 @@ describe("the Library", () => {
     expect(await screen.findByText(`Capture ${captureId}`)).toBeVisible();
   });
 
-  it("opens a capture taken on Scan in the Library's viewer", async () => {
+  it("opens a capture taken on the Session screen in the Library's viewer", async () => {
     const service = createTestService();
     await service.client.link.connect({
       profile: "mercedes-w211",
       adapter: simulatorUrl("mercedes-w211"),
     });
     renderApp(<App support={CHROME} />, service);
-    await userEvent.click(screen.getByRole("tab", { name: "Scan" }));
+    await openSection("Read");
     expect(screen.queryByRole("table", { name: "Saved reports" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Capture everything" }));
     expect(await screen.findByRole("heading", { level: 1, name: "Library" })).toBeVisible();
@@ -409,12 +410,10 @@ describe("the Library", () => {
     expect(screen.getByRole("tab", { name: "Library" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("puts the Library between Live and Guide in the tab bar, with no Runs or Captures tab", () => {
+  it("puts the Library between Session and Guide in the tab bar, with no Runs or Captures tab", () => {
     renderApp(<App support={CHROME} />);
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
-      "Connect",
-      "Scan",
-      "Live",
+      "Session",
       "Library",
       "Guide",
       "Settings",

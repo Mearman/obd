@@ -1,4 +1,5 @@
 import { chooseProfile } from "./profile";
+import { openSection } from "./session";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { canonicalJson, decodeShare, fragmentOfLink } from "obd-read";
 import { streamShareCodec } from "obd-read/web";
@@ -27,7 +28,7 @@ async function rawCaptureLink(page: Page, redact: boolean): Promise<string> {
   await chooseProfile(page, "mercedes-w211");
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
-  await page.getByRole("tab", { name: "Scan" }).click();
+  await openSection(page, "Read");
   await page.getByRole("button", { name: "Capture everything" }).click();
   await expectSummary(page, /with mercedes-w211/);
   await page.getByRole("button", { name: "Share the raw capture" }).click();

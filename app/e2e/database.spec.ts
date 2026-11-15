@@ -88,7 +88,7 @@ test("samples written through the worker survive a reload and an offline reload"
 
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Connect", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Session", level: 1 })).toBeVisible();
   expect(await readRun(page, runId)).toEqual(EXPECTED);
   await context.setOffline(false);
 });

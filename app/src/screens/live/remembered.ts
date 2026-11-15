@@ -1,4 +1,4 @@
-/** Per-browser memory of the Live screen's choices. Every access is guarded: storage can be absent, full or refused, and the screen works without it. */
+/** Per-browser memory of the Live section's choices. Every access is guarded: storage can be absent, full or refused, and the section works without it. */
 
 const SELECTION_KEY = "obd.live.selection";
 const PINS_KEY = "obd.live.pins";

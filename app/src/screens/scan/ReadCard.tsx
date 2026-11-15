@@ -78,7 +78,6 @@ export function ReadCard({ stopRunHint }: { readonly stopRunHint: string }) {
         <Button variant="primary" block disabled={!idle || scanning} onClick={() => void scan()}>
           {scanning ? "Scanning…" : "Start scan"}
         </Button>
-        {connection === undefined && <p className={muted}>Connect an adapter first.</p>}
         {collection.run !== undefined && (
           <p className={muted}>A collection run holds the adapter. {stopRunHint}</p>
         )}

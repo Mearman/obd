@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openSection } from "./session";
 
 const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },
@@ -92,7 +93,7 @@ async function fillLibrary(page: Page): Promise<void> {
   await page.goto("/");
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
-  await page.getByRole("tab", { name: "Scan" }).click();
+  await openSection(page, "Read");
   await page.getByRole("button", { name: "Start scan" }).click();
   await expect(page.getByRole("table", { name: /^Scan of / })).toBeVisible();
   await expect(page.getByRole("table", { name: "Saved reports" })).toHaveCount(0);
@@ -141,10 +142,10 @@ test("every tab fits the narrowest phone in keyboard order, with large targets",
 }) => {
   await page.setViewportSize(NARROWEST);
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1, name: "Connect" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Session" })).toBeVisible();
   expect(await tabBarOverflow(page), "the tab bar is clipped").toBeLessThanOrEqual(0);
   const tabs = page.getByRole("tab");
-  await expect(tabs).toHaveText(["Connect", "Scan", "Live", "Library", "Guide", "Settings"]);
+  await expect(tabs).toHaveText(["Session", "Library", "Guide", "Settings"]);
   const boxes = await tabs.evaluateAll((all) =>
     all.map((tab) => {
       const box = tab.getBoundingClientRect();
@@ -157,7 +158,7 @@ test("every tab fits the narrowest phone in keyboard order, with large targets",
   }
   // Arrow keys move along the bar in the order it reads, opening each screen in turn.
   await tabs.first().click();
-  for (const name of ["Scan", "Live", "Library", "Guide", "Settings"]) {
+  for (const name of ["Library", "Guide", "Settings"]) {
     await page.keyboard.press("ArrowRight");
     await expect(page.getByRole("tab", { name })).toBeFocused();
     await expect(page.getByRole("tab", { name })).toHaveAttribute("aria-selected", "true");

@@ -1,7 +1,6 @@
 export * from "./Badge";
 export * from "./Button";
 export * from "./Card";
-export * from "./Collapsible";
 export * from "./DataTable";
 export * from "./Dialog";
 export * from "./download";

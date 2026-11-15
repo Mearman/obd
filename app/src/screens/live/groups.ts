@@ -1,4 +1,4 @@
-/** How the Live screen groups values: one place maps a value's name to a heading. */
+/** How the Live section groups values: one place maps a value's name to a heading. */
 
 /** The headings, in the order they are shown. */
 export const VALUE_GROUPS = [

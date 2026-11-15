@@ -1,4 +1,5 @@
 import { chooseProfile } from "./profile";
+import { openSection } from "./session";
 import { expect, test, type Page } from "@playwright/test";
 
 const VIEWPORTS = [
@@ -25,7 +26,7 @@ async function openViewer(page: Page): Promise<void> {
   await chooseProfile(page, "mercedes-w211");
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
-  await page.getByRole("tab", { name: "Scan" }).click();
+  await openSection(page, "Read");
   await page.getByRole("button", { name: "Capture everything" }).click();
   await expect(page.getByRole("status", { name: "Decoding summary" })).toHaveText(
     /with mercedes-w211/,

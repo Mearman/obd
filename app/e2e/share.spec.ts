@@ -1,4 +1,5 @@
 import { expect, test, type BrowserContext } from "@playwright/test";
+import { openSection } from "./session";
 import { savedReports, shareLinkOfSimulatorScan } from "./share-links";
 
 const VIN = "SIMULATEDCAR00001";
@@ -94,7 +95,7 @@ test("a link from a generic OBD-II scan opens as a read-only report without the 
   await senderPage.goto("/");
   await senderPage.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(senderPage.getByText("Connected to Simulator")).toBeVisible();
-  await senderPage.getByRole("tab", { name: "Scan" }).click();
+  await openSection(senderPage, "Read");
   await senderPage.getByRole("button", { name: "Start scan" }).click();
   await expect(senderPage.getByText(/VIN: SIMULATEDCAR00001/)).toBeVisible();
   await senderPage.getByRole("button", { name: "Share scan" }).click();

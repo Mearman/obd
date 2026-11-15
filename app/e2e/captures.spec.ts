@@ -1,4 +1,5 @@
 import { chooseProfile } from "./profile";
+import { openSection } from "./session";
 import { expect, test, type Page } from "@playwright/test";
 
 async function openScreen(page: Page, name: string): Promise<void> {
@@ -23,7 +24,7 @@ test("a simulator capture decodes differently under another profile and reopens 
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
 
-  await openScreen(page, "Scan");
+  await openSection(page, "Read");
   await page.getByRole("button", { name: "Capture everything" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Library" })).toBeVisible();
   await expectSummary(page, /Decoded \d+ Left raw 0 of \d+ exchanges with mercedes-w211/);

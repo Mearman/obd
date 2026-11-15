@@ -30,8 +30,8 @@ describe("ErrorStore", () => {
     expect(store.getState().pending).toBe(captured(store));
 
     const handled = new Error("shown by a boundary");
-    store.capture("react", handled, true, "scan");
-    expect(captured(store)).toMatchObject({ source: "react", screen: "scan" });
+    store.capture("react", handled, true, "read");
+    expect(captured(store)).toMatchObject({ source: "react", screen: "read" });
     expect(store.getState().pending).toMatchObject({ message: "late" });
     store.dismiss();
     expect(store.getState().pending).toBeUndefined();

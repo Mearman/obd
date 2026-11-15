@@ -11,7 +11,7 @@ const VIN = "WDB2110200A000000";
 
 const ERROR: CapturedError = {
   source: "window",
-  screen: "scan",
+  screen: "read",
   name: "TypeError",
   message: `bad frame 7E8 10 14 49 02 01 57 44 42 for ${VIN} on OBDII Veepeak`,
   stack: "TypeError: x\n    at f (http://localhost:3000/assets/a.js:3:4)",
@@ -22,11 +22,6 @@ let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
 beforeEach(() => {
   appLog.clear();
   registerSensitive(["OBDII Veepeak"]);
-  // jsdom has no matchMedia; the report reads the display mode through it.
-  Object.defineProperty(window, "matchMedia", {
-    value: (query: string) => ({ matches: false, media: query }),
-    configurable: true,
-  });
   writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
 });
 
@@ -80,7 +75,7 @@ describe("ReportDialog", () => {
     const url = new URL(link.getAttribute("href") ?? "");
     expect(`${url.origin}${url.pathname}`).toBe(NEW_ISSUE_URL);
     expect(url.searchParams.get("labels")).toBe("bug");
-    expect(url.searchParams.get("title")).toContain("App error on Scan: TypeError");
+    expect(url.searchParams.get("title")).toContain("App error on the Read section: TypeError");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
@@ -92,7 +87,7 @@ describe("ReportDialog", () => {
     await user.click(screen.getByRole("button", { name: "Copy report" }));
     expect(writeText).toHaveBeenCalledTimes(1);
     const copied = writeText.mock.calls[0]?.[0] ?? "";
-    expect(copied).toContain("App error on Scan: TypeError");
+    expect(copied).toContain("App error on the Read section: TypeError");
     expect(copied).toContain("## Recent events");
     expect(copied).not.toContain(VIN);
     expect(screen.getByRole("status")).toHaveTextContent("Copied");

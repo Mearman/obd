@@ -1,4 +1,4 @@
-import { pickProfile } from "./ui-helpers";
+import { openSection, pickProfile } from "./ui-helpers";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { decodeShare, fragmentOfLink, simulatorUrl } from "obd-read";
@@ -23,7 +23,7 @@ const CHROME: BrowserSupport = {
   },
 };
 
-/** Connects the service to the simulated W211 and renders the app on Scan. */
+/** Connects the service to the simulated W211 and renders the app on the Session screen's Read section. */
 async function scanScreen(service: TestService = createTestService()): Promise<TestService> {
   await service.client.link.connect({
     profile: "mercedes-w211",
@@ -31,7 +31,7 @@ async function scanScreen(service: TestService = createTestService()): Promise<T
   });
   renderApp(<App support={CHROME} />, service);
   await userEvent.click(screen.getByRole("tab", { name: "Library" }));
-  await userEvent.click(screen.getByRole("tab", { name: "Scan" }));
+  await openSection("Read");
   return service;
 }
 

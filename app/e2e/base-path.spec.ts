@@ -95,12 +95,12 @@ for (const basePath of BASE_PATHS) {
 
       // The static server has no fallback, so only the service worker can answer this.
       await page.goto(`${root}some/deep/link`);
-      await expect(page.getByRole("heading", { name: "Connect", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Session", level: 1 })).toBeVisible();
 
       await context.setOffline(true);
       await page.goto(root);
       await page.reload();
-      await expect(page.getByRole("heading", { name: "Connect", level: 1 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Session", level: 1 })).toBeVisible();
       await page.getByRole("button", { name: /connect with the simulator/i }).click();
       await expect(page.getByText("Connected to Simulator")).toBeVisible();
       await context.setOffline(false);

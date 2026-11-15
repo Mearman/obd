@@ -35,7 +35,8 @@ function startBlocker(
   choice: Choice | undefined,
 ): string | undefined {
   if (!connected) return "Connect an adapter first: a plan reads the car as it goes.";
-  if (collecting) return "Stop the collection run on Live first: the plan needs the adapter.";
+  if (collecting)
+    return "Stop the collection run in the Session screen's Live section first: the plan needs the adapter.";
   if (choice === undefined) return "Choose a plan first.";
   return undefined;
 }

@@ -48,7 +48,7 @@ describe("EventLog", () => {
     const time = clock();
     const log = new EventLog({}, time.now);
     time.advance(1234);
-    log.record({ kind: "screen", screen: "scan" });
+    log.record({ kind: "screen", screen: "read" });
     expect(log.snapshot()[0]?.at).toBe(1200);
   });
 
@@ -87,7 +87,7 @@ describe("EventLog", () => {
       { kind: "operation", name: "scan.run", outcome: "refused" },
       { kind: "storage", state: "ready" },
       { kind: "service-worker", state: "controlled" },
-      { kind: "error", source: "react", screen: "scan" },
+      { kind: "error", source: "react", screen: "read" },
     ];
     expect(events.map((event) => formatEvent({ ...event, at: 1500, count: 2 }))).toEqual([
       "+1.5s screen library x2",
@@ -96,7 +96,7 @@ describe("EventLog", () => {
       "+1.5s operation scan.run refused x2",
       "+1.5s storage ready x2",
       "+1.5s service-worker controlled x2",
-      "+1.5s error react on scan x2",
+      "+1.5s error react on read x2",
     ]);
   });
 });

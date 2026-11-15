@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openSection } from "./session";
 import { savedReports, shareLinkOfSimulatorScan } from "./share-links";
 
 /** Creates a stopped run with a few samples through the page's database, wherever it is open, and returns what reading it back gives. */
@@ -93,7 +94,7 @@ test("a run another tab is collecting is not resumed here, and resumes once that
   await collector.goto("/");
   await collector.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(collector.getByText("Connected to Simulator")).toBeVisible();
-  await collector.getByRole("tab", { name: "Live" }).click();
+  await openSection(collector, "Live");
   await collector.getByRole("button", { name: "Start collecting" }).click();
   await expect(collector.getByText("Collecting", { exact: true })).toBeVisible();
 

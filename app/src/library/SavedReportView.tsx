@@ -29,7 +29,7 @@ function isObdRead(report: Json): boolean {
   );
 }
 
-/** One saved report's body, read-only: a generic OBD-II read with the Scan screen's report, a scan with its units and fault codes. Nothing here acts on the car or changes the report. */
+/** One saved report's body, read-only: a generic OBD-II read with the report the Session screen's Read section shows, a scan with its units and fault codes. Nothing here acts on the car or changes the report. */
 function SavedReportBody({ report }: { readonly report: ScanReport }) {
   if (isObdRead(report.report)) {
     const read = obdReportDocumentShareData(report.report);

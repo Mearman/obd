@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { openSection } from "./session";
 
 async function openScreen(page: Page, name: string): Promise<void> {
   await page.getByRole("tab", { name }).click();
@@ -16,11 +17,15 @@ test("a generic OBD-II session connects, scans, runs and keeps unit actions disa
   await page.getByRole("button", { name: /connect with the simulator/i }).click();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();
 
-  await openScreen(page, "Scan");
+  await openSection(page, "Read");
   await page.getByRole("button", { name: "Start scan" }).click();
   await expect(page.getByRole("table", { name: /Scan of Generic OBD-II/ })).toBeVisible();
   await expect(page.getByText(/VIN: SIMULATEDCAR00001/)).toBeVisible();
-  for (const name of ["Write a value", "Run an actuator test", "Clear 7E8 codes"]) {
+  const clearUnit = page.getByRole("button", { name: "Clear 7E8 codes" });
+  await expect(clearUnit).toBeDisabled();
+  await expect(clearUnit).toHaveAccessibleDescription(/needs a vehicle profile/);
+  await openSection(page, "Advanced");
+  for (const name of ["Write a value", "Run an actuator test"]) {
     const button = page.getByRole("button", { name });
     await expect(button).toBeDisabled();
     await expect(button).toHaveAccessibleDescription(/needs a vehicle profile/);
@@ -29,9 +34,11 @@ test("a generic OBD-II session connects, scans, runs and keeps unit actions disa
     page.getByRole("button", { name: "Clear every emissions code (mode 04)" }),
   ).toBeEnabled();
 
-  await openScreen(page, "Live");
+  await openSection(page, "Live");
   await page.getByRole("button", { name: "Start collecting" }).click();
-  await expect(page.getByText("engine speed")).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: /^Live values: / }).getByText("engine speed", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Stop collecting" }).click();
 
   await openScreen(page, "Library");
