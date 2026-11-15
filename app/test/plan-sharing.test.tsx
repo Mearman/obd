@@ -223,6 +223,18 @@ describe("the plan editor", () => {
     );
   });
 
+  it("builds and saves a plan by keyboard alone", async () => {
+    const { onSave } = renderEditor();
+    // Tab from the start of the document to the plan's name field, then type and move on.
+    const name = screen.getByLabelText("Name (lower case letters, digits and hyphens)");
+    while (document.activeElement !== name) await userEvent.tab();
+    await userEvent.keyboard("{Control>}a{/Control}keyboard-plan");
+    const save = screen.getByRole("button", { name: "Save the plan" });
+    while (document.activeElement !== save) await userEvent.tab();
+    await userEvent.keyboard("{Enter}");
+    expect(onSave.mock.calls[0]?.[0]?.name).toBe("keyboard-plan");
+  });
+
   it("raises the revision only when a saved edit changes the plan", () => {
     const plan = pedalPlan();
     expect(revised(plan, plan).revision).toBe(2);
@@ -280,13 +292,14 @@ describe("a plan link", () => {
     expect(screen.getByRole("button", { name: "Start the plan" })).toBeDisabled();
   });
 
-  it("saves the plan to My plans, marked as shared", async () => {
+  it("saves the plan to My plans, marked as shared, only when asked with auto-save off", async () => {
+    localStorage.setItem("obd-read.auto-save-shared", "off");
     const storage = new MemoryStorage();
     window.location.hash = await fragmentOf(planEnvelope(pedalPlan(), T0));
     renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     await screen.findByText(/Plan pedal-check, revision 2, /);
-    const save = screen.getByRole("button", { name: /Save to my plans|Saved/ });
-    if (save.textContent === "Save to my plans") await userEvent.click(save);
+    expect(await storage.listPlans()).toEqual([]);
+    await userEvent.click(await screen.findByRole("button", { name: "Save to my plans" }));
     await waitFor(async () => {
       expect((await storage.listPlans()).map((plan) => [plan.title, plan.origin])).toEqual([
         ["Accelerator pedal check", "shared"],
