@@ -415,9 +415,9 @@ The build reads one environment variable, `BASE_PATH`, in [`app/base-path.ts`](a
 
 ## Releases
 
-A release is made by bumping `version` in the root [`package.json`](package.json) and in [`app/package.json`](app/package.json) (a test checks they match) in a pull request. When it merges to `main`, [`release.yml`](.github/workflows/release.yml) reads the version, and if the tag `v<version>` does not exist it creates the tag and a GitHub release with generated notes; a push that leaves the version unchanged does nothing. [`scripts/release-needed.ts`](scripts/release-needed.ts) holds that decision. The workflow uses the default `GITHUB_TOKEN` with `contents: write` and publishes nothing to a registry.
+Releases are made by [semantic-release](https://semantic-release.gitbook.io/) from the commit messages. When a push to `main` passes CI, the `release` job in [`ci.yml`](.github/workflows/ci.yml) reads the commits since the last tag: a `feat` releases a minor version, a `fix`, `perf` or `revert` a patch, and a breaking change (`!` or a `BREAKING CHANGE` footer) a major one. Other types release nothing. [`release.config.ts`](release.config.ts) holds that table, and [`commitlint.config.ts`](commitlint.config.ts) derives the allowed types from it, so commit-msg validation (a husky hook locally, the `Commit messages` job on pull requests) and the release rules cannot disagree. A release tags `v<version>` and creates a GitHub release with generated notes, then starts a Pages rebuild. It commits nothing back to `main`: the version lives only in the tag, the `version` fields in the two `package.json` files are placeholders, and the app build reads the latest `v<version>` tag from git (so the app builds need the full history). Nothing is published to a registry: the package is private.
 
-The app shows its version in the top bar as a link to that release. The version is read from the root `package.json` when the app is built, so it needs no network, and the link opens the release page in a new tab (which cannot load offline).
+The app shows its version in the top bar as a link to that release. The version is read from the latest release tag when the app is built, so it needs no network, and the link opens the release page in a new tab (which cannot load offline).
 
 ## Licence
 
