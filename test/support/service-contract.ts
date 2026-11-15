@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  GENERIC_PROFILE,
   SCHEMES,
   registerTransport,
   registeredSchemes,
@@ -92,6 +93,17 @@ export function describeServiceContract(
         await expect(client.runs.stop({ runId: "nope" })).rejects.toMatchObject({
           code: "NOT_FOUND",
         });
+      }));
+
+    it("stores a run with no profile under the generic name and refuses a unit without a profile", () =>
+      withService(async ({ client, collector }) => {
+        const run = await client.runs.start({ adapter: "ble://x" });
+        expect(run.profile).toBe(GENERIC_PROFILE);
+        expect(collector.started[0]?.run.profile).toBe(GENERIC_PROFILE);
+        await expect(
+          client.runs.start({ adapter: "ble://x", unit: "engine" }),
+        ).rejects.toMatchObject({ code: "PROFILE_REQUIRED" });
+        expect(await client.runs.list({})).toHaveLength(1);
       }));
 
     it("removes the run it opened when the collector cannot start", () =>

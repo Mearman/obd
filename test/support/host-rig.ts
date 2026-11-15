@@ -1,11 +1,17 @@
 import {
+  DiagProtocol,
+  GENERIC_SIMULATOR_URL,
   MemoryStorage,
   TransportError,
+  adapterTransport,
   composeTransportHosts,
   createDiagnosticsService,
+  isSimulatorUrl,
+  simulatedLiveCar,
   simulatorTransportHost,
   simulatorUrl,
   type DiagnosticsService,
+  type FakeElmCore,
   type Storage,
   type Transport,
   type TransportHost,
@@ -14,6 +20,22 @@ import { loadBuiltinProfile } from "../../src/profiles/index.js";
 
 /** The simulated adapter of the Mercedes profile. */
 export const SIMULATOR = simulatorUrl("mercedes-w211");
+
+/** The simulated adapter of a car with no profile. */
+export const GENERIC_SIMULATOR = GENERIC_SIMULATOR_URL;
+
+/** A host whose one simulated generic car records every line the tool writes to it. */
+export function recordingGenericHost(): { transports: TransportHost; car: FakeElmCore } {
+  const car = simulatedLiveCar({ protocol: DiagProtocol.KWP2000, units: new Map() });
+  return {
+    car,
+    transports: {
+      schemes: () => [],
+      serves: isSimulatorUrl,
+      create: () => adapterTransport(car),
+    },
+  };
+}
 
 /** Resolves on the next turn of the event loop, so collection and parked commands make progress. */
 export function turn(): Promise<void> {
