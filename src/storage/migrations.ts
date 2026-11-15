@@ -21,4 +21,12 @@ export const MIGRATIONS: readonly Migration[] = [
       "CREATE INDEX `scan_reports_taken_at_idx` ON `scan_reports` (`taken_at`);",
     ],
   },
+  {
+    tag: "20261115143341_mean_the_initiative",
+    statements: [
+      "CREATE TABLE `capture_units` (\n\t`capture_id` text NOT NULL,\n\t`position` integer NOT NULL,\n\t`address` text NOT NULL,\n\t`label` text NOT NULL,\n\t`exchanges` integer NOT NULL,\n\t`answered` integer NOT NULL,\n\tCONSTRAINT `capture_units_pk` PRIMARY KEY(`capture_id`, `position`),\n\tCONSTRAINT `fk_capture_units_capture_id_captures_id_fk` FOREIGN KEY (`capture_id`) REFERENCES `captures`(`id`) ON DELETE CASCADE\n);",
+      "CREATE TABLE `captures` (\n\t`id` text PRIMARY KEY,\n\t`started_at` integer NOT NULL,\n\t`ended_at` integer NOT NULL,\n\t`kind` text NOT NULL,\n\t`profile` text,\n\t`complete` integer NOT NULL,\n\t`description` text NOT NULL,\n\t`adapter` text NOT NULL,\n\t`exchanges` integer NOT NULL,\n\t`document` blob NOT NULL\n);",
+      "CREATE INDEX `captures_started_at_idx` ON `captures` (`started_at`);",
+    ],
+  },
 ];

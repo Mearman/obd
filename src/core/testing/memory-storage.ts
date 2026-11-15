@@ -1,9 +1,13 @@
+import { validateCapture, type Capture } from "../capture.js";
 import {
   StorageError,
+  captureSummary,
   newRunSchema,
   newScanReportSchema,
   sampleSchema,
   type AggregateQuery,
+  type CaptureQuery,
+  type CaptureSummary,
   type NewRun,
   type NewScanReport,
   type Run,
@@ -54,6 +58,7 @@ export class MemoryStorage implements Storage {
   private readonly samples = new Map<string, Sample[]>();
   private readonly reports = new Map<string, ScanReport>();
   private readonly profiles = new Map<string, StoredProfile>();
+  private readonly captures = new Map<string, string>();
   private readonly newId: () => string;
 
   /**
@@ -235,6 +240,41 @@ export class MemoryStorage implements Storage {
       return [...this.profiles.values()]
         .sort((a, b) => compareText(a.name, b.name))
         .map((profile) => ({ ...profile }));
+    });
+  }
+
+  saveCapture(capture: Capture): Promise<CaptureSummary> {
+    return settle(() => {
+      const valid = validateCapture(capture, "capture");
+      if (this.captures.has(valid.id)) {
+        throw new StorageError("conflict", `a capture ${valid.id} is stored already`);
+      }
+      // Kept as text, so a stored capture shares nothing with the caller's objects.
+      this.captures.set(valid.id, JSON.stringify(valid));
+      return captureSummary(valid);
+    });
+  }
+
+  getCapture(id: string): Promise<Capture | undefined> {
+    return settle(() => {
+      const text = this.captures.get(id);
+      return text === undefined ? undefined : validateCapture(JSON.parse(text), id);
+    });
+  }
+
+  listCaptures(query: CaptureQuery = {}): Promise<CaptureSummary[]> {
+    return settle(() => {
+      const summaries = [...this.captures.values()]
+        .map((text) => captureSummary(validateCapture(JSON.parse(text), "capture")))
+        .sort((a, b) => b.startedAt - a.startedAt || compareText(b.id, a.id));
+      return page(summaries, query.offset, query.limit);
+    });
+  }
+
+  deleteCapture(id: string): Promise<void> {
+    return settle(() => {
+      this.captures.delete(id);
+      return;
     });
   }
 

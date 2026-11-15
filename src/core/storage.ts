@@ -1,5 +1,5 @@
 /**
- * The storage contract: collection runs, their samples, saved scan reports and imported profiles.
+ * The storage contract: collection runs, their samples, saved scan reports, captures of raw exchanges and imported profiles.
  *
  * Everything crossing this interface is plain, serialisable data described by a Zod schema, so an implementation can sit behind a worker or a socket as easily as in the same process. This module is platform-free; the in-memory implementation lives in `testing/memory-storage.ts`, and the SQLite implementation (Drizzle over an injected SQL executor) in `src/storage/`.
  *
@@ -7,6 +7,8 @@
  */
 
 import { z } from "zod";
+import { CAPTURE_KINDS, captureIdSchema, captureSchema, type Capture } from "./capture.js";
+import { addressKey, describeAddress, type ExchangeAddress } from "./exchange.js";
 
 /** A time as integer milliseconds since the Unix epoch. */
 const timestampSchema = z.number().int().nonnegative();
@@ -187,6 +189,91 @@ export const storedProfileSchema = z.object({
 /** An imported profile. */
 export type StoredProfile = z.output<typeof storedProfileSchema>;
 
+/**
+ * One address a capture holds exchanges for: the index storage keeps beside a capture's compressed exchanges, so a list shows which units a capture reached without inflating it.
+ */
+export const captureUnitSchema = z.object({
+  /** A stable key for the address; see `addressKey`. */
+  address: z.string().min(1),
+  /** How the address reads, such as `7E0 -> 7E8`. */
+  label: z.string(),
+  /** How many exchanges went to it. */
+  exchanges: z.number().int().positive(),
+  /** How many of them drew a reply. */
+  answered: z.number().int().nonnegative(),
+});
+
+/** One address a capture holds exchanges for. */
+export type CaptureUnit = z.output<typeof captureUnitSchema>;
+
+/** A stored capture without its exchanges. */
+export const captureSummarySchema = z.object({
+  id: captureIdSchema,
+  startedAt: timestampSchema,
+  endedAt: timestampSchema,
+  kind: z.enum(CAPTURE_KINDS),
+  /** The profile the reads were chosen with, or `null`; a capture decodes under any profile. */
+  profile: z.string().nullable(),
+  complete: z.boolean(),
+  description: z.string(),
+  /** The first session's adapter identity. */
+  adapter: z.string(),
+  exchanges: z.number().int().nonnegative(),
+  units: z.array(captureUnitSchema),
+});
+
+/** A stored capture without its exchanges. */
+export type CaptureSummary = z.output<typeof captureSummarySchema>;
+
+/** Which stored captures {@link Storage.listCaptures} returns, newest first. */
+export const captureQuerySchema = z.object({
+  limit: limitSchema.optional(),
+  offset: offsetSchema.optional(),
+});
+
+/** Filters for {@link Storage.listCaptures}. */
+export type CaptureQuery = z.output<typeof captureQuerySchema>;
+
+/** The capture document storage keeps, as its schema. */
+export { captureSchema as storedCaptureSchema };
+
+/** The units index of a capture: each address it sent to, in the order first used. */
+export function captureUnits(capture: Capture): CaptureUnit[] {
+  const units = new Map<
+    string,
+    { address: ExchangeAddress; exchanges: number; answered: number }
+  >();
+  for (const exchange of capture.exchanges) {
+    const key = addressKey(exchange.address);
+    const unit = units.get(key) ?? { address: exchange.address, exchanges: 0, answered: 0 };
+    unit.exchanges += 1;
+    if (exchange.outcome.kind === "replies") unit.answered += 1;
+    units.set(key, unit);
+  }
+  return Array.from(units, ([address, unit]) => ({
+    address,
+    label: describeAddress(unit.address),
+    exchanges: unit.exchanges,
+    answered: unit.answered,
+  }));
+}
+
+/** A capture's summary, as storage lists it. */
+export function captureSummary(capture: Capture): CaptureSummary {
+  return {
+    id: capture.id,
+    startedAt: capture.startedAt,
+    endedAt: capture.endedAt,
+    kind: capture.origin.kind,
+    profile: capture.origin.profile,
+    complete: capture.origin.complete,
+    description: capture.origin.description,
+    adapter: capture.sessions[0]?.adapter.identity ?? "",
+    exchanges: capture.exchanges.length,
+    units: captureUnits(capture),
+  };
+}
+
 /** Why a storage call failed. */
 export type StorageErrorCode =
   /** The run, report or profile named does not exist. */
@@ -209,7 +296,7 @@ export class StorageError extends Error {
 }
 
 /**
- * Durable storage for runs, samples, scan reports and imported profiles.
+ * Durable storage for runs, samples, scan reports, captures and imported profiles.
  *
  * Every method is async and takes and returns only plain data. Implementations reject with {@link StorageError} for a caller's mistake and with whatever the backing store throws otherwise. Calls on one instance behave as if run one at a time in the order made.
  */
@@ -277,4 +364,20 @@ export interface Storage {
 
   /** Every imported profile, ordered by name. */
   listProfiles(): Promise<StoredProfile[]>;
+
+  /**
+   * Stores a capture under its own id.
+   *
+   * @throws StorageError `conflict` when a capture with that id is stored already.
+   */
+  saveCapture(capture: Capture): Promise<CaptureSummary>;
+
+  /** The capture with this id, or `undefined`. */
+  getCapture(id: string): Promise<Capture | undefined>;
+
+  /** Stored captures without their exchanges, newest first by start time. */
+  listCaptures(query?: CaptureQuery): Promise<CaptureSummary[]>;
+
+  /** Removes a capture. Removing an unknown capture does nothing. */
+  deleteCapture(id: string): Promise<void>;
 }
