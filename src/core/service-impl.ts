@@ -57,7 +57,8 @@ import { ProfileError, parseJson, parseProfile, profileUnit, type Profile } from
 import { CaptureError } from "./capture.js";
 import { CaptureBusy, CaptureJobs } from "./capture-jobs.js";
 import { ImportError, importRecord } from "./capture-import.js";
-import { decodeCapture, decodedLines, type DecodedCapture } from "./decode.js";
+import { decodeCapture, decodedLines, type DecodeTarget, type DecodedCapture } from "./decode.js";
+import { decodeAsOf } from "./playback.js";
 import { checkProfile } from "./profile-check.js";
 import { exportRunCsvText, exportRunJson } from "./run-export.js";
 import { readSelection, userNotes, withSelection } from "./run-selection.js";
@@ -890,12 +891,14 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       decode: os.captures.decode.handler(({ input }) =>
         translated(async () => {
           const capture = await storedCapture(input.id);
-          const decoded = await decodeCapture(
-            capture,
+          const target: DecodeTarget =
             input.profile === null
               ? { kind: "generic" }
-              : { kind: "profile", profile: await loadProfile(input.profile) },
-          );
+              : { kind: "profile", profile: await loadProfile(input.profile) };
+          const decoded =
+            input.exchanges === undefined
+              ? await decodeCapture(capture, target)
+              : await decodeAsOf(capture, target, input.exchanges);
           return decodedCaptureData(decoded);
         }),
       ),

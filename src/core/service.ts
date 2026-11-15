@@ -429,7 +429,14 @@ export const diagnosticsContract = {
      * Decodes a stored capture under a shipped or imported profile, or under none with `profile: null`. The decoding reads the profile as it is now, so an updated profile re-decodes an old capture. Nothing is sent to the car.
      */
     decode: oc
-      .input(z.object({ id: nameSchema, profile: nameSchema.nullable() }))
+      .input(
+        z.object({
+          id: nameSchema,
+          profile: nameSchema.nullable(),
+          /** Decode only the first this many exchanges, with each repeated request taken at its latest read: the capture as it stood part-way through, for playback. Omitted, the whole capture is decoded as it always was. */
+          exchanges: z.int().min(0).optional(),
+        }),
+      )
       .output(decodedCaptureSchema),
   },
   profiles: {

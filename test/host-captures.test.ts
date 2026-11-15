@@ -90,6 +90,28 @@ describe("captures through the service", () => {
     ]);
   });
 
+  it("decodes only the first exchanges of a stored capture when asked, for playback", async () => {
+    const { host } = await connected("mercedes-w211");
+    const { id } = await host.client.captures.start({});
+    await finished(host.client, id);
+    const whole = await host.client.captures.decode({ id, profile: "mercedes-w211" });
+    const none = await host.client.captures.decode({ id, profile: "mercedes-w211", exchanges: 0 });
+    const some = await host.client.captures.decode({ id, profile: "mercedes-w211", exchanges: 3 });
+    const all = await host.client.captures.decode({
+      id,
+      profile: "mercedes-w211",
+      exchanges: whole.exchanges,
+    });
+    expect(none.exchanges).toBe(0);
+    expect(none.units.every((unit) => !unit.answered)).toBe(true);
+    expect(some.exchanges).toBe(3);
+    expect(some.units.filter((unit) => unit.answered).length).toBeLessThan(
+      whole.units.filter((unit) => unit.answered).length,
+    );
+    expect(all.units).toEqual(whole.units);
+    expect(all.undecoded).toEqual(whole.undecoded);
+  });
+
   it("sweeps for units on a generic connection", async () => {
     const { host } = await connected(undefined, GENERIC_SIMULATOR);
     const { id } = await host.client.captures.start({
