@@ -23,12 +23,13 @@ function repeatText(phase: ViewPhase): string | undefined {
     : `Runs at most ${String(repeat.max)} times, until ${describeCondition(repeat.until)}.`;
 }
 
-/** The plan's own text about who does what at the car, which the screen keeps in view because the person, not this app, works the car. */
+/** The plan's own text about who does what at the car (its safety text, else its description), which the screen keeps in view because the person, not this app, works the car. */
 export function PlanSafety({ plan }: { readonly plan: ViewPlan }) {
   return (
     <p className={safety}>
       <strong>At the car: </strong>
-      {plan.description} This app only reads; the person does the driving and the pedal work.
+      {plan.safety ?? plan.description} This app only reads; the person does the driving and the
+      pedal work.
     </p>
   );
 }
@@ -38,6 +39,7 @@ export function PlanPreview({ plan }: { readonly plan: ViewPlan }) {
   return (
     <>
       <PlanSafety plan={plan} />
+      {plan.safety !== undefined && <p>{plan.description}</p>}
       <ol className={phaseList} aria-label={`Phases of ${plan.title}`}>
         {plan.phases.map((phase) => {
           const repeat = repeatText(phase);

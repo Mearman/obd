@@ -27,6 +27,8 @@ import {
   plotWrap,
   reading,
   slider,
+  markerLabel,
+  markerLine,
   svg,
   xAxis,
   yAxis,
@@ -48,6 +50,14 @@ export interface LineChartProps {
   readonly cursor?: number | undefined;
   /** Called with a new cursor time when the user points at the chart or uses its arrow keys. Without it the chart is not interactive. */
   readonly onCursorChange?: (time: number) => void;
+  /** Times on the axis to mark with a labelled vertical line, such as where each phase of a plan began. Full variant only. */
+  readonly markers?: readonly ChartMarker[];
+}
+
+/** A labelled time on a chart's axis. */
+export interface ChartMarker {
+  readonly at: number;
+  readonly label: string;
 }
 
 /**
@@ -63,6 +73,7 @@ export function LineChart({
   variant = "full",
   cursor,
   onCursorChange,
+  markers = [],
 }: LineChartProps) {
   const first = points[0];
   const last = points[points.length - 1];
@@ -171,6 +182,17 @@ export function LineChart({
               <polyline className={line} points={path} vectorEffect="non-scaling-stroke" />
             </svg>
           </div>
+          {markers.map((marker) => (
+            <div
+              key={`${String(marker.at)}-${marker.label}`}
+              className={markerLine}
+              style={{ left: `${(fraction(marker.at, span[0], span[1]) * 100).toFixed(2)}%` }}
+              title={marker.label}
+              aria-hidden="true"
+            >
+              <span className={markerLabel}>{marker.label}</span>
+            </div>
+          ))}
           {cursorLeft !== undefined && (
             <div
               className={cursorLine}

@@ -133,3 +133,26 @@ export const compact = style({
 });
 
 export const compactSvg = style({ display: "block", width: "100%", height: "100%" });
+
+/** A phase boundary: a dashed line across the plot with its label at the top, never taking the pointer from the cursor slider. */
+export const markerLine = style({
+  position: "absolute",
+  top: 0,
+  bottom: 0,
+  width: 0,
+  borderLeft: `2px dashed ${vars.color.textMuted}`,
+  pointerEvents: "none",
+});
+
+export const markerLabel = style({
+  position: "absolute",
+  top: 0,
+  left: vars.space["1"],
+  maxWidth: "8rem",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  fontSize: vars.fontSize.small,
+  color: vars.color.textMuted,
+  background: vars.color.surface,
+});

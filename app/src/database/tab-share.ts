@@ -93,7 +93,7 @@ type Operation = keyof Storage | keyof DatabaseControl;
 /**
  * Whether running a call twice leaves the same data as running it once, which decides how a handover treats a call the old leader acknowledged but did not answer: a repeatable call is sent to the new leader once more, any other fails with {@link HandoverError}.
  *
- * Reads, deletes, notes, profile saves (which replace by name) and file imports repeat safely. Stopping a run and saving a capture repeat safely because a repeat that finds its own earlier result reads it back instead of failing (see {@link sharedStorage}). Creating a run, saving a scan report and appending samples add new rows each time, so they are not repeated.
+ * Reads, deletes, notes, profile and plan saves (which replace by name or id) and file imports repeat safely. Stopping a run and saving a capture repeat safely because a repeat that finds its own earlier result reads it back instead of failing (see {@link sharedStorage}). Creating a run, saving a scan report and appending samples add new rows each time, so they are not repeated.
  */
 export const REPEATABLE: Readonly<Record<Operation, boolean>> = {
   createRun: false,
@@ -116,6 +116,10 @@ export const REPEATABLE: Readonly<Record<Operation, boolean>> = {
   getCapture: true,
   listCaptures: true,
   deleteCapture: true,
+  savePlan: true,
+  getPlan: true,
+  listPlans: true,
+  deletePlan: true,
   info: true,
   exportFile: true,
   importFile: true,
@@ -603,6 +607,10 @@ function sharedStorage(dispatch: Dispatch): Storage {
     getCapture: (captureId) => on("getCapture", (s) => s.getCapture(captureId)),
     listCaptures: (query) => on("listCaptures", (s) => s.listCaptures(query)),
     deleteCapture: (captureId) => on("deleteCapture", (s) => s.deleteCapture(captureId)),
+    savePlan: (plan) => on("savePlan", (s) => s.savePlan(plan)),
+    getPlan: (planId) => on("getPlan", (s) => s.getPlan(planId)),
+    listPlans: () => on("listPlans", (s) => s.listPlans()),
+    deletePlan: (planId) => on("deletePlan", (s) => s.deletePlan(planId)),
   };
 }
 
@@ -651,6 +659,10 @@ function observeCalls(
       getCapture: (captureId) => track(s.getCapture(captureId)),
       listCaptures: (query) => track(s.listCaptures(query)),
       deleteCapture: (captureId) => after(s.deleteCapture(captureId)),
+      savePlan: (plan) => after(s.savePlan(plan)),
+      getPlan: (planId) => track(s.getPlan(planId)),
+      listPlans: () => track(s.listPlans()),
+      deletePlan: (planId) => after(s.deletePlan(planId)),
     },
     control: {
       info: () => track(c.info()),
