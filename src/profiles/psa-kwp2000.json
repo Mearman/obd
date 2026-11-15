@@ -1,0 +1,628 @@
+{
+  "notes": "Units that speak KWP2000 over ISO 15765-2 on the 500 kbit/s diagnostic CAN ('IS' in arduino-psa-diag). Peugeot, Citroen, DS and Opel or Vauxhall cars on PSA platforms (the sources name no brand, so brand coverage is by platform and unconfirmed). Every row is unconfirmed until `obd-read probe` shows the unit answering on a car.\n\nArchitecture and pins: AEE2004 and AEE2010 cars carry diagnostics on OBD pins 3 (CAN high) and 8 (CAN low), not the socket's usual pins 6 and 14, so an ELM327 or STN adapter needs a pass-through adapter or cable that routes pins 3 and 8 to its CAN input (arduino-psa-diag README 'PINOUT'; PyPSADiag README 'Use of ELM327 Support'). NEA2020 cars are the other way round: the arduino-psa-diag README says the original pins 6 and 14 are used for DoIP (diagnostics over IP), while the PyPSADiag README says NEA2020 cars have the diagnostic CAN on pins 6 and 14 and need no adapter. The two sources disagree and neither was tested here (issue 38 tracks settling it). One source (PyPSADiag README) advises a branded adapter with a genuine MAC address rather than a clone, since a poor one often cannot read zones at all.\n\nBit rate: the profile uses 500 kbit/s, which the arduino-psa-diag sketch sets for the diagnostic CAN bus (CAN_SPEED CAN_500KBPS, 'Diagnostic CAN bus - High Speed') and a ServiceBox forum post gives for the diagnostic CAN on pins 3 and 8. The same post says ServiceBox shows the vehicle's CAN IS on pins 6 and 14 at 250 kbit/s but measured 500 kbit/s there. The sketch repository also ships a separate low-speed sketch at 125 kbit/s for the entertainment bus. No source opened gives 250 kbit/s for the diagnostic CAN itself, so only the bus on pins 6 and 14 has two reported values.\n\nID sharing: several families share one request and response pair, so one row stands for every family listed in its description and the row's name is the first family's name in the table, not a claim about the unit. The unit behind a row is read from its identification, never inferred from the ID. A response identifier is not always the request minus 0x100, so both are recorded.\n\nPairs the table gives to two different units cannot sit in one profile (a reply must be attributable), so the first pair in this order keeps its identifiers: a pair PyPSADiag lists, then a pair whose response is the request minus 0x100 or 0x20, then table order. The losers are listed in docs/vehicles/europe-other.md. LIN-attached units are reached through a LIN selector (L47, L48, L68, L70) that this tool cannot send, so a row whose table entry carries one reaches only the gateway unit.\n\nProtocol: PyPSADiag lists one ECU model on a 500 kbit/s KWP2000 link (the DAE_BVH2 file of the DIRECTN family on 6B5:695). Every other row is a pair no source gives a protocol for, so it appears here and in psa-uds; a unit that does not answer here is probably UDS. The 'HAB' KWP2000 variant (125 kbit/s, session 0xC0) is not covered: the guard's read-only list allows only sessions 0x81 and 0x92, and the 125 kbit/s bus is not the diagnostic CAN. Pairs PyPSADiag lists only as HAB (airbag 744:644, radio 760:660, amplifier 77D:67D, BECB 6C4:604) are therefore in neither profile.",
+  "name": "psa-kwp2000",
+  "description": "PSA (Peugeot, Citroen, DS, Opel on PSA platforms), KWP2000 units",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "kwp2000",
+    "session": 129
+  },
+  "units": {
+    "alarmes-75c": {
+      "description": "Table families on 75C:65C: ALARMES.",
+      "request": 1884,
+      "response": 1628,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ALARMES), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "changeurcd-771": {
+      "description": "Table families on 771:671: CHANGEURCD, CDE.",
+      "request": 1905,
+      "response": 1649,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CHANGEURCD, CDE), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "clim-76d": {
+      "description": "Table families on 76D:66D: CLIM.",
+      "request": 1901,
+      "response": 1645,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CLIM), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cpl-730": {
+      "description": "Table families on 730:710: CPL, MOTEV, MOTED. The table also gives LIN selector L70 for some of them.",
+      "request": 1840,
+      "response": 1808,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CPL, MOTEV, MOTED), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "directn-6b5": {
+      "description": "Table families on 6B5:695: DIRECTN.",
+      "request": 1717,
+      "response": 1685,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families DIRECTN), recorded in docs/vehicles/europe-other.md with its Wayback snapshot; protocol from PyPSADiag (https://github.com/Barracuda09/PyPSADiag) kwp_is in json/DIRECTN/DAE_BVH2.json, uds in json/DIRECTN/DAE_UDS.json"
+    },
+    "kml-nomad-avp-773": {
+      "description": "Table families on 773:673: KML/NOMAD/AVP.",
+      "request": 1907,
+      "response": 1651,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families KML/NOMAD/AVP), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "spneu-6b8": {
+      "description": "Table families on 6B8:698: SPNEU.",
+      "request": 1720,
+      "response": 1688,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families SPNEU), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "tdcar-778": {
+      "description": "Table families on 778:678: TDCAR, CLIM_AR_2.",
+      "request": 1912,
+      "response": 1656,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families TDCAR, CLIM_AR_2), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "dsg-6af": {
+      "description": "Table families on 6AF:68F: DSG.",
+      "request": 1711,
+      "response": 1679,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families DSG), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "rhf-746": {
+      "description": "Table families on 746:646: RHF.",
+      "request": 1862,
+      "response": 1606,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families RHF), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "asrplus-6bd": {
+      "description": "Table families on 6BD:69D: ASRPLUS, MCM.",
+      "request": 1725,
+      "response": 1693,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ASRPLUS, MCM), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bir-6be": {
+      "description": "Table families on 6BE:69E: BIR.",
+      "request": 1726,
+      "response": 1694,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BIR), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "corpro-6b7": {
+      "description": "Table families on 6B7:697: CORPRO, OLVI.",
+      "request": 1719,
+      "response": 1687,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CORPRO, OLVI), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "essuiv-779": {
+      "description": "Table families on 779:679: ESSUIV.",
+      "request": 1913,
+      "response": 1657,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ESSUIV), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "fse-6b3": {
+      "description": "Table families on 6B3:693: FSE.",
+      "request": 1715,
+      "response": 1683,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families FSE), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "padditivation-6c1": {
+      "description": "Table families on 6C1:601: PADDITIVATION.",
+      "request": 1729,
+      "response": 1537,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families PADDITIVATION), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "portec-74b": {
+      "description": "Table families on 74B:64B: PORTEC, BCLVR.",
+      "request": 1867,
+      "response": 1611,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families PORTEC, BCLVR), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "tnb-6c3": {
+      "description": "Table families on 6C3:603: TNB.",
+      "request": 1731,
+      "response": 1539,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families TNB), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "msb-6b4": {
+      "description": "Table families on 6B4:694: MSB.",
+      "request": 1716,
+      "response": 1684,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families MSB), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "hcu2-6a6": {
+      "description": "Table families on 6A6:686: HCU2, CMM_E.",
+      "request": 1702,
+      "response": 1670,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families HCU2, CMM_E), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "hcu1-6a7": {
+      "description": "Table families on 6A7:687: HCU1, RMCU.",
+      "request": 1703,
+      "response": 1671,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families HCU1, RMCU), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "dmtc-6bc": {
+      "description": "Table families on 6BC:69C: DMTC.",
+      "request": 1724,
+      "response": 1692,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families DMTC), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "idvr-763": {
+      "description": "Table families on 763:663: IDVR.",
+      "request": 1891,
+      "response": 1635,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families IDVR), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "avm-74f": {
+      "description": "Table families on 74F:64F: AVM, AVE.",
+      "request": 1871,
+      "response": 1615,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families AVM, AVE), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "rumble-708": {
+      "description": "Table families on 708:728: RUMBLE.",
+      "request": 1800,
+      "response": 1832,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families RUMBLE), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "alarme-6e6": {
+      "description": "Table families on 6E6:626: ALARME.",
+      "request": 1766,
+      "response": 1574,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ALARME), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "baast-732": {
+      "description": "Table families on 732:712: BAAST, FEU_AR_C, FEU_AR_P, FEU_COMP_AR_C, FEU_COMP_AR_P, CCE, BAASL.",
+      "request": 1842,
+      "response": 1810,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BAAST, FEU_AR_C, FEU_AR_P, FEU_COMP_AR_C, FEU_COMP_AR_P, CCE, BAASL), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bevi-5ac": {
+      "description": "Table families on 5AC:58C: BEVI.",
+      "request": 1452,
+      "response": 1420,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BEVI), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bnc-avd-733": {
+      "description": "Table families on 733:713: BNC_AVD, BNC_AVG, SCB_D, SPB_D, SPB_P, TO, AVM_LIN, BPL_2.",
+      "request": 1843,
+      "response": 1811,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BNC_AVD, BNC_AVG, SCB_D, SPB_D, SPB_P, TO, AVM_LIN, BPL_2), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "comelbva-6aa": {
+      "description": "Table families on 6AA:68A: COMELBVA.",
+      "request": 1706,
+      "response": 1674,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families COMELBVA), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "css-6b0": {
+      "description": "Table families on 6B0:690: CSS, AMORT.",
+      "request": 1712,
+      "response": 1680,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CSS, AMORT), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "esm-58b": {
+      "description": "Table families on 58B:58A: ESM.",
+      "request": 1419,
+      "response": 1418,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ESM), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "fmux-77b": {
+      "description": "Table families on 77B:67B: FMUX, IHM_CLIM_FMUX.",
+      "request": 1915,
+      "response": 1659,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families FMUX, IHM_CLIM_FMUX), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "scr-6a1": {
+      "description": "Table families on 6A1:681: SCR.",
+      "request": 1697,
+      "response": 1665,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families SCR), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "sirene-6e5": {
+      "description": "Table families on 6E5:625: SIRENE.",
+      "request": 1765,
+      "response": 1573,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families SIRENE), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "conv-puis-6ba": {
+      "description": "Table families on 6BA:69A: CONV_PUIS.",
+      "request": 1722,
+      "response": 1690,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CONV_PUIS), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "conv-puis-2-49b": {
+      "description": "Table families on 49B:49A: CONV_PUIS_2.",
+      "request": 1179,
+      "response": 1178,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CONV_PUIS_2), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "obc-dcdc-590": {
+      "description": "Table families on 590:58F: OBC_DCDC.",
+      "request": 1424,
+      "response": 1423,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families OBC_DCDC), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "frein-5d0": {
+      "description": "Table families on 5D0:5CF: FREIN.",
+      "request": 1488,
+      "response": 1487,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families FREIN), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bse-759": {
+      "description": "Table families on 759:659: BSE.",
+      "request": 1881,
+      "response": 1625,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BSE), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "ecole-75e": {
+      "description": "Table families on 75E:65E: ECOLE.",
+      "request": 1886,
+      "response": 1630,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ECOLE), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "lce-745": {
+      "description": "Table families on 745:645: LCE.",
+      "request": 1861,
+      "response": 1605,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families LCE), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "transmission-787": {
+      "description": "Table families on 787:78F: TRANSMISSION.",
+      "request": 1927,
+      "response": 1935,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families TRANSMISSION), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "adc-703": {
+      "description": "Table families on 703:70B: ADC.",
+      "request": 1795,
+      "response": 1803,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ADC), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "obc-765": {
+      "description": "Table families on 765:568: OBC.",
+      "request": 1893,
+      "response": 1384,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families OBC), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cmu-01-61e": {
+      "description": "Table families on 61E:61F: CMU_01.",
+      "request": 1566,
+      "response": 1567,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CMU_01), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cmu-02-62e": {
+      "description": "Table families on 62E:62F: CMU_02.",
+      "request": 1582,
+      "response": 1583,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CMU_02), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cmu-03-63e": {
+      "description": "Table families on 63E:63F: CMU_03.",
+      "request": 1598,
+      "response": 1599,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CMU_03), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cmu-05-65e": {
+      "description": "Table families on 65E:65F: CMU_05.",
+      "request": 1630,
+      "response": 1631,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CMU_05), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cmu-07-67e": {
+      "description": "Table families on 67E:67F: CMU_07.",
+      "request": 1662,
+      "response": 1663,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CMU_07), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cmu-09-69e": {
+      "description": "Table families on 69E:69F: CMU_09.",
+      "request": 1694,
+      "response": 1695,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CMU_09), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cmu-10-6ae": {
+      "description": "Table families on 6AE:6AF: CMU_10.",
+      "request": 1710,
+      "response": 1711,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CMU_10), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cmu-12-6ce": {
+      "description": "Table families on 6CE:6CF: CMU_12.",
+      "request": 1742,
+      "response": 1743,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CMU_12), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cav-622": {
+      "description": "Table families on 622:484: CAV.",
+      "request": 1570,
+      "response": 1156,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CAV), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cmb-782": {
+      "description": "Table families on 782:783: CMB, CMB_CAN_MMC_2.",
+      "request": 1922,
+      "response": 1923,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CMB, CMB_CAN_MMC_2), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "remote-ev-73a": {
+      "description": "Table families on 73A:73B: REMOTE_EV.",
+      "request": 1850,
+      "response": 1851,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families REMOTE_EV), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "dcdc-72a": {
+      "description": "Table families on 72A:72C: DCDC.",
+      "request": 1834,
+      "response": 1836,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families DCDC), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "crt-uds-can-74c": {
+      "description": "Table families on 74C:64C: CRT_UDS_CAN.",
+      "request": 1868,
+      "response": 1612,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CRT_UDS_CAN), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bmf-can-mmc-620": {
+      "description": "Table families on 620:504: BMF_CAN_MMC, PDPARD, PDPARG, PORTEP, TOUV.",
+      "request": 1568,
+      "response": 1284,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BMF_CAN_MMC, PDPARD, PDPARG, PORTEP, TOUV), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bmf-can-mmc-2-7a0": {
+      "description": "Table families on 7A0:7A1: BMF_CAN_MMC_2.",
+      "request": 1952,
+      "response": 1953,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BMF_CAN_MMC_2), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bmf-can-fiat-7b0": {
+      "description": "Table families on 7B0:7C0: BMF_CAN_FIAT, BMF_CAN_FIAT_2.",
+      "request": 1968,
+      "response": 1984,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BMF_CAN_FIAT, BMF_CAN_FIAT_2), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "combine-can-mmc-6a0": {
+      "description": "Table families on 6A0:514: COMBINE_CAN_MMC.",
+      "request": 1696,
+      "response": 1300,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families COMBINE_CAN_MMC), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bmf-uds-cqca-700": {
+      "description": "Table families on 700:708: BMF_UDS_CQCA.",
+      "request": 1792,
+      "response": 1800,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BMF_UDS_CQCA), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "combine-uds-cqca-701": {
+      "description": "Table families on 701:709: COMBINE_UDS_CQCA.",
+      "request": 1793,
+      "response": 1801,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families COMBINE_UDS_CQCA), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "aidenav-7a8": {
+      "description": "Table families on 7A8:535: AIDENAV.",
+      "request": 1960,
+      "response": 1333,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families AIDENAV), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "leviervitesses-788": {
+      "description": "Table families on 788:789: LEVIERVITESSES.",
+      "request": 1928,
+      "response": 1929,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families LEVIERVITESSES), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bpv-762": {
+      "description": "Table families on 762:662: BPV, STL.",
+      "request": 1890,
+      "response": 1634,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BPV, STL), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bdmc-76e": {
+      "description": "Table families on 76E:66E: BDMC.",
+      "request": 1902,
+      "response": 1646,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BDMC), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bss-754": {
+      "description": "Table families on 754:654: BSS.",
+      "request": 1876,
+      "response": 1620,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BSS), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "additivation-775": {
+      "description": "Table families on 775:675: ADDITIVATION.",
+      "request": 1909,
+      "response": 1653,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ADDITIVATION), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bto-766": {
+      "description": "Table families on 766:666: BTO, BCD.",
+      "request": 1894,
+      "response": 1638,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BTO, BCD), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "crt-777": {
+      "description": "Table families on 777:677: CRT.",
+      "request": 1911,
+      "response": 1655,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CRT), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "portecoul-755": {
+      "description": "Table families on 755:655: PORTECOUL, MDPLC_G.",
+      "request": 1877,
+      "response": 1621,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families PORTECOUL, MDPLC_G), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "touvav-768": {
+      "description": "Table families on 768:668: TOUVAV.",
+      "request": 1896,
+      "response": 1640,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families TOUVAV), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "touvar-76a": {
+      "description": "Table families on 76A:66A: TOUVAR.",
+      "request": 1898,
+      "response": 1642,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families TOUVAR), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "touvm-769": {
+      "description": "Table families on 769:669: TOUVM.",
+      "request": 1897,
+      "response": 1641,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families TOUVM), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "beba-6bb": {
+      "description": "Table families on 6BB:69B: BEBA.",
+      "request": 1723,
+      "response": 1691,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BEBA), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "retro-int-753": {
+      "description": "Table families on 753:653: RETRO_INT.",
+      "request": 1875,
+      "response": 1619,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families RETRO_INT), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "esm-2-74d": {
+      "description": "Table families on 74D:64D: ESM_2.",
+      "request": 1869,
+      "response": 1613,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ESM_2), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "proj-l-597": {
+      "description": "Table families on 597:557: PROJ_L.",
+      "request": 1431,
+      "response": 1367,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families PROJ_L), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "proj-r-5b7": {
+      "description": "Table families on 5B7:577: PROJ_R.",
+      "request": 1463,
+      "response": 1399,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families PROJ_R), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "eplu-5ca": {
+      "description": "Table families on 5CA:5AA: EPLU.",
+      "request": 1482,
+      "response": 1450,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families EPLU), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "ecr-d-71e": {
+      "description": "Table families on 71E:73E: ECR_D.",
+      "request": 1822,
+      "response": 1854,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ECR_D), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "ecr-g-71f": {
+      "description": "Table families on 71F:73F: ECR_G.",
+      "request": 1823,
+      "response": 1855,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families ECR_G), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bpl-6c2": {
+      "description": "Table families on 6C2:602: BPL.",
+      "request": 1730,
+      "response": 1538,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BPL), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bdmp-76f": {
+      "description": "Table families on 76F:66F: BDMP.",
+      "request": 1903,
+      "response": 1647,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BDMP), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "toitesc-767": {
+      "description": "Table families on 767:667: TOITESC.",
+      "request": 1895,
+      "response": 1639,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families TOITESC), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bdcp-749": {
+      "description": "Table families on 749:649: BDCP.",
+      "request": 1865,
+      "response": 1609,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BDCP), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "dpm-774": {
+      "description": "Table families on 774:674: DPM.",
+      "request": 1908,
+      "response": 1652,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families DPM), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "ctpa-737": {
+      "description": "Table families on 737:717: CTPA.",
+      "request": 1847,
+      "response": 1815,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CTPA), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "ivc-d-761": {
+      "description": "Table families on 761:661: IVC_D.",
+      "request": 1889,
+      "response": 1633,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families IVC_D), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "directn-m-796": {
+      "description": "Table families on 796:797: DIRECTN_M.",
+      "request": 1942,
+      "response": 1943,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families DIRECTN_M), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "sam-75b": {
+      "description": "Table families on 75B:65B: SAM.",
+      "request": 1883,
+      "response": 1627,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families SAM), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "bdmar-757": {
+      "description": "Table families on 757:657: BDMAR, DCU_RL.",
+      "request": 1879,
+      "response": 1623,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families BDMAR, DCU_RL), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "pdsc-751": {
+      "description": "Table families on 751:651: PDSC, DCU_FP.",
+      "request": 1873,
+      "response": 1617,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families PDSC, DCU_FP), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "pdsp-750": {
+      "description": "Table families on 750:650: PDSP, DCU_FD.",
+      "request": 1872,
+      "response": 1616,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families PDSP, DCU_FD), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "vth-lvds-bd-738": {
+      "description": "Table families on 738:718: VTH_LVDS_BD.",
+      "request": 1848,
+      "response": 1816,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families VTH_LVDS_BD), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "mdplc-d-756": {
+      "description": "Table families on 756:656: MDPLC_D.",
+      "request": 1878,
+      "response": 1622,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families MDPLC_D), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "idb-740": {
+      "description": "Table families on 740:640: IDB.",
+      "request": 1856,
+      "response": 1600,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families IDB), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "dcu-rr-758": {
+      "description": "Table families on 758:658: DCU_RR.",
+      "request": 1880,
+      "response": 1624,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families DCU_RR), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "inj-t-7e0": {
+      "description": "Table families on 7E0:7E8: INJ_T.",
+      "request": 2016,
+      "response": 2024,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families INJ_T), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    },
+    "cmddem-7b4": {
+      "description": "Table families on 7B4:7BC: CMDDEM.",
+      "request": 1972,
+      "response": 1980,
+      "source": "ECU_LIST.md in https://github.com/ludwig-v/arduino-psa-diag (families CMDDEM), recorded in docs/vehicles/europe-other.md with its Wayback snapshot"
+    }
+  }
+}
