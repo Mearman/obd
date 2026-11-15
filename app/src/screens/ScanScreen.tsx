@@ -6,6 +6,7 @@ import {
   type UnitReportData,
 } from "obd-read";
 import { useState } from "react";
+import { CaptureCard } from "../captures/CaptureCard";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { Button, Card, TextField, type Column } from "../ui";
@@ -42,8 +43,12 @@ function obdShareEnvelope(obd: ObdScan, scan: ScanDetails): ShareEnvelope {
 
 const REASON_ID = "profile-required-reason";
 
-/** Scan: read every unit of the connection's profile (or, with no profile, the legislated OBD-II services), then optionally change the car in two steps. */
-export function ScanScreen() {
+/**
+ * Scan: read every unit of the connection's profile (or, with no profile, the legislated OBD-II services), capture every raw exchange, then optionally change the car in two steps.
+ *
+ * @param onCaptured Called with a capture's id once it is stored, to open it.
+ */
+export function ScanScreen({ onCaptured }: { readonly onCaptured?: (id: string) => void } = {}) {
   const { service, connection, collection } = useDiagnostics();
   const { client } = service;
   const [units, setUnits] = useState<readonly UnitReportData[] | undefined>(undefined);
@@ -118,6 +123,7 @@ export function ScanScreen() {
           <p className={muted}>A collection run holds the adapter. Stop it on the Live screen.</p>
         )}
       </Card>
+      <CaptureCard {...(onCaptured === undefined ? {} : { onSaved: onCaptured })} />
       {problem !== undefined && (
         <p role="alert" className={error}>
           {problem}

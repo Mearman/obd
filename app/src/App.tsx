@@ -3,6 +3,7 @@ import { detectBrowserSupport, type BrowserSupport } from "./connect/support";
 import { DatabaseNotice } from "./database/DatabaseNotice";
 import { useDiagnostics } from "./diagnostics/DiagnosticsProvider";
 import { app, brand, header, identity, main, nav, status } from "./App.css";
+import { CapturesScreen } from "./screens/CapturesScreen";
 import { ConnectScreen } from "./screens/ConnectScreen";
 import { LiveScreen } from "./screens/LiveScreen";
 import { RunsScreen } from "./screens/RunsScreen";
@@ -16,7 +17,7 @@ import { THEME_PREFERENCES } from "./theme/preference";
 import { useTheme } from "./theme/ThemeProvider";
 import { Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger, Toast, Tooltip } from "./ui";
 
-const SCREENS = ["connect", "scan", "live", "runs", "settings"] as const;
+const SCREENS = ["connect", "scan", "live", "runs", "captures", "settings"] as const;
 type ScreenName = (typeof SCREENS)[number];
 
 const TITLES: Readonly<Record<ScreenName, string>> = {
@@ -24,6 +25,7 @@ const TITLES: Readonly<Record<ScreenName, string>> = {
   scan: "Scan",
   live: "Live",
   runs: "Runs",
+  captures: "Captures",
   settings: "Settings",
 };
 
@@ -50,7 +52,7 @@ function ThemeButton() {
   );
 }
 
-/** The application shell: header, five screens and the navigation between them. */
+/** The application shell: header, the screens and the navigation between them. */
 export function App({ support = detectBrowserSupport() }: { readonly support?: BrowserSupport }) {
   const [screen, setScreen] = useState<ScreenName>("connect");
   const { connection } = useDiagnostics();
@@ -58,6 +60,12 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
   const [saved, setSaved] = useState(false);
   const goConnect = () => {
     setScreen("connect");
+  };
+  // Held here, so the viewer stays open when the user looks at another screen and comes back.
+  const [openCapture, setOpenCapture] = useState<string | undefined>(undefined);
+  const viewCapture = (id: string): void => {
+    setOpenCapture(id);
+    setScreen("captures");
   };
 
   return (
@@ -128,12 +136,12 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
             <DatabaseNotice />
             <TabsContent value="connect">
               <ScreenBoundary screen="connect">
-                <ConnectScreen support={support} />
+                <ConnectScreen support={support} onCaptured={viewCapture} />
               </ScreenBoundary>
             </TabsContent>
             <TabsContent value="scan">
               <ScreenBoundary screen="scan" onGoToConnect={goConnect}>
-                <ScanScreen />
+                <ScanScreen onCaptured={viewCapture} />
               </ScreenBoundary>
             </TabsContent>
             <TabsContent value="live">
@@ -144,6 +152,11 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
             <TabsContent value="runs">
               <ScreenBoundary screen="runs" onGoToConnect={goConnect}>
                 <RunsScreen />
+              </ScreenBoundary>
+            </TabsContent>
+            <TabsContent value="captures">
+              <ScreenBoundary screen="captures" onGoToConnect={goConnect}>
+                <CapturesScreen open={openCapture} onOpen={setOpenCapture} />
               </ScreenBoundary>
             </TabsContent>
             <TabsContent value="settings">

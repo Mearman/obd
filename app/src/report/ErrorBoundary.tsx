@@ -73,6 +73,7 @@ export const SCREEN_LABELS: Readonly<Record<ScreenId, string>> = {
   scan: "Scan",
   live: "Live",
   runs: "Runs",
+  captures: "Captures",
   settings: "Settings",
   shared: "Shared data",
   app: "obd-read",

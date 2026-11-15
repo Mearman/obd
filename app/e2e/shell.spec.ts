@@ -8,7 +8,7 @@ const VIEWPORTS = [
 
 const SCHEMES = ["light", "dark"] as const;
 
-const SCREENS = ["Connect", "Scan", "Live", "Runs", "Settings"] as const;
+const SCREENS = ["Connect", "Scan", "Live", "Runs", "Captures", "Settings"] as const;
 
 /** The smallest touch target, in CSS pixels. */
 const MIN_TARGET = 44;
