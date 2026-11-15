@@ -58,7 +58,10 @@ for (const viewport of VIEWPORTS) {
         for (const name of SCREENS) {
           await openScreen(page, name);
           if (name === "Scan") await page.getByRole("button", { name: "Start scan" }).click();
-          if (name === "Live") await expect(page.getByText("Engine speed")).toBeVisible();
+          if (name === "Live") {
+            await page.getByRole("button", { name: "Start collecting" }).click();
+            await expect(page.getByText("engine speed")).toBeVisible();
+          }
           if (name === "Scan") await expect(page.getByRole("table")).toBeVisible();
 
           expect(
