@@ -26,7 +26,7 @@ function codesText(codes: readonly string[]): string {
   return codes.length === 0 ? "none" : codes.join(", ");
 }
 
-/** A finished plan: how each phase ended and how long it took, the codes at the start and end, and the run's exports, share link and a way into Runs. */
+/** A finished plan: how each phase ended and how long it took, the codes at the start and end, and the run's exports, a link that sends the results back and a way into the Library. */
 export function PlanSummary({
   view,
   client,
@@ -118,8 +118,8 @@ export function PlanSummary({
           </Button>
         ))}
         <ShareDialog
-          label="Share"
-          title="Share this run's summary"
+          label="Send results back"
+          title="Send the results back"
           load={async () => runEnvelope(client, await client.runs.get({ runId }))}
         />
         <Button variant="ghost" onClick={onDone}>

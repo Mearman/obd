@@ -1,8 +1,10 @@
+import { keepSharedPlan } from "../guide/my-plans";
 import {
   GENERIC_PROFILE,
   sharedObdReportDocument,
   sharedRunSamples,
   sharedRunStop,
+  sharedPlanResultSamples,
   sharedScanReport,
   type ShareEnvelope,
   type Storage,
@@ -17,6 +19,8 @@ export const SAVE_LABELS: Readonly<Record<SavedShare, string>> = {
   "obd-report": "Save this read",
   "run-summary": "Save this run",
   capture: "Save this capture",
+  plan: "Save to my plans",
+  "plan-result": "Save these results",
 };
 
 /** What each kind is called in a sentence. */
@@ -25,6 +29,8 @@ export const KIND_NAMES: Readonly<Record<SavedShare, string>> = {
   "obd-report": "OBD-II read",
   "run-summary": "run",
   capture: "capture",
+  plan: "plan",
+  "plan-result": "plan result",
 };
 
 /** The notice shown once a shared item is saved. */
@@ -48,6 +54,15 @@ export const SAVED_NOTICES: Readonly<
     title: "Saved the shared capture",
     description: "It is stored with your captures, marked as shared.",
   },
+  plan: {
+    title: "Saved the shared plan",
+    description: "It is in My plans on the Guide screen, marked as shared.",
+  },
+  "plan-result": {
+    title: "Saved the shared plan result",
+    description:
+      "It is stored with your runs, marked as shared, with its phases, codes and the readings the link carried.",
+  },
 };
 
 /** The item a link carries is already stored on this device, so saving it again would only duplicate it (or, for a capture with the same id, is refused). */
@@ -67,7 +82,7 @@ function takenAt(taken: string, createdAt: number): number {
 }
 
 /**
- * Stores what a link carries, marked `origin: "shared"`: a scan or an OBD-II read as a saved report, a run summary as a stopped run holding the readings the link carries, a capture as a capture. Called only when the user presses Save.
+ * Stores what a link carries, marked `origin: "shared"`: a scan or an OBD-II read as a saved report, a run summary as a stopped run holding the readings the link carries, a capture as a capture, a plan in My plans and a plan result as a stopped plan run with its plan, phases and codes. Called only when the user presses Save.
  *
  * @throws NotSaved for a capture whose id is stored already.
  */
@@ -104,6 +119,22 @@ export async function saveShared(storage: Storage, envelope: ShareEnvelope): Pro
       });
       await storage.appendSamples(sharedRunSamples(envelope.data, created.id));
       await storage.stopRun(created.id, sharedRunStop(envelope.data));
+      return;
+    }
+    case "plan":
+      await keepSharedPlan(storage, envelope.data.plan);
+      return;
+    case "plan-result": {
+      const { run } = envelope.data.run;
+      const created = await storage.createRun({
+        profile: run.profile,
+        adapter: run.adapter,
+        startedAt: run.startedAt,
+        notes: run.notes,
+        origin: "shared",
+      });
+      await storage.appendSamples(sharedPlanResultSamples(envelope.data, created.id));
+      await storage.stopRun(created.id, sharedRunStop(envelope.data.run));
       return;
     }
     case "capture":

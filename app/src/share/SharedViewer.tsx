@@ -1,5 +1,6 @@
 import {
   decodeShare,
+  planDigest,
   type Storage,
   unitReportOf,
   type ObdReportShareData,
@@ -20,6 +21,8 @@ import { error, muted, page, row, title as headingStyle, heading } from "../scre
 import { Badge, Button, Card, DataTable } from "../ui";
 import { fragmentDigest, recordAutoSaved, wasAutoSaved } from "./auto-saved";
 import { SharedCaptureView } from "./SharedCaptureView";
+import { PlanResultView, SharedPlanView } from "./SharedPlanView";
+import { keepSharedPlan } from "../guide/my-plans";
 import {
   AlreadyStored,
   KIND_NAMES,
@@ -32,7 +35,7 @@ import {
 /** How the viewer's decoding went. */
 type Decoded =
   | { readonly status: "decoding" }
-  | { readonly status: "failed"; readonly message: string }
+  | { readonly status: "failed"; readonly message: string; readonly problems: readonly string[] }
   | { readonly status: "ready"; readonly envelope: ShareEnvelope };
 
 /** Props of {@link SharedViewer}. */
@@ -41,6 +44,8 @@ export interface SharedViewerProps {
   readonly fragment: string;
   /** Called when the viewer is finished, with what the user saved, or undefined when nothing was. The caller clears the address. */
   readonly onDone: (saved: SavedShare | undefined) => void;
+  /** Opens the Guide screen on a plan kept in My plans, ready to record; the caller clears the address. */
+  readonly onOpenPlan?: (planId: string) => void;
 }
 
 function utc(milliseconds: number): string {
@@ -150,7 +155,7 @@ function RunView({ data }: { readonly data: RunSummaryShareData }) {
  *
  * The data is decoded and validated here and shown. By default it is then saved once, automatically, and with the setting "Save received links automatically" off it is saved only when the user presses Save. Either way every kind is kept marked `origin: "shared"` ({@link saveShared}). It never goes to the diagnostics service, the guard or an adapter: this component reads the database to save and, for a capture, to read an imported profile it is decoded with.
  */
-export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
+export function SharedViewer({ fragment, onDone, onOpenPlan }: SharedViewerProps) {
   const { state } = useDatabase();
   const [decoded, setDecoded] = useState<Decoded>({ status: "decoding" });
   const [problem, setProblem] = useState<string | undefined>(undefined);
@@ -158,6 +163,7 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
   const [autoSave] = useAutoSaveShared();
   const [saved, setSaved] = useState(false);
   const [alreadySaved, setAlreadySaved] = useState(false);
+  const [planSaved, setPlanSaved] = useState(false);
   useActivity("saving a shared link", saving && !saved);
   // The fragment an automatic save was started for. A ref, so the second effect run React StrictMode makes in development cannot start another.
   const autoStarted = useRef<string | undefined>(undefined);
@@ -169,7 +175,11 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
       setDecoded(
         result.ok
           ? { status: "ready", envelope: result.value }
-          : { status: "failed", message: result.error.message },
+          : {
+              status: "failed",
+              message: result.error.message,
+              problems: result.error.code === "invalid" ? (result.error.problems ?? []) : [],
+            },
       );
     });
     return () => {
@@ -257,9 +267,16 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
       )}
       {decoded.status === "decoding" && <p className={muted}>Reading the link…</p>}
       {decoded.status === "failed" && (
-        <p role="alert" className={error}>
-          This link cannot be opened: {decoded.message}.
-        </p>
+        <div role="alert" className={error}>
+          <p>This link cannot be opened: {decoded.message}.</p>
+          {decoded.problems.length > 1 && (
+            <ul aria-label="Problems in the link">
+              {decoded.problems.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
       {problem !== undefined && (
         <p role="alert" className={error}>
@@ -269,6 +286,39 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
       {envelope?.kind === "scan" && <ScanView data={envelope.data} />}
       {envelope?.kind === "obd-report" && <ObdView data={envelope.data} />}
       {envelope?.kind === "run-summary" && <RunView data={envelope.data} />}
+      {envelope?.kind === "plan" && (
+        <SharedPlanView
+          data={envelope.data}
+          hash={planDigest(envelope.data.plan)}
+          onOpenInGuide={
+            storage === undefined || onOpenPlan === undefined
+              ? undefined
+              : () =>
+                  void keepSharedPlan(storage, envelope.data.plan).then(onOpenPlan, () => {
+                    setProblem("The plan could not be kept in My plans.");
+                  })
+          }
+        />
+      )}
+      {envelope?.kind === "plan-result" && (
+        <PlanResultView
+          data={envelope.data}
+          planSaved={planSaved}
+          onSavePlan={
+            storage === undefined
+              ? undefined
+              : () =>
+                  void keepSharedPlan(storage, envelope.data.plan).then(
+                    () => {
+                      setPlanSaved(true);
+                    },
+                    () => {
+                      setProblem("The plan could not be kept in My plans.");
+                    },
+                  )
+          }
+        />
+      )}
       {envelope?.kind === "capture" && (
         <SharedCaptureView
           data={envelope.data}
