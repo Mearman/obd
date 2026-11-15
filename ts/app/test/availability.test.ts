@@ -16,6 +16,7 @@ function caps(overrides: Partial<Capabilities>): Capabilities {
   return {
     webSerial: true,
     webBluetooth: true,
+    webUsb: true,
     secureContext: true,
     usable: true,
     issues: [],
@@ -46,7 +47,7 @@ describe("adapterAvailability", () => {
 
   it("explains that iOS browsers share Safari's engine", () => {
     const result = adapterAvailability(
-      caps({ webSerial: false, webBluetooth: false, usable: false }),
+      caps({ webSerial: false, webBluetooth: false, webUsb: false, usable: false }),
       "ios",
     );
     expect(result.webbluetooth.available).toBe(false);
@@ -55,7 +56,7 @@ describe("adapterAvailability", () => {
   });
 
   it("names Safari and Firefox", () => {
-    const missing = caps({ webSerial: false, webBluetooth: false, usable: false });
+    const missing = caps({ webSerial: false, webBluetooth: false, webUsb: false, usable: false });
     expect(adapterAvailability(missing, "safari").webserial.reason).toMatch(
       /not available in Safari/,
     );
@@ -68,6 +69,7 @@ describe("adapterAvailability", () => {
     const insecure = caps({
       webSerial: false,
       webBluetooth: false,
+      webUsb: false,
       secureContext: false,
       usable: false,
     });

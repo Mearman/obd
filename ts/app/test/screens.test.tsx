@@ -12,6 +12,7 @@ const CHROME: BrowserSupport = {
   capabilities: {
     webSerial: true,
     webBluetooth: true,
+    webUsb: true,
     secureContext: true,
     usable: true,
     issues: [],
@@ -23,6 +24,7 @@ const SAFARI_IPHONE: BrowserSupport = {
   capabilities: {
     webSerial: false,
     webBluetooth: false,
+    webUsb: false,
     secureContext: true,
     usable: false,
     issues: ["Web Serial is not available: it needs Chrome or Edge."],
