@@ -2,7 +2,7 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2023", "DOM"],
-    "types": ["node"],
+    "types": ["node", "w3c-web-serial", "web-bluetooth"],
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,

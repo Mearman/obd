@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": ["w3c-web-serial", "web-bluetooth"],
+    "noEmit": true
+  },
+  "include": ["src/web/**/*.ts"]
+}

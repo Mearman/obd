@@ -13,12 +13,12 @@ The TypeScript implementation of obd-read, which runs in Node and in the browser
 
 Core never imports a platform module. Each platform entry point supplies the transports it can build and registers them with `registerTransport`; `openTransport(url)` then builds the transport an adapter URL names, and fails with a `TransportError` when no entry point serves the scheme.
 
-| Entry point               | Schemes                                      |
-| ------------------------- | -------------------------------------------- |
-| `obd-read/node` (planned) | `ble`, `serial`, `tcp`, `socketcan`, `slcan` |
-| `obd-read/web` (planned)  | `webserial`, `webbluetooth`, `webusb`        |
+| Entry point               | Schemes                                        |
+| ------------------------- | ---------------------------------------------- |
+| `obd-read/node` (planned) | `ble`, `serial`, `tcp`, `socketcan`, `slcan`   |
+| `obd-read/web`            | `webserial`, `webbluetooth` (`webusb` planned) |
 
-In a browser the user picks the device in a prompt opened by a gesture, so the target of a `web*` URL (`webserial://vLinker`) is only a free label for the adapter and selects nothing. Raw TCP is not available in a browser.
+In a browser the user picks the device in a prompt opened by a gesture. The target of a `webserial` or `webusb` URL is only a free label that selects nothing; the target of a `webbluetooth` URL is also the device name prefix the picker is limited to (`all=1` lists every device). Raw TCP is not available in a browser.
 
 ## Commands
 

@@ -188,6 +188,12 @@ importers:
       '@types/node':
         specifier: 26.6.6
         version: 26.6.6
+      '@types/w3c-web-serial':
+        specifier: 1.0.9
+        version: 1.0.9
+      '@types/web-bluetooth':
+        specifier: 0.0.22
+        version: 0.0.22
       eslint:
         specifier: 10.15.0
         version: 10.15.0
@@ -455,6 +461,12 @@ packages:
 
   '@types/readable-stream@4.0.25':
     resolution: {integrity: sha512-7GsxL8Wd5X3jh73/qgW7WCnbBvGSdD8U3E4Jiuus3/8I+PN20DtlkJtwFhr/sImXfDDQ2Z03i/9wNiIF3TVSsw==}
+
+  '@types/w3c-web-serial@1.0.9':
+    resolution: {integrity: sha512-IVPnnhE1IC3Za0j+ykQDMvRwe3m92hcDIAJjUA4aZW+7f+osL48SDS+02Xsqj5dHluXOCsEA9HS10isX4O59EA==}
+
+  '@types/web-bluetooth@0.0.22':
+    resolution: {integrity: sha512-4O7kU0Ut0irZvFyk3EvgDrzFYBQI80Puhkb65I7eV6WTZX4iOo5zoDrEfjDBRB7x5Stz31csoHO4hAjSiRTALw==}
 
   '@types/ws@8.18.2':
     resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
@@ -1424,6 +1436,10 @@ snapshots:
   '@types/readable-stream@4.0.25':
     dependencies:
       '@types/node': 26.6.6
+
+  '@types/w3c-web-serial@1.0.9': {}
+
+  '@types/web-bluetooth@0.0.22': {}
 
   '@types/ws@8.18.2':
     dependencies:

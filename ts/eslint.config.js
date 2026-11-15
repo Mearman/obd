@@ -54,6 +54,34 @@ export default tseslint.config(
     },
   },
   {
+    // the browser entry point may use DOM globals but no Node module, so it runs in a page.
+    files: ["src/web/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["node:*", "fs", "net", "path", "os", "child_process", "buffer", "stream"],
+              message: "the browser entry point cannot import Node modules.",
+            },
+            {
+              group: ["**/node/**"],
+              message: "the browser entry point never imports the Node entry point.",
+            },
+          ],
+        },
+      ],
+      "no-restricted-globals": [
+        "error",
+        ...["Buffer", "process"].map((name) => ({
+          name,
+          message: "the browser entry point cannot use Node globals.",
+        })),
+      ],
+    },
+  },
+  {
     files: ["eslint.config.js"],
     ...tseslint.configs.disableTypeChecked,
   },
