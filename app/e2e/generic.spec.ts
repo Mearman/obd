@@ -9,7 +9,7 @@ test("a generic OBD-II session connects, scans, runs and keeps unit actions disa
   page,
 }) => {
   await page.goto("/");
-  await expect(page.getByRole("combobox", { name: "Vehicle profile" })).toContainText(
+  await expect(page.getByRole("button", { name: /Vehicle profile/ })).toContainText(
     "Generic OBD-II (no profile)",
   );
   await expect(page.getByText(/It cannot address one control unit/)).toBeVisible();
