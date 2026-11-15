@@ -5,6 +5,7 @@ import {
   decodeShare,
   encodeShare,
   fragmentOfLink,
+  type ObdReportShareData,
   type ScanShareData,
   type ShareEnvelope,
 } from "obd-read";
@@ -118,6 +119,38 @@ describe("the Share dialog on the Scan screen", () => {
     await within(dialog).findByLabelText("Link");
     await userEvent.click(within(dialog).getByRole("button", { name: "Share…" }));
     expect(share).toHaveBeenCalledWith({ title: "obd-read result", url: linkIn(dialog) });
+  });
+});
+
+describe("the Share dialog on a generic OBD-II scan", () => {
+  it("makes an OBD-II report link, removing the VIN by default", async () => {
+    renderApp(<App support={CHROME} />);
+    await userEvent.click(screen.getByRole("button", { name: /connect with the simulator/i }));
+    await screen.findByText("Connected to Simulator");
+    await openTab("Scan");
+    await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
+    await screen.findByRole("table", { name: /Scan of Generic OBD-II/ });
+    await userEvent.click(screen.getByRole("button", { name: "Share scan" }));
+    const dialog = await screen.findByRole("dialog", { name: "Share this scan" });
+
+    const included = await within(dialog).findByRole("list", { name: "What the link contains" });
+    expect(included).toHaveTextContent(
+      /stored codes?, \d+ pending codes? and \d+ permanent codes?/,
+    );
+    expect(included).toHaveTextContent("VIN and calibration identifiers: removed.");
+    const link = (await within(dialog).findByLabelText("Link")).textContent;
+    const redacted = await decodeShare(fragmentOfLink(link) ?? "", streamShareCodec);
+    expect(redacted).toMatchObject({ ok: true, value: { kind: "obd-report" } });
+    expect(JSON.stringify(redacted)).not.toContain(SIMULATED_VIN);
+
+    await userEvent.click(
+      within(dialog).getByRole("switch", { name: /remove the vin and serial numbers/i }),
+    );
+    await waitFor(() => {
+      expect(linkIn(dialog)).not.toBe(link);
+    });
+    const open = await decodeShare(fragmentOfLink(linkIn(dialog)) ?? "", streamShareCodec);
+    expect(JSON.stringify(open)).toContain(SIMULATED_VIN);
   });
 });
 
@@ -247,6 +280,74 @@ describe("a shared link", () => {
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(window.location.hash).toBe("");
     expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(await storage.listScanReports({})).toEqual([]);
+  });
+
+  it("shows an OBD-II report with the existing result components and no Save", async () => {
+    const data: ObdReportShareData = {
+      taken: "2026-11-15T10:00:00+00:00",
+      adapter: { label: "ELM327 v1.5" },
+      redacted: true,
+      obd: {
+        vin: "",
+        units: [
+          {
+            sender: "7E8",
+            lampOn: true,
+            codeCount: 1,
+            stored: ["P0420"],
+            pending: [],
+            permanent: null,
+            readiness: {
+              compressionIgnition: false,
+              complete: ["misfire"],
+              incomplete: ["catalyst"],
+            },
+            freezeFrame: { code: "P0420", values: { "engine speed": "800 rpm" } },
+            misfire: [],
+            calibrationIds: [""],
+          },
+        ],
+        values: [{ sender: "7E8", signal: "engine speed", unit: "rpm", value: 812.5 }],
+        monitorResults: [
+          {
+            sender: "7E8",
+            monitor: "monitor 21",
+            test: "07",
+            scaling: "24",
+            value: 5,
+            minimum: 0,
+            maximum: 3,
+            withinLimits: false,
+          },
+        ],
+        notes: [],
+      },
+    };
+    const envelope: ShareEnvelope = {
+      v: 1,
+      kind: "obd-report",
+      createdAt: Date.UTC(2026, 10, 15, 11, 0, 0),
+      data,
+    };
+    const encoded = await encodeShare(envelope, streamShareCodec);
+    if (!encoded.ok) throw new Error(encoded.error.message);
+    window.location.hash = encoded.value.fragment;
+    const storage = new MemoryStorage();
+    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+
+    expect(await screen.findByRole("heading", { name: "Shared data" })).toBeInTheDocument();
+    expect(screen.getByText("From a link, not your adapter")).toBeInTheDocument();
+    expect(await screen.findByText(/VIN: removed/)).toBeInTheDocument();
+    expect(screen.getByText(/Stored codes: P0420/)).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Live values at the scan" })).toHaveTextContent(
+      "812.5",
+    );
+    expect(screen.getByRole("table", { name: "Monitor test results" })).toHaveTextContent(
+      "Outside limits",
+    );
+    expect(screen.queryByRole("button", { name: "Save this scan" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(await storage.listScanReports({})).toEqual([]);
   });
 

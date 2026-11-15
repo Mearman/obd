@@ -76,6 +76,35 @@ test("a link from a simulator scan opens as read-only shared data in a fresh con
   await receiver.close();
 });
 
+test("a link from a generic OBD-II scan opens as a read-only report without the VIN", async ({
+  browser,
+}) => {
+  const sender = await browser.newContext();
+  const senderPage = await sender.newPage();
+  await senderPage.goto("/");
+  await senderPage.getByRole("button", { name: /connect with the simulator/i }).click();
+  await expect(senderPage.getByText("Connected to Simulator")).toBeVisible();
+  await senderPage.getByRole("tab", { name: "Scan" }).click();
+  await senderPage.getByRole("button", { name: "Start scan" }).click();
+  await expect(senderPage.getByText(/VIN: SIMULATEDCAR00001/)).toBeVisible();
+  await senderPage.getByRole("button", { name: "Share scan" }).click();
+  const dialog = senderPage.getByRole("dialog", { name: "Share this scan" });
+  await expect(dialog.getByText(/characters$/)).toBeVisible();
+  const link = await dialog.getByLabel("Link", { exact: true }).innerText();
+  await sender.close();
+
+  const receiver = await browser.newContext();
+  const page = await receiver.newPage();
+  await page.goto(link);
+  await expect(page.getByRole("heading", { name: "Shared data" })).toBeVisible();
+  await expect(page.getByText("From a link, not your adapter")).toBeVisible();
+  await expect(page.getByText("VIN: removed")).toBeVisible();
+  await expect(page.getByRole("table", { name: "Live values at the scan" })).toBeVisible();
+  expect(await page.locator("body").innerText()).not.toContain(VIN);
+  await expect(page.getByRole("button", { name: "Save this scan" })).toHaveCount(0);
+  await receiver.close();
+});
+
 test("Dismiss writes nothing and clears the address", async ({ browser }) => {
   const sender = await browser.newContext();
   const link = await shareLinkOfSimulatorScan(await sender.newPage(), false);
