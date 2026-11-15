@@ -2,7 +2,7 @@
 
 Read a car's diagnostics through an ELM327-style adapter, from a Node command line or from an installable, offline, responsive web app (a PWA), with software you can read and change.
 
-`obd-read` talks to the control units behind the diagnostic socket: it reads their identification, stored fault codes and freeze frames. It can also clear a unit's fault codes, after saving what it is about to erase, and send a coding or adaptation write or an actuator test that you supply byte for byte, under the safeguards in [Writes and actuator tests](#writes-and-actuator-tests). It is read-only by default: every request passes one guard, and it has no security access, flashing or programming and no setting that adds them. The TopScan route (TOPDON's proprietary dongle) is not supported; [issue 3](https://github.com/Mearman/obd/issues/3) records what driving one would take.
+`obd-read` talks to the control units behind the diagnostic socket: it reads their identification, stored fault codes and freeze frames. It can also clear a unit's fault codes, after saving what it is about to erase, and send a coding or adaptation write or an actuator test that you supply byte for byte, under the safeguards in [Writes and actuator tests](#writes-and-actuator-tests). Reads are the default: every request passes one guard, which refuses anything else without a single-use token. Security access, flashing and programming are not implemented. The TopScan route (TOPDON's proprietary dongle) is not supported; [issue 3](https://github.com/Mearman/obd/issues/3) records what driving one would take.
 
 ## What it needs
 
