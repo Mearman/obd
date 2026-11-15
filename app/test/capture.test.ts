@@ -52,7 +52,7 @@ describe("ErrorStore", () => {
 
   it("describes a thrown value that is not an error without keeping it", () => {
     const store = new ErrorStore();
-    store.capture("rejection", { secret: "WDB2110202B121724" }, false);
+    store.capture("rejection", { secret: "WDB2110200A000000" }, false);
     expect(captured(store)).toMatchObject({ name: "NonError", message: "a object was thrown" });
     store.capture("rejection", "text", false);
     expect(captured(store)).toMatchObject({ name: "NonError", message: "text" });
@@ -117,7 +117,7 @@ describe("observeClient", () => {
       seen.push([name, outcome]);
     });
     await client.link.status();
-    await expect(client.scan.run({ secret: "WDB2110202B121724" })).rejects.toBeInstanceOf(
+    await expect(client.scan.run({ secret: "WDB2110200A000000" })).rejects.toBeInstanceOf(
       ORPCError,
     );
     await expect(client.runs.start()).rejects.toBeInstanceOf(TypeError);

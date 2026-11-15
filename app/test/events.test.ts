@@ -55,7 +55,7 @@ describe("EventLog", () => {
   it("drops an operation whose name is not a procedure path, so text cannot enter by it", () => {
     const log = new EventLog();
     for (const name of [
-      "WDB2110202B121724",
+      "WDB2110200A000000",
       "scan run",
       "a.b.c.d.e",
       "/Users/me/file.json",

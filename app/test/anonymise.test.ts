@@ -234,8 +234,8 @@ describe("scrubText: what is kept", () => {
   });
 
   it("scrubs identifiers in a name that is code", () => {
-    expect(scrubIdentifiers("decodeWDB2110202B121724")).toContain("decode");
-    expect(scrubIdentifiers("decodeWDB2110202B121724")).not.toContain("WDB2110202B121724");
+    expect(scrubIdentifiers("decodeWDB2110200A000000")).toContain("decode");
+    expect(scrubIdentifiers("decodeWDB2110200A000000")).not.toContain("WDB2110200A000000");
     expect(scrubName("TypeError")).toBe("TypeError");
     expect(scrubName("my error with spaces")).toBe("Error");
   });
@@ -302,8 +302,8 @@ describe("scrubStack", () => {
   });
 
   it("scrubs a function name that carries a VIN", () => {
-    const stack = "    at read_WDB2110202B121724 (https://example.test/obd/a.js:1:1)";
-    expect(scrubStack(stack, CONTEXT).frames[0]?.name).not.toContain("WDB2110202B121724");
+    const stack = "    at read_WDB2110200A000000 (https://example.test/obd/a.js:1:1)";
+    expect(scrubStack(stack, CONTEXT).frames[0]?.name).not.toContain("WDB2110200A000000");
   });
 });
 

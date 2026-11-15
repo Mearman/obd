@@ -18,7 +18,7 @@ const CONTEXT: ScrubContext = {
   known: ["OBDII Veepeak"],
 };
 
-const VIN = "WDB2110202B121724";
+const VIN = "WDB2110200A000000";
 
 const ENVIRONMENT: ReportEnvironment = {
   version: "1.2.3",

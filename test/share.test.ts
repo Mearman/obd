@@ -938,7 +938,7 @@ describe("a run export", () => {
 
 describe("redactVinShapes", () => {
   it("replaces VIN-shaped words in either case and leaves other text", () => {
-    expect(redactVinShapes("car WDB2110202B121724 failed")).toBe("car [redacted] failed");
+    expect(redactVinShapes("car WDB2110200A000000 failed")).toBe("car [redacted] failed");
     expect(redactVinShapes("car wdb2110202b121724 failed", "[vin]")).toBe("car [vin] failed");
   });
 
@@ -949,6 +949,6 @@ describe("redactVinShapes", () => {
   it("leaves seventeen-letter words, seventeen digits and longer runs alone", () => {
     expect(redactVinShapes("ABCDEFGHJKLMNPRST")).toBe("ABCDEFGHJKLMNPRST");
     expect(redactVinShapes("12345678901234567")).toBe("12345678901234567");
-    expect(redactVinShapes("WDB2110202B121724X")).toBe("WDB2110202B121724X");
+    expect(redactVinShapes("WDB2110200A000000X")).toBe("WDB2110200A000000X");
   });
 });

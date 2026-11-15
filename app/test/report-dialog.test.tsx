@@ -7,7 +7,7 @@ import { appLog } from "../src/report/events";
 import { ReportDialog, REPORT_FILE_NAME } from "../src/report/ReportDialog";
 import { NEW_ISSUE_URL } from "../src/report/repository";
 
-const VIN = "WDB2110202B121724";
+const VIN = "WDB2110200A000000";
 
 const ERROR: CapturedError = {
   source: "window",
