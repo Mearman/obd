@@ -14,6 +14,8 @@ export interface GuardedOperationProps {
   /** The dialog's title. */
   readonly title: string;
   readonly disabled?: boolean;
+  /** The id of the element that says why the button is disabled, so assistive technology reads the reason with it. */
+  readonly describedBy?: string | undefined;
   /** Sends the request call; nothing that changes the car is sent by it. */
   readonly request: () => Promise<GuardedRequestData>;
   /** Sends the confirming call with the id the request returned. */
@@ -37,6 +39,7 @@ export function GuardedOperation({
   label,
   title: heading,
   disabled,
+  describedBy,
   request,
   confirm,
   onDone,
@@ -79,7 +82,11 @@ export function GuardedOperation({
   const open = stage.kind === "asking" || stage.kind === "finished";
   return (
     <>
-      <Button disabled={disabled === true || stage.kind !== "idle"} onClick={() => void ask()}>
+      <Button
+        disabled={disabled === true || stage.kind !== "idle"}
+        {...(describedBy === undefined ? {} : { "aria-describedby": describedBy })}
+        onClick={() => void ask()}
+      >
         {stage.kind === "requesting" ? "Reading the car…" : label}
       </Button>
       {problem !== undefined && (

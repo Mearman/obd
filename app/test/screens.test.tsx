@@ -1,10 +1,11 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { builtinProfileData } from "obd-read/profiles";
-import { MemoryStorage, simulatorUrl } from "obd-read";
+import { GENERIC_SIMULATOR_URL, MemoryStorage, simulatorUrl } from "obd-read";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import type { BrowserSupport } from "../src/connect/support";
+import { failureMessage } from "../src/diagnostics/client";
 import { applyThemePreference } from "../src/theme/preference";
 import { createTestService, renderApp } from "./render";
 
@@ -81,7 +82,14 @@ describe("Connect screen", () => {
   });
 });
 
-async function connectSimulator(): Promise<void> {
+/** Picks a vehicle profile on the Connect screen; the default is generic OBD-II. */
+async function chooseProfile(name: string): Promise<void> {
+  await userEvent.click(screen.getByRole("combobox", { name: "Vehicle profile" }));
+  await userEvent.click(await screen.findByRole("option", { name }));
+}
+
+async function connectSimulator(profile?: string): Promise<void> {
+  if (profile !== undefined) await chooseProfile(profile);
   await userEvent.click(screen.getByRole("button", { name: /connect with the simulator/i }));
   await screen.findByText("Connected to Simulator");
 }
@@ -96,7 +104,7 @@ describe("Scan", () => {
     await openTab("Scan");
     expect(screen.getByRole("button", { name: "Start scan" })).toBeDisabled();
     await openTab("Connect");
-    await connectSimulator();
+    await connectSimulator("mercedes-w211");
     await openTab("Scan");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
     expect(await screen.findByRole("table", { name: /Scan of mercedes-w211/ })).toBeInTheDocument();
@@ -106,7 +114,7 @@ describe("Scan", () => {
   it("clears a unit's codes only after the second step", async () => {
     const service = createTestService();
     renderApp(<App support={CHROME} />, service);
-    await connectSimulator();
+    await connectSimulator("mercedes-w211");
     await openTab("Scan");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
     await userEvent.click(await screen.findByRole("button", { name: "Clear engine codes" }));
@@ -129,7 +137,7 @@ describe("Scan", () => {
   it("sends nothing when the request is cancelled, and frees the adapter", async () => {
     const service = createTestService();
     renderApp(<App support={CHROME} />, service);
-    await connectSimulator();
+    await connectSimulator("mercedes-w211");
     await openTab("Scan");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
     await userEvent.click(await screen.findByRole("button", { name: "Clear engine codes" }));
@@ -143,7 +151,7 @@ describe("Scan", () => {
 
   it("shows the guard's refusal of a request that is not a write", async () => {
     renderApp(<App support={CHROME} />);
-    await connectSimulator();
+    await connectSimulator("mercedes-w211");
     await openTab("Scan");
     await userEvent.type(screen.getByLabelText("Write request (hexadecimal)"), "10 03");
     await userEvent.type(screen.getByLabelText("Read request for the same value"), "21 99");
@@ -254,5 +262,104 @@ describe("Settings screen", () => {
     });
     applyThemePreference("system", document.documentElement);
     expect(document.documentElement.dataset.theme).toBeUndefined();
+  });
+});
+
+describe("Generic OBD-II (no profile)", () => {
+  it("is the first option and the default, with a line saying what it can and cannot do", async () => {
+    renderApp(<App support={CHROME} />);
+    const select = screen.getByRole("combobox", { name: "Vehicle profile" });
+    expect(select).toHaveTextContent("Generic OBD-II (no profile)");
+    expect(screen.getByText(/It cannot address one control unit/)).toBeInTheDocument();
+    await userEvent.click(select);
+    const options = await screen.findAllByRole("option");
+    expect(options[0]).toHaveTextContent("Generic OBD-II (no profile)");
+    expect(options.length).toBeGreaterThan(1);
+    await userEvent.click(screen.getByRole("option", { name: "mercedes-w211" }));
+    expect(screen.queryByText(/It cannot address one control unit/)).not.toBeInTheDocument();
+  });
+
+  it("connects the simulator without a profile and names the connection as generic", async () => {
+    const service = createTestService();
+    renderApp(<App support={CHROME} />, service);
+    await connectSimulator();
+    expect(screen.getByText(/Profile: Generic OBD-II \(no profile\)/)).toBeInTheDocument();
+    expect(await service.client.link.status()).toMatchObject({ profile: null, simulated: true });
+  });
+
+  it("scans the legislated services and shows the OBD report in the existing table", async () => {
+    renderApp(<App support={CHROME} />);
+    await connectSimulator();
+    await openTab("Scan");
+    await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
+    const table = await screen.findByRole("table", { name: /Scan of Generic OBD-II/ });
+    expect(within(table).getByText("Emissions control unit 7E8")).toBeInTheDocument();
+    expect(within(table).getByText("Faults stored")).toBeInTheDocument();
+    expect(await screen.findByText(/VIN: SIMULATEDCAR00001/)).toBeInTheDocument();
+    expect(screen.getByText(/Stored codes: P0420/)).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Live values at the scan" })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Monitor test results" })).toBeInTheDocument();
+  });
+
+  it("disables every unit-level action with the reason, and leaves the emissions clear enabled", async () => {
+    renderApp(<App support={CHROME} />);
+    await connectSimulator();
+    await openTab("Scan");
+    await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
+    await screen.findByRole("table", { name: /Scan of Generic OBD-II/ });
+
+    const reason = /needs a vehicle profile/;
+    for (const name of ["Write a value", "Run an actuator test", "Clear 7E8 codes"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAccessibleDescription(reason);
+    }
+    expect(screen.getByLabelText("Unit to change")).toBeDisabled();
+    expect(screen.getByLabelText("Write request (hexadecimal)")).toBeDisabled();
+    expect(screen.getByLabelText("Actuator start request (hexadecimal)")).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Clear every emissions code (mode 04)" }),
+    ).toBeEnabled();
+  });
+
+  it("clears every emissions code only after the second step", async () => {
+    const service = createTestService();
+    renderApp(<App support={CHROME} />, service);
+    await connectSimulator();
+    await openTab("Scan");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Clear every emissions code (mode 04)" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: /Clear emissions codes/ });
+    expect(dialog).toHaveTextContent("Nothing has been sent to the car yet");
+    expect(dialog).toHaveTextContent(/stored codes from 7E8: P0420/);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send to the car" }));
+    expect(await within(dialog).findByText("Done.")).toBeInTheDocument();
+    expect((await service.client.scan.run({})).obd?.units[0]?.stored).toEqual([]);
+  });
+
+  it("collects the legislated values in a run listed under the generic name", async () => {
+    renderApp(<App support={CHROME} />);
+    await connectSimulator();
+    await openTab("Live");
+    expect(screen.getByText(/This connection has no profile/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Start collecting" }));
+    expect(await screen.findByText("engine speed")).toBeInTheDocument();
+    await openTab("Runs");
+    const table = await screen.findByRole("table", { name: "Collection runs" });
+    expect(within(table).getByText("Generic OBD-II (no profile)")).toBeInTheDocument();
+    await openTab("Live");
+    await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
+  });
+
+  it("renders a profile-only refusal as one line, never a crash", async () => {
+    const service = createTestService();
+    await service.client.link.connect({ adapter: GENERIC_SIMULATOR_URL });
+    const refusal = await service.client.units
+      .faults({ unit: "engine" })
+      .catch((error: unknown) => error);
+    const message = failureMessage(refusal, "The request failed.");
+    expect(message).toMatch(/^reading one unit needs a vehicle profile/);
+    expect(message).not.toContain("\n");
   });
 });

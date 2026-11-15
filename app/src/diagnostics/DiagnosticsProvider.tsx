@@ -10,7 +10,6 @@ import {
   type ReactNode,
 } from "react";
 import { adapterUrl } from "../connect/adapters";
-import { useProfiles } from "../profiles/ProfilesProvider";
 import { DiagnosticsError, type AdapterKind, type AppService } from "./client";
 import { useWakeLock } from "./useWakeLock";
 
@@ -31,9 +30,9 @@ export interface DiagnosticsContextValue {
   readonly service: AppService;
   /** The open connection, or undefined when disconnected. */
   readonly connection: Connection | undefined;
-  /** The profile the next connection is made with. */
-  readonly profile: string;
-  readonly setProfile: (profile: string) => void;
+  /** The profile the next connection is made with, or undefined for a generic OBD-II connection. */
+  readonly profile: string | undefined;
+  readonly setProfile: (profile: string | undefined) => void;
   /** Opens a connection from a click; rejects with a message fit to show. */
   readonly connect: (kind: AdapterKind, showAllBluetoothDevices: boolean) => Promise<void>;
   /** Stops any collection run, then closes the connection. */
@@ -68,9 +67,8 @@ export function DiagnosticsProvider({
   readonly children: ReactNode;
 }) {
   const { client } = service;
-  const { names } = useProfiles();
   const [connection, setConnection] = useState<Connection | undefined>(undefined);
-  const [profile, setProfile] = useState(names[0] ?? "");
+  const [profile, setProfile] = useState<string | undefined>(undefined);
   const [collection, setCollection] = useState<CollectionView>(IDLE);
   const [runsVersion, setRunsVersion] = useState(0);
   const runId = collection.run?.id;
@@ -146,12 +144,13 @@ export function DiagnosticsProvider({
 
   const connect = useCallback(
     async (kind: AdapterKind, showAll: boolean) => {
-      if (profile === "") throw new DiagnosticsError("Choose a vehicle profile first.");
       const adapter = adapterUrl(kind, profile, showAll);
       // The picker needs the click's user activation, so it is the first await.
       if (kind === "webbluetooth") await service.devices.prepare(adapter);
       if (kind === "webserial") await client.adapters.grant(await service.devices.chooseSerial());
-      setConnection(await client.link.connect({ profile, adapter }));
+      setConnection(
+        await client.link.connect({ ...(profile === undefined ? {} : { profile }), adapter }),
+      );
     },
     [client, profile, service],
   );
@@ -171,7 +170,12 @@ export function DiagnosticsProvider({
 
   const startCollection = useCallback(async () => {
     if (connection === undefined) throw new DiagnosticsError("Connect an adapter first.");
-    track(await client.runs.start({ profile: connection.profile, adapter: connection.adapter }));
+    track(
+      await client.runs.start({
+        ...(connection.profile === null ? {} : { profile: connection.profile }),
+        adapter: connection.adapter,
+      }),
+    );
   }, [client, connection, track]);
 
   const resumeCollection = useCallback(

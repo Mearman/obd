@@ -9,6 +9,7 @@ export interface TextFieldProps {
   readonly placeholder?: string;
   /** Inputmode hint for the on-screen keyboard. */
   readonly inputMode?: "text" | "numeric";
+  readonly disabled?: boolean;
 }
 
 /** A labelled single-line text input with a 44 px touch target. */
@@ -18,6 +19,7 @@ export function TextField({
   onValueChange,
   placeholder,
   inputMode = "text",
+  disabled,
 }: TextFieldProps) {
   const id = useId();
   return (
@@ -34,6 +36,7 @@ export function TextField({
         autoCapitalize="off"
         spellCheck={false}
         {...(placeholder === undefined ? {} : { placeholder })}
+        {...(disabled === undefined ? {} : { disabled })}
         onChange={(event) => {
           onValueChange(event.currentTarget.value);
         }}

@@ -65,6 +65,12 @@ export function LiveScreen() {
         {collection.lastError !== null && collection.state !== "collecting" && (
           <p className={muted}>{collection.lastError}</p>
         )}
+        {connection?.profile === null && (
+          <p className={muted}>
+            This connection has no profile, so a run collects the legislated values the car says it
+            supports.
+          </p>
+        )}
         <p className={muted}>{COLLECTION_LIMIT}</p>
       </Card>
       {problem !== undefined && (
