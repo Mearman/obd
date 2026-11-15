@@ -1,5 +1,5 @@
 /**
- * The parity scenarios: what `scripts/record_golden.py` ran against the Python command line, and what the TypeScript command line is run against. `scenarios.json` is authored once and read by both sides; the golden files hold what Python printed.
+ * The parity scenarios: what the Python command line was recorded doing (see `test/golden/README.md`), and what the TypeScript command line is run against. `scenarios.json` lists the scenarios; the golden files hold what Python printed.
  */
 
 import { readFileSync } from "node:fs";

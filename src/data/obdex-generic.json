@@ -1,5 +1,5 @@
 {
-  "notes": "Generic OBD-II fault-code titles (English), from OBDex: https://github.com/foerbsnavi/OBDex\nLicence of the data: CC0 1.0 (LICENSE-DATA in that repository).\nSource: https://foerbsnavi.github.io/OBDex/generic.min.json retrieved 2026-11-14; repository head then 9ba1ffa095f3140d9e21b985b322ddea3134bb60.\nRebuild with scripts/vendor_obdex.py. One code and its title per line, separated by a tab.",
+  "notes": "Generic OBD-II fault-code titles (English), from OBDex: https://github.com/foerbsnavi/OBDex\nLicence of the data: CC0 1.0 (LICENSE-DATA in that repository).\nSource: https://foerbsnavi.github.io/OBDex/generic.min.json retrieved 2026-11-14; repository head then 9ba1ffa095f3140d9e21b985b322ddea3134bb60.\nRebuild with scripts/vendor-obdex.ts.",
   "titles": {
     "B0001": "Driver Frontal Stage 1 Deployment Control",
     "B0002": "Driver Frontal Stage 2 Deployment Control",

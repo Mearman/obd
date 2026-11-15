@@ -1,7 +1,7 @@
 /**
  * Parity: the TypeScript command line against what the Python command line printed.
  *
- * Every scenario in `test/golden/scenarios.json` is run on the scripted adapter the Python recorder used, with the clock frozen as it was frozen there, and its standard output, standard error, exit status, written files and broker traffic must equal the golden record. The only rewriting is in `normalise.ts`.
+ * Every scenario in `test/golden/scenarios.json` is run on the scripted adapter the goldens were recorded against, with the clock frozen as it was frozen there, and its standard output, standard error, exit status, written files and broker traffic must equal the golden record. The only rewriting is in `normalise.ts`.
  */
 
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";

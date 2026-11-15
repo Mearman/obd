@@ -1,5 +1,5 @@
 /**
- * Builds, from a scenario's car, the scripted adapter the TypeScript command line is run against. `scripts/record_golden.py` builds the same cars for Python; the two must behave alike.
+ * Builds, from a scenario's car, the scripted adapter the TypeScript command line is run against. The cars match those the goldens were recorded against.
  */
 
 import {
