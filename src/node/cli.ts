@@ -75,7 +75,7 @@ import {
 import { discoverCommand } from "../core/discovery.js";
 import { clearCodesCommand } from "../core/obd-clear.js";
 import { obdCommand, obdScanCommand } from "../core/obd-report.js";
-import { obdReportDocument } from "../core/share.js";
+import { describeLinkLength, obdReportDocument } from "../core/share.js";
 import { OptionError } from "../core/options.js";
 import {
   PASSWORD_VARIABLE,
@@ -495,14 +495,15 @@ async function shareCommand(io: CliIo, args: ParsedArgs): Promise<number> {
   const text = isGzip(bytes)
     ? captureText(readCaptureFile(bytes, report))
     : new TextDecoder().decode(bytes);
-  io.out(
-    await shareDocumentLink(text, report, {
-      base: args.text("base"),
-      codec: zlibShareCodec,
-      redactVin: args.flag("redactVin"),
-      createdAt: Date.now(),
-    }),
-  );
+  const made = await shareDocumentLink(text, report, {
+    base: args.text("base"),
+    codec: zlibShareCodec,
+    redactVin: args.flag("redactVin"),
+    createdAt: Date.now(),
+  });
+  io.out(made);
+  // The link alone goes to standard output, so it can be piped or redirected whole.
+  io.err(`${describeLinkLength(made.length)}\n`);
   return 0;
 }
 

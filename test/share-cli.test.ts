@@ -3,7 +3,8 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { decodeShare, fragmentOfLink } from "../src/core/share.js";
+import { decodeShare, describeLinkLength, fragmentOfLink } from "../src/core/share.js";
+import { readCaptureFile } from "../src/core/capture-file.js";
 import { parseAdapterUrl } from "../src/core/transport.js";
 import { run, type CliIo } from "../src/node/cli.js";
 import { zlibShareCodec } from "../src/node/share-codec.js";
@@ -102,10 +103,13 @@ async function decoded(link: string | undefined) {
 
 describe("share", () => {
   it("prints a link under the default app address that carries the scan without its transcript", async () => {
-    const { status, lines } = await share(["share", "scan.json"]);
+    const { status, lines, errors } = await share(["share", "scan.json"]);
     expect(status).toBe(0);
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatch(/^https:\/\/mearman\.github\.io\/obd\/#share=1\./);
+    expect(lines[0]).toMatch(/^https:\/\/mearman\.github\.io\/obd\/#share=2\./);
+    expect(errors).toEqual([
+      `the link is ${String(lines[0]?.length)} characters, within the 2000 that chat apps and mail clients keep whole\n`,
+    ]);
     const envelope = await decoded(lines[0]);
     expect(envelope.kind).toBe("scan");
     const text = JSON.stringify(envelope);
@@ -122,7 +126,7 @@ describe("share", () => {
       "http://localhost:4173/",
     ]);
     expect(status).toBe(0);
-    expect(lines[0]).toMatch(/^http:\/\/localhost:4173\/#share=1\./);
+    expect(lines[0]).toMatch(/^http:\/\/localhost:4173\/#share=2\./);
     expect(JSON.stringify(await decoded(lines[0]))).not.toContain(VIN);
   });
 
@@ -250,9 +254,19 @@ describe("a capture from the recorded car", () => {
       const { directory, output } = await imported(compress);
       const link = await share(["share", output], undefined, directory);
       expect(link.status, output).toBe(0);
+      expect(link.lines[0]).toMatch(/#share=2\./);
+      expect(link.errors).toEqual([`${describeLinkLength(link.lines[0]?.length ?? 0)}\n`]);
       const envelope = await decoded(link.lines[0]);
       expect(envelope.kind).toBe("capture");
       if (envelope.kind !== "capture") continue;
+      const file = readCaptureFile(readFileSync(join(directory, output)), output);
+      expect(envelope.data.capture).toEqual({
+        ...file,
+        sessions: file.sessions.map((session) => ({
+          ...session,
+          adapter: { ...session.adapter, url: null },
+        })),
+      });
       expect(envelope.data.redacted).toBe(false);
       expect(envelope.data.capture.exchanges.length).toBeGreaterThan(0);
       expect(envelope.data.capture.sessions.every((session) => session.adapter.url === null)).toBe(
