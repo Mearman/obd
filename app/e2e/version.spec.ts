@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { readReleasedVersion } from "../app-version";
 
 const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },
@@ -9,10 +9,7 @@ const VIEWPORTS = [
 /** The smallest touch target, in CSS pixels. */
 const MIN_TARGET = 44;
 
-const parsed: unknown = JSON.parse(readFileSync("../package.json", "utf8"));
-const version =
-  typeof parsed === "object" && parsed !== null && "version" in parsed ? parsed.version : undefined;
-if (typeof version !== "string") throw new Error("The root package.json has no version.");
+const version = readReleasedVersion();
 
 for (const viewport of VIEWPORTS) {
   test.describe(viewport.name, () => {
