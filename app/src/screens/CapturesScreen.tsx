@@ -4,7 +4,9 @@ import { CaptureViewer } from "../captures/CaptureViewer";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { profileTitle } from "../profiles/generic";
-import { Badge, Button, Card, DataTable, type Column } from "../ui";
+import { OriginBadge } from "../origin/OriginBadge";
+import { ALL_ORIGINS, ORIGIN_FILTER_OPTIONS, originQuery } from "../origin/origins";
+import { Badge, Button, Card, DataTable, Select, type Column } from "../ui";
 import { error, list, muted, page, row } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
 
@@ -30,17 +32,24 @@ export function CapturesScreen({
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [unrecovered, setUnrecovered] = useState<readonly string[]>([]);
   const [version, setVersion] = useState(0);
+  const [shown, setShown] = useState(ALL_ORIGINS);
+  // The open capture's origin, read from the unfiltered list so the viewer's badge never depends on the filter.
+  const [origins, setOrigins] = useState<ReadonlyMap<string, CaptureSummary["origin"]>>(new Map());
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const live = { active: true };
-    void client.captures.list({}).then((listed) => {
-      if (live.active) setCaptures(listed);
-    });
+    void Promise.all([client.captures.list(originQuery(shown)), client.captures.list({})]).then(
+      ([listed, every]) => {
+        if (!live.active) return;
+        setCaptures(listed);
+        setOrigins(new Map(every.map((capture) => [capture.id, capture.origin])));
+      },
+    );
     return () => {
       live.active = false;
     };
-  }, [client, version, open]);
+  }, [client, version, open, shown]);
 
   const act = useCallback(async (work: () => Promise<unknown>, failure: string) => {
     setProblem(undefined);
@@ -77,10 +86,10 @@ export function CapturesScreen({
     { header: "Exchanges", render: (capture) => String(capture.exchanges) },
     { header: "Addresses", render: (capture) => String(capture.units.length) },
     {
-      header: "Kind",
+      header: "Origin",
       render: (capture) => (
         <span className={row}>
-          <Badge>{capture.kind === "import" ? "Imported" : "Captured"}</Badge>
+          <OriginBadge origin={capture.origin} />
           {!capture.complete && <Badge tone="warning">Incomplete</Badge>}
         </span>
       ),
@@ -149,8 +158,18 @@ export function CapturesScreen({
           {problem}
         </p>
       )}
+      <Select
+        label="Show captures"
+        value={shown}
+        options={ORIGIN_FILTER_OPTIONS}
+        onValueChange={setShown}
+      />
       {captures?.length === 0 && (
-        <p className={muted}>No captures yet. Capture from Connect or Scan, or import a file.</p>
+        <p className={muted}>
+          {shown === ALL_ORIGINS
+            ? "No captures yet. Capture from Connect or Scan, or import a file."
+            : "No captures of this origin."}
+        </p>
       )}
       {captures !== undefined && captures.length > 0 && (
         <DataTable
@@ -164,6 +183,7 @@ export function CapturesScreen({
         <CaptureViewer
           key={open}
           id={open}
+          origin={origins.get(open)}
           onClose={() => {
             onOpen(undefined);
           }}

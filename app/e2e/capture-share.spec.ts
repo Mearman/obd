@@ -78,6 +78,9 @@ test("a raw capture link re-decodes under the chosen profile in a fresh context 
   expect(page.url()).not.toContain("share=");
   await expect(page.getByRole("tablist")).toBeVisible();
   expect(await storedCaptures(page)).toHaveLength(1);
+  await page.getByRole("tab", { name: "Captures" }).click();
+  const listed = page.getByRole("table", { name: "Captures" });
+  await expect(listed.getByText("Shared", { exact: true })).toBeVisible();
   await receiver.close();
 });
 

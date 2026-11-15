@@ -182,7 +182,9 @@ describe("the Share dialog on the Runs screen", () => {
     const included = await within(dialog).findByRole("list", { name: "What the link contains" });
     expect(included).toHaveTextContent("1 signal with count, minimum, maximum and mean");
     expect(within(dialog).queryByRole("switch")).not.toBeInTheDocument();
-    const result = await decodeShare(fragmentOfLink(linkIn(dialog)) ?? "", streamShareCodec);
+    // The link is made after the contents are listed, so wait for it rather than read it at once.
+    const link = (await within(dialog).findByLabelText("Link")).textContent;
+    const result = await decodeShare(fragmentOfLink(link) ?? "", streamShareCodec);
     expect(
       result.ok && result.value.kind === "run-summary" && result.value.data.signals[0],
     ).toMatchObject({
@@ -270,6 +272,7 @@ describe("a shared link", () => {
       profile: "mercedes-w211",
       adapter: "shared://link",
       label: "Shared scan",
+      origin: "shared",
     });
     const saved = await storage.getScanReport(summary?.id ?? "");
     expect(saved?.report).toMatchObject({ tool: "obd-read", origin: "shared", transcript: [] });
@@ -352,6 +355,17 @@ describe("a shared link", () => {
     expect(screen.queryByRole("button", { name: "Save this scan" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(await storage.listScanReports({})).toEqual([]);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Save this read" })).toBeEnabled();
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Save this read" }));
+    expect(await screen.findByText("Saved the shared OBD-II read")).toBeInTheDocument();
+    const [summary, ...others] = await storage.listScanReports({});
+    expect(others).toEqual([]);
+    expect(summary).toMatchObject({ label: "Shared OBD-II read", origin: "shared" });
+    const saved = await storage.getScanReport(summary?.id ?? "");
+    expect(saved?.report).toMatchObject({ format: "obd-report", origin: "shared", obd: data.obd });
   });
 
   it("says why a link that is not valid cannot be opened", async () => {
@@ -361,7 +375,7 @@ describe("a shared link", () => {
     expect(screen.queryByRole("button", { name: "Save this scan" })).not.toBeInTheDocument();
   });
 
-  it("shows a run summary, which cannot be saved as a run", async () => {
+  it("shows a run summary and keeps it only on Save, as a stopped shared run of the readings it carries", async () => {
     const envelope: ShareEnvelope = {
       v: 1,
       kind: "run-summary",
@@ -397,11 +411,37 @@ describe("a shared link", () => {
     const result = await encodeShare(envelope, streamShareCodec);
     if (!result.ok) throw new Error(result.error.message);
     window.location.hash = result.value.fragment;
-    renderApp(<App support={CHROME} />);
+    const storage = new MemoryStorage();
+    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     const table = await screen.findByRole("table", { name: "Shared run signals" });
     expect(table).toHaveTextContent("engine speed (rpm)");
     expect(within(table).getByRole("img", { name: "Trend of engine speed" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save this scan" })).not.toBeInTheDocument();
+    expect(await storage.listRuns({})).toEqual([]);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Save this run" })).toBeEnabled();
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Save this run" }));
+    expect(await screen.findByText("Saved the shared run")).toBeInTheDocument();
+    const [run, ...others] = await storage.listRuns({});
+    expect(others).toEqual([]);
+    expect(run).toMatchObject({
+      profile: "mercedes-w211",
+      adapter: "ble://vLinker",
+      startedAt: 1_790_000_000_000,
+      stoppedAt: 1_790_000_002_000,
+      origin: "shared",
+    });
+    expect(
+      (await storage.readSamples({ runId: run?.id ?? "" })).map((sample) => sample.value),
+    ).toEqual([700, 800, 900]);
+
+    // A shared run is listed as shared and offers no Resume, since nothing more can be collected into it.
+    await userEvent.click(screen.getByRole("tab", { name: "Runs" }));
+    const runs = await screen.findByRole("table", { name: "Collection runs" });
+    expect(within(runs).getByText("Shared")).toBeInTheDocument();
+    expect(within(runs).queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
   });
 
   it("decodes a shared capture with the profile chosen in the selector, live, and writes nothing", async () => {
@@ -487,7 +527,7 @@ describe("a shared link", () => {
     expect(window.location.hash).toBe("");
     const [stored, ...others] = await storage.listCaptures({});
     expect(others).toEqual([]);
-    expect(stored?.id).toBe(capture.id);
+    expect(stored).toMatchObject({ id: capture.id, origin: "shared" });
     expect((await storage.getCapture(capture.id))?.sessions[0]?.adapter.url).toBeNull();
 
     window.location.hash = await captureFragment(capture);

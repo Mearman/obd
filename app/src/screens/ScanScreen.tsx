@@ -14,6 +14,7 @@ import { PROFILE_REQUIRED_REASON, profileTitle } from "../profiles/generic";
 import { GuardedOperation } from "./GuardedOperation";
 import { ObdReport } from "./ObdReport";
 import { error, muted, page, row, stack } from "./screen.css";
+import { SavedReports } from "./SavedReports";
 import { ScanResultsTable } from "./ScanResults";
 import { ScreenHeading } from "./ScreenHeading";
 import { ShareDialog } from "../share/ShareDialog";
@@ -240,6 +241,7 @@ export function ScanScreen({ onCaptured }: { readonly onCaptured?: (id: string) 
           </div>
         </div>
       </Card>
+      <SavedReports refresh={scanned?.takenAt} />
     </div>
   );
 }

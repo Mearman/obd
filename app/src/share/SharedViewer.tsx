@@ -1,8 +1,6 @@
 import {
   decodeShare,
-  sharedScanReport,
   unitReportOf,
-  type CaptureShareData,
   type ObdReportShareData,
   type RunSummaryShareData,
   type ScanShareData,
@@ -16,7 +14,7 @@ import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
 import { error, muted, page, row, title as headingStyle, heading } from "../screens/screen.css";
 import { Badge, Button, Card, DataTable } from "../ui";
 import { SharedCaptureView } from "./SharedCaptureView";
-import type { SavedShare } from "./saved";
+import { KIND_NAMES, NotSaved, SAVE_LABELS, saveShared, type SavedShare } from "./saved";
 import { sparkline } from "./SharedViewer.css";
 
 /** How the viewer's decoding went. */
@@ -149,7 +147,7 @@ function RunView({ data }: { readonly data: RunSummaryShareData }) {
 /**
  * A read-only view of the result a link carries, labelled as shared data that did not come from the connected adapter.
  *
- * The data is decoded and validated here and shown; it is never written to storage unless the user presses Save (a scan, kept as a saved scan report marked `origin: "shared"`, or a capture, kept as a capture), and it never goes to the diagnostics service, the guard or an adapter: this component reads the database to save and, for a capture, to read an imported profile it is decoded with.
+ * The data is decoded and validated here and shown; it is never written to storage unless the user presses Save, which keeps every kind marked `origin: "shared"` ({@link saveShared}), and it never goes to the diagnostics service, the guard or an adapter: this component reads the database to save and, for a capture, to read an imported profile it is decoded with.
  */
 export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
   const { state } = useDatabase();
@@ -172,41 +170,20 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
     };
   }, [fragment]);
 
-  async function save(envelope: ShareEnvelope & { readonly kind: "scan" }): Promise<void> {
+  async function save(envelope: ShareEnvelope): Promise<void> {
     if (state.status !== "ready") return;
     setSaving(true);
     setProblem(undefined);
     try {
-      const taken = Date.parse(envelope.data.taken);
-      await state.storage.saveScanReport({
-        profile: envelope.data.profile.name,
-        adapter: "shared://link",
-        takenAt: Number.isNaN(taken) ? envelope.createdAt : taken,
-        label: "Shared scan",
-        report: sharedScanReport(envelope.data),
-      });
-      onDone("scan");
-    } catch {
+      await saveShared(state.storage, envelope);
+      onDone(envelope.kind);
+    } catch (caught) {
       setSaving(false);
-      setProblem("The scan could not be saved.");
-    }
-  }
-
-  async function saveCapture(data: CaptureShareData): Promise<void> {
-    if (state.status !== "ready") return;
-    setSaving(true);
-    setProblem(undefined);
-    try {
-      if ((await state.storage.getCapture(data.capture.id)) !== undefined) {
-        setSaving(false);
-        setProblem(`A capture with the id ${data.capture.id} is already stored on this device.`);
-        return;
-      }
-      await state.storage.saveCapture(data.capture);
-      onDone("capture");
-    } catch {
-      setSaving(false);
-      setProblem("The capture could not be saved.");
+      setProblem(
+        caught instanceof NotSaved
+          ? caught.message
+          : `The ${KIND_NAMES[envelope.kind]} could not be saved.`,
+      );
     }
   }
 
@@ -243,22 +220,13 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
         />
       )}
       <div className={row}>
-        {envelope?.kind === "scan" && (
+        {envelope !== undefined && (
           <Button
             variant="primary"
             disabled={state.status !== "ready" || saving}
             onClick={() => void save(envelope)}
           >
-            Save this scan
-          </Button>
-        )}
-        {envelope?.kind === "capture" && (
-          <Button
-            variant="primary"
-            disabled={state.status !== "ready" || saving}
-            onClick={() => void saveCapture(envelope.data)}
-          >
-            Save this capture
+            {SAVE_LABELS[envelope.kind]}
           </Button>
         )}
         <Button
@@ -269,11 +237,11 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
           Dismiss
         </Button>
       </div>
-      {(envelope?.kind === "scan" || envelope?.kind === "capture") && state.status !== "ready" && (
+      {envelope !== undefined && state.status !== "ready" && (
         <p className={muted}>
           {state.status === "opening"
-            ? `The database is opening, so the ${envelope.kind} cannot be saved yet.`
-            : `The database is not available, so the ${envelope.kind} cannot be saved.`}
+            ? `The database is opening, so the ${KIND_NAMES[envelope.kind]} cannot be saved yet.`
+            : `The database is not available, so the ${KIND_NAMES[envelope.kind]} cannot be saved.`}
         </p>
       )}
     </div>
