@@ -16,6 +16,7 @@ import { Badge, Button, DataTable, Select, download, type Column } from "../ui";
 import { error, muted, page, row } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
 import { ShareDialog } from "../share/ShareDialog";
+import { RunGraphs } from "./RunGraphs";
 
 /** A stored run with the number of samples it holds. */
 interface RunRow {
@@ -50,6 +51,7 @@ export function RunsScreen() {
   const [rows, setRows] = useState<readonly RunRow[] | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [shown, setShown] = useState(ALL_ORIGINS);
+  const [graphed, setGraphed] = useState<Run | undefined>(undefined);
   const collectingId = collection.run?.id;
 
   useEffect(() => {
@@ -129,6 +131,14 @@ export function RunsScreen() {
               Stop
             </Button>
           )}
+          <Button
+            aria-pressed={graphed?.id === run.id}
+            onClick={() => {
+              setGraphed(graphed?.id === run.id ? undefined : run);
+            }}
+          >
+            View graphs
+          </Button>
           <ShareDialog
             label="Share"
             title="Share this run's summary"
@@ -180,6 +190,16 @@ export function RunsScreen() {
           columns={columns}
           rows={rows}
           rowKey={({ run }) => run.id}
+        />
+      )}
+      {graphed !== undefined && (
+        <RunGraphs
+          key={graphed.id}
+          client={client}
+          run={graphed}
+          onClose={() => {
+            setGraphed(undefined);
+          }}
         />
       )}
     </div>

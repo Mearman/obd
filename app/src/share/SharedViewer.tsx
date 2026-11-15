@@ -10,6 +10,7 @@ import {
 import { streamShareCodec } from "obd-read/web";
 import { useEffect, useRef, useState } from "react";
 import { useDatabase } from "../database/DatabaseProvider";
+import { LineChart } from "../charts";
 import { useAutoSaveShared } from "../settings/auto-save-shared";
 import { ObdReport } from "../screens/ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
@@ -18,7 +19,6 @@ import { Badge, Button, Card, DataTable } from "../ui";
 import { fragmentDigest, recordAutoSaved, wasAutoSaved } from "./auto-saved";
 import { SharedCaptureView } from "./SharedCaptureView";
 import { KIND_NAMES, NotSaved, SAVE_LABELS, saveShared, type SavedShare } from "./saved";
-import { sparkline } from "./SharedViewer.css";
 
 /** How the viewer's decoding went. */
 type Decoded =
@@ -40,34 +40,21 @@ function utc(milliseconds: number): string {
 
 function Sparkline({
   name,
+  unit,
   points,
 }: {
   readonly name: string;
+  readonly unit: string;
   readonly points: RunSummaryShareData["signals"][number]["series"];
 }) {
   if (points.length < 2) return "-";
-  const times = points.map(([time]) => time);
-  const values = points.map(([, value]) => value);
-  const left = Math.min(...times);
-  const span = Math.max(1, Math.max(...times) - left);
-  const low = Math.min(...values);
-  const range = Math.max(Number.EPSILON, Math.max(...values) - low);
-  const path = points
-    .map(
-      ([time, value]) =>
-        `${(((time - left) / span) * 100).toFixed(1)},${(30 - ((value - low) / range) * 28 - 1).toFixed(1)}`,
-    )
-    .join(" ");
   return (
-    <svg
-      className={sparkline}
-      viewBox="0 0 100 30"
-      role="img"
-      aria-label={`Trend of ${name}`}
-      preserveAspectRatio="none"
-    >
-      <polyline points={path} fill="none" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-    </svg>
+    <LineChart
+      variant="compact"
+      name={name}
+      unit={unit}
+      points={points.map(([t, v]) => ({ t, v }))}
+    />
   );
 }
 
@@ -137,7 +124,9 @@ function RunView({ data }: { readonly data: RunSummaryShareData }) {
           { header: "Mean", render: (signal) => String(signal.mean ?? "-") },
           {
             header: "Trend",
-            render: (signal) => <Sparkline name={signal.signal} points={signal.series} />,
+            render: (signal) => (
+              <Sparkline name={signal.signal} unit={signal.unit} points={signal.series} />
+            ),
           },
         ]}
         rows={data.signals}
