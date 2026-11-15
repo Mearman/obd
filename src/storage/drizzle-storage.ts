@@ -7,8 +7,12 @@
 import { and, asc, avg, count, desc, eq, gte, inArray, lt, max, min, type SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { createSelectSchema } from "drizzle-orm/zod";
+import { validateCapture, type Capture } from "../core/capture.js";
+import { compressCapture, readCaptureFile } from "../core/capture-file.js";
 import {
   StorageError,
+  captureSummary,
+  captureSummarySchema,
   jsonSchema,
   newRunSchema,
   newScanReportSchema,
@@ -19,6 +23,8 @@ import {
   signalAggregateSchema,
   storedProfileSchema,
   type AggregateQuery,
+  type CaptureQuery,
+  type CaptureSummary,
   type NewRun,
   type NewScanReport,
   type Run,
@@ -34,7 +40,7 @@ import {
 } from "../core/storage.js";
 import { proxyExecutors, type SqlExecutor } from "./executor.js";
 import { applyMigrations } from "./migrate.js";
-import { profiles, runs, samples, scanReports } from "./schema.js";
+import { captureUnits, captures, profiles, runs, samples, scanReports } from "./schema.js";
 
 /**
  * Rows stored per INSERT. Each sample binds six parameters, and SQLite refuses a statement binding more than 32,766 of them, so a batch is split well below that.
@@ -274,6 +280,105 @@ export class DrizzleStorage implements Storage {
     return this.serial(async () => {
       const rows = await this.db.select().from(profiles).orderBy(asc(profiles.name));
       return rows.map((row) => profileRow.parse(row));
+    });
+  }
+
+  saveCapture(capture: Capture): Promise<CaptureSummary> {
+    return this.serial(async () => {
+      const summary = captureSummary(validateCapture(capture, "capture"));
+      const [existing] = await this.db
+        .select({ id: captures.id })
+        .from(captures)
+        .where(eq(captures.id, summary.id));
+      if (existing !== undefined) {
+        throw new StorageError("conflict", `a capture ${summary.id} is stored already`);
+      }
+      await this.db.transaction(async (tx) => {
+        await tx.insert(captures).values({
+          id: summary.id,
+          startedAt: summary.startedAt,
+          endedAt: summary.endedAt,
+          kind: summary.kind,
+          profile: summary.profile,
+          complete: summary.complete ? 1 : 0,
+          description: summary.description,
+          adapter: summary.adapter,
+          exchanges: summary.exchanges,
+          document: compressCapture(capture),
+        });
+        for (let start = 0; start < summary.units.length; start += INSERT_ROWS) {
+          await tx.insert(captureUnits).values(
+            summary.units.slice(start, start + INSERT_ROWS).map((unit, offset) => ({
+              captureId: summary.id,
+              position: start + offset,
+              ...unit,
+            })),
+          );
+        }
+      });
+      return summary;
+    });
+  }
+
+  getCapture(id: string): Promise<Capture | undefined> {
+    return this.serial(async () => {
+      const [row] = await this.db
+        .select({ document: captures.document })
+        .from(captures)
+        .where(eq(captures.id, id));
+      return row === undefined ? undefined : readCaptureFile(row.document, `stored capture ${id}`);
+    });
+  }
+
+  listCaptures(query: CaptureQuery = {}): Promise<CaptureSummary[]> {
+    return this.serial(async () => {
+      const rows = await this.db
+        .select({
+          id: captures.id,
+          startedAt: captures.startedAt,
+          endedAt: captures.endedAt,
+          kind: captures.kind,
+          profile: captures.profile,
+          complete: captures.complete,
+          description: captures.description,
+          adapter: captures.adapter,
+          exchanges: captures.exchanges,
+        })
+        .from(captures)
+        .orderBy(desc(captures.startedAt), desc(captures.id))
+        .limit(query.limit ?? Number.MAX_SAFE_INTEGER)
+        .offset(query.offset ?? 0);
+      if (rows.length === 0) return [];
+      const units = await this.db
+        .select()
+        .from(captureUnits)
+        .where(
+          inArray(
+            captureUnits.captureId,
+            rows.map((row) => row.id),
+          ),
+        )
+        .orderBy(asc(captureUnits.captureId), asc(captureUnits.position));
+      return rows.map((row) =>
+        captureSummarySchema.parse({
+          ...row,
+          complete: row.complete === 1,
+          units: units
+            .filter((unit) => unit.captureId === row.id)
+            .map(({ address, label, exchanges, answered }) => ({
+              address,
+              label,
+              exchanges,
+              answered,
+            })),
+        }),
+      );
+    });
+  }
+
+  deleteCapture(id: string): Promise<void> {
+    return this.serial(async () => {
+      await this.db.delete(captures).where(eq(captures.id, id));
     });
   }
 
