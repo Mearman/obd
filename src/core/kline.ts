@@ -72,6 +72,14 @@ export class KLineElm extends Elm {
     this.bus = bus;
     await this.require(`ATSP${KLINE_SCHEMES[bus.scheme].protocol}`);
     this.initialised = false;
+    this.setState({
+      bus: {
+        kind: "kline",
+        scheme: bus.scheme,
+        tester: bus.tester,
+        headerFormat: bus.headerFormat,
+      },
+    });
   }
 
   private selected(): KLineBus {
@@ -96,6 +104,9 @@ export class KLineElm extends Elm {
       `ATSH${hexNumber(bus.headerFormat, 2)}${hexNumber(requestId, 2)}${hexNumber(bus.tester, 2)}`,
     );
     this.initialised = false;
+    this.setState({
+      address: { mode: "physical", requestId, responseId: null, extendedAddress: null },
+    });
   }
 
   /**
@@ -106,6 +117,7 @@ export class KLineElm extends Elm {
   override addressFunctional(): Promise<void> {
     this.selected();
     this.initialised = false;
+    this.setState({ address: { mode: "functional", requestId: null } });
     return Promise.resolve();
   }
 
@@ -130,7 +142,10 @@ export class KLineElm extends Elm {
    * @throws ElmError for an adapter error, an unreadable reply or a request longer than the adapter
    * sends.
    */
-  override async request(permit: Permit, timeoutMs = 8000): Promise<Map<number, Uint8Array[]>> {
+  protected override async send(
+    permit: Permit,
+    timeoutMs: number,
+  ): Promise<Map<number, Uint8Array[]>> {
     const payload = permit.payload;
     if (payload.length > MAX_SINGLE_FRAME) {
       throw new ElmError(

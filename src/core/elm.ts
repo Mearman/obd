@@ -1,9 +1,10 @@
 /** An ELM327 session: adapter set-up, addressing and one request with its replies. */
 
 import { asciiDecode, asciiEncode, byteAt, fromHex, hexNumber, toUpperHex } from "./bytes.js";
-import type { Permit } from "./guard.js";
+import type { ExchangeAddress, ExchangeBus, ExchangeOutcome } from "./exchange.js";
+import type { DiagProtocol, Permit } from "./guard.js";
 import { now } from "./time.js";
-import { TransportTimeout, type Transport } from "./transport.js";
+import { TransportError, TransportTimeout, type Transport } from "./transport.js";
 
 /** The byte the adapter ends every reply with: ">". */
 export const PROMPT = 0x3e;
@@ -201,6 +202,56 @@ function quotedList(lines: readonly string[]): string {
   return `[${lines.map(quoted).join(", ")}]`;
 }
 
+/** The bus and addressing a session's next request goes out with. */
+export interface LinkState {
+  readonly bus: ExchangeBus;
+  readonly address: ExchangeAddress;
+}
+
+/** One request a session sent and what came back, as an {@link ExchangeObserver} is told it. */
+export interface ObservedExchange extends LinkState {
+  readonly protocol: DiagProtocol;
+  /** The request bytes, service byte first. */
+  readonly request: Uint8Array;
+  readonly outcome: ExchangeOutcome;
+}
+
+/** Told of every request a session sends, after its outcome is known. */
+export type ExchangeObserver = (exchange: ObservedExchange) => void;
+
+/**
+ * The outcome a request's replies or failure amount to, or `undefined` for a failure that is neither the adapter's nor the link's (a bug), which is not recorded.
+ */
+export function outcomeOf(
+  result:
+    { readonly replies: ReadonlyMap<number, readonly Uint8Array[]> } | { readonly error: unknown },
+): ExchangeOutcome | undefined {
+  if ("replies" in result) {
+    return {
+      kind: "replies",
+      replies: Array.from(result.replies, ([sender, messages]) => ({
+        sender,
+        messages: messages.map(toUpperHex),
+      })),
+    };
+  }
+  const { error } = result;
+  if (error instanceof NoResponse) return { kind: "no-response", message: error.message };
+  if (error instanceof AdapterUnsupported) {
+    return { kind: "adapter-error", error: "AdapterUnsupported", message: error.message };
+  }
+  if (error instanceof ElmError) {
+    return { kind: "adapter-error", error: "ElmError", message: error.message };
+  }
+  if (error instanceof TransportTimeout) {
+    return { kind: "transport-error", error: "TransportTimeout", message: error.message };
+  }
+  if (error instanceof TransportError) {
+    return { kind: "transport-error", error: "TransportError", message: error.message };
+  }
+  return undefined;
+}
+
 /** Options for an {@link Elm}. */
 export interface ElmOptions {
   /** Where the conversation is recorded. Default: a new {@link Transcript} nobody else holds. */
@@ -221,6 +272,9 @@ export class Elm {
   private stn = false;
   private requestId: number | undefined;
   private extendedAddress: number | undefined;
+  private linkBus: ExchangeBus = null;
+  private linkAddress: ExchangeAddress = null;
+  private readonly observers = new Set<ExchangeObserver>();
 
   constructor(
     private readonly link: Transport,
@@ -240,6 +294,31 @@ export class Elm {
   /** The record of everything sent to and received from the adapter. */
   get transcript(): Transcript {
     return this.log;
+  }
+
+  /** The bus and addressing the next request goes out with. */
+  get state(): LinkState {
+    return { bus: this.linkBus, address: this.linkAddress };
+  }
+
+  /**
+   * Sets the bus and addressing the session records requests with, for a subclass whose adapter commands are its own (K-line) or that has no adapter (a replayed capture).
+   */
+  protected setState(state: Partial<LinkState>): void {
+    if (state.bus !== undefined) this.linkBus = state.bus;
+    if (state.address !== undefined) this.linkAddress = state.address;
+  }
+
+  /**
+   * Tells `observer` of every request sent from now on, with its outcome.
+   *
+   * @returns A function that stops telling it.
+   */
+  observe(observer: ExchangeObserver): () => void {
+    this.observers.add(observer);
+    return () => {
+      this.observers.delete(observer);
+    };
   }
 
   /**
@@ -363,6 +442,7 @@ export class Elm {
     }
     this.idBits = idBits;
     this.bitrate = bitrate;
+    this.linkBus = { kind: "can", idBits, bitrate };
   }
 
   private async selectStnRate(idBits: 11 | 29, bitrate: number): Promise<void> {
@@ -478,6 +558,12 @@ export class Elm {
     );
     await this.require("ATFCSM1");
     await this.setExtendedAddress(extendedAddress);
+    this.linkAddress = {
+      mode: "physical",
+      requestId,
+      responseId,
+      extendedAddress: extendedAddress ?? null,
+    };
     if (this.stn) {
       // Transmit segmentation (STPX) waits for the unit's flow-control frame, which the adapter
       // recognises only for a registered (tester identifier, unit identifier) pair; the defaults
@@ -499,6 +585,21 @@ export class Elm {
     await this.require("ATAR");
     await this.require("ATFCSM0");
     await this.setExtendedAddress(undefined);
+    this.linkAddress = { mode: "functional", requestId };
+  }
+
+  /**
+   * Directs requests to `requestId` on an 11-bit bus and accepts a reply from any sender, so a sweep learns which identifier a unit answers from instead of assuming it. Flow control for a multi-frame reply goes back on `requestId`.
+   */
+  async addressAnyReply(requestId: number): Promise<void> {
+    const id = hexNumber(requestId, 3);
+    await this.require(`ATSH${id}`);
+    await this.require("ATAR");
+    await this.require(`ATFCSH${id}`);
+    await this.require("ATFCSD300000");
+    await this.require("ATFCSM1");
+    this.requestId = requestId;
+    this.linkAddress = { mode: "any-reply", requestId };
   }
 
   /**
@@ -560,6 +661,8 @@ export class Elm {
    * refuses. Under extended addressing each reply frame's leading tester address is removed before
    * reassembly.
    *
+   * Every observer ({@link observe}) is told the request, the bus and addressing it went out with and its outcome, including a failure the adapter or the link reported, before this returns or throws.
+   *
    * @param timeoutMs How long to wait for the adapter's prompt, in milliseconds.
    * @throws NoResponse when no unit answers.
    * @throws ElmError for an adapter error, an unreadable reply, or a request too long for the
@@ -567,6 +670,33 @@ export class Elm {
    * @throws AdapterUnsupported when an STN adapter rejects STPX.
    */
   async request(permit: Permit, timeoutMs = 8000): Promise<Map<number, Uint8Array[]>> {
+    if (this.observers.size === 0) return this.send(permit, timeoutMs);
+    const sent = { ...this.state, protocol: permit.protocol, request: permit.payload };
+    let replies: Map<number, Uint8Array[]>;
+    try {
+      replies = await this.send(permit, timeoutMs);
+    } catch (error) {
+      this.tell(sent, outcomeOf({ error }));
+      throw error;
+    }
+    this.tell(sent, outcomeOf({ replies }));
+    return replies;
+  }
+
+  private tell(
+    sent: Omit<ObservedExchange, "outcome">,
+    outcome: ExchangeOutcome | undefined,
+  ): void {
+    if (outcome === undefined) return;
+    for (const observer of this.observers) observer({ ...sent, outcome });
+  }
+
+  /**
+   * Sends one guarded request and returns each sender's reply messages: the work behind {@link request}, which a session for another bus or a replay overrides.
+   *
+   * @throws NoResponse, ElmError and AdapterUnsupported as {@link request} documents.
+   */
+  protected async send(permit: Permit, timeoutMs: number): Promise<Map<number, Uint8Array[]>> {
     const payload = permit.payload;
     // A link that segments in software (a raw CAN link) takes any length up to its limit as a plain
     // request line; otherwise a request over one frame needs the STN STPX command.
