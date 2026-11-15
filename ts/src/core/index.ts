@@ -4,3 +4,5 @@ export * from "./testing/memory-snapshot-store.js";
 export * from "./bytes.js";
 export * from "./guard.js";
 export * from "./elm.js";
+export * from "./can.js";
+export * from "./isotp.js";
