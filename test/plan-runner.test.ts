@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  CODE_LIST_SIGNALS,
+  FAULT_SIGNALS,
   DiagProtocol,
   Elm,
   FUNCTIONAL_REQUEST_ID,
@@ -9,6 +9,7 @@ import {
   PLAN_PHASE_SIGNAL,
   PlanRunner,
   adapterTransport,
+  faultEvents,
   parsePlan,
   planPhases,
   simulatedLiveCar,
@@ -389,13 +390,19 @@ describe("the plan runner", () => {
     );
     expect(changes).toEqual(["code-appeared pending P0300", "code-cleared stored P0420"]);
     const stored = samples
-      .filter((sample) => sample.signal === CODE_LIST_SIGNALS.stored)
+      .filter((sample) => sample.signal === FAULT_SIGNALS.stored)
       .map((sample) => sample.value);
     expect(stored).toEqual(["P0420", "none"]);
     const pending = samples
-      .filter((sample) => sample.signal === CODE_LIST_SIGNALS.pending)
+      .filter((sample) => sample.signal === FAULT_SIGNALS.pending)
       .map((sample) => sample.value);
     expect(pending).toEqual(["none", "P0300"]);
+    // The collection runs' reader finds the same changes in the plan's samples.
+    expect(
+      faultEvents(samples)
+        .filter((event) => !event.atStart)
+        .map((event) => `${event.change} ${event.list} ${event.code}`),
+    ).toEqual(["appeared pending P0300", "disappeared stored P0420"]);
   });
 
   it("ends a phase when a code appears, comparing against the lists when the wait began", async () => {
