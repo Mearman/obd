@@ -17,6 +17,8 @@ import {
 import { decodeCapture, decodedLines, type DecodeTarget } from "./decode.js";
 import { DefinitionError, readDefinitions } from "./definitions.js";
 import { formatValue } from "./legislated.js";
+import { RunImportError, runTableDocument } from "./run-export.js";
+import { TabularError } from "./tabular.js";
 import type { ObdScan } from "./obd-scan.js";
 import {
   ScanFileError,
@@ -194,7 +196,7 @@ export interface ShareLinkParams {
 }
 
 /**
- * The link that shares a saved document: a scan report (`scan --output`), a generic OBD-II read (`obd --output`), a run's JSON export or a capture document (`capture --output`, `import-capture --output`, uncompressed); `path` labels it in errors.
+ * The link that shares a saved document: a scan report (`scan --output`), a generic OBD-II read (`obd --output`), a run's JSON, CSV or TSV export or a capture document (`capture --output`, `import-capture --output`, uncompressed); `path` labels it in errors.
  *
  * Throws {@link ShareLinkError} when the text is neither, or when the link would pass a size limit.
  */
@@ -204,8 +206,22 @@ export async function shareDocumentLink(
   params: ShareLinkParams,
 ): Promise<string> {
   let document: unknown;
+  if (/\.(?:csv|tsv)$/i.test(path)) {
+    try {
+      document = runTableDocument(text, {
+        profile: "imported-file",
+        adapter: `file ${path}`,
+        notes: "",
+      });
+    } catch (error) {
+      if (error instanceof RunImportError || error instanceof TabularError) {
+        throw new ShareLinkError(`${path}: ${error.message}`);
+      }
+      throw error;
+    }
+  }
   try {
-    document = JSON.parse(text);
+    document ??= JSON.parse(text);
   } catch (error) {
     if (error instanceof SyntaxError) throw new ShareLinkError(`${path}: ${error.message}`);
     throw error;

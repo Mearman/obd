@@ -10,6 +10,7 @@ import { createInterface } from "node:readline";
 import { resolve } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import { CsvLog, type CsvSink } from "../core/csvlog.js";
+import type { Dialect } from "../core/tabular.js";
 import type { LogSink } from "../core/monitor.js";
 import type { OpenCsvLog } from "../core/openlog.js";
 import { pythonRepr } from "../core/format.js";
@@ -136,9 +137,9 @@ async function csvFileSink(directory: string, path: string): Promise<CsvSink> {
   };
 }
 
-/** Opens CSV logs as new files named `path` under `directory`, refusing to replace one. */
-export function csvLogOpener(directory: string, path: string): OpenCsvLog {
-  return async (header) => CsvLog.create(await csvFileSink(directory, path), header);
+/** Opens logs in `dialect` as new files named `path` under `directory`, refusing to replace one. */
+export function csvLogOpener(directory: string, path: string, dialect: Dialect): OpenCsvLog {
+  return async (header) => CsvLog.create(await csvFileSink(directory, path), header, dialect);
 }
 
 /** The destination of a monitor log: a new file that is never replaced. */

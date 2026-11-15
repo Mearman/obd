@@ -16,7 +16,20 @@ import {
   identifierSweepSchema,
   type CaptureStep,
 } from "../core/capture-run.js";
-import { decodeCapture, decodedLines, type DecodeTarget } from "../core/decode.js";
+import {
+  decodeCapture,
+  decodedLines,
+  type DecodedCapture,
+  type DecodeTarget,
+} from "../core/decode.js";
+import type { Exchange } from "../core/exchange.js";
+import {
+  DECODED_VALUE_TABLE,
+  EXCHANGE_TABLE,
+  decodedValueRows,
+  exchangeRows,
+} from "../core/tabular-views.js";
+import { renderTable } from "../core/tabular.js";
 import { captureUnits } from "../core/storage.js";
 import { randomSuffix } from "../core/time.js";
 import { toolVersion } from "./version.js";
@@ -80,6 +93,7 @@ import {
   profileCommand,
   type ProfileCommand,
   type ProfileCommandParams,
+  type UnitReport,
 } from "../core/operations.js";
 import { RawCanTransport } from "../core/rawcan.js";
 import { parseScan, ScanFileError } from "../core/scancompare.js";
@@ -104,6 +118,15 @@ import {
 } from "./adapters.js";
 import { HelpRequested, parseCommandLine, UsageError, type ParsedArgs } from "./cli-args.js";
 import { PROGRAM } from "./cli-commands.js";
+import {
+  UNIT_VIEWS,
+  describerOf,
+  obdScanTable,
+  tableRequest,
+  unitReportsTable,
+  withoutTerminator,
+  type TableRequest,
+} from "./cli-tables.js";
 import {
   csvLogOpener,
   fileErrorText,
@@ -724,8 +747,37 @@ async function decodeCommand(io: CliIo, args: ParsedArgs): Promise<number> {
       ? { kind: "generic" }
       : { kind: "profile", profile: await loadProfile(io, profileName) },
   );
-  for (const line of decodedLines(decoded)) io.out(line);
+  const request = tableRequest(args, ["values", "faults", "identification", "exchanges"]);
+  if (request === undefined) {
+    for (const line of decodedLines(decoded)) io.out(line);
+    return 0;
+  }
+  io.out(await decodedTable(io, request, decoded, capture.exchanges, profileName));
   return 0;
+}
+
+/** One table of a decoded capture: its values, fault codes, identification values or raw exchanges. */
+async function decodedTable(
+  io: CliIo,
+  request: TableRequest,
+  decoded: DecodedCapture,
+  exchanges: readonly Exchange[],
+  profileName: string | undefined,
+): Promise<string> {
+  if (request.view === "values") {
+    return withoutTerminator(
+      renderTable(request.format, DECODED_VALUE_TABLE, decodedValueRows(decoded.values, exchanges)),
+    );
+  }
+  if (request.view === "exchanges") {
+    return withoutTerminator(renderTable(request.format, EXCHANGE_TABLE, exchangeRows(exchanges)));
+  }
+  const { names } = await codeNames(io, profileName, []);
+  const describe = describerOf(names, decoded.profile === null);
+  if (decoded.profile === null) {
+    return obdScanTable(request, decoded.obd, describe);
+  }
+  return unitReportsTable(request, decoded.units, describe);
 }
 
 async function importCaptureCommand(io: CliIo, args: ParsedArgs): Promise<number> {
@@ -755,10 +807,28 @@ async function carCommand(io: CliIo, args: ParsedArgs, name: string): Promise<nu
   const kline =
     (name === "obd" && args.optionalText("kline") !== undefined) || profile?.bus.kind === "kline";
   const store = new FileSnapshotStore(io.directory);
+  const table = tableRequest(args, UNIT_VIEWS);
+  if (table !== undefined && args.optionalText("output") !== undefined) {
+    throw new OptionError("--format prints the table instead of writing the report; drop --output");
+  }
+  const csv = args.optionalText("csv");
+  const tsv = args.optionalText("tsv");
+  if (csv !== undefined && tsv !== undefined) {
+    throw new OptionError("--csv and --tsv each write a log; give one");
+  }
+  const openLog =
+    csv !== undefined
+      ? csvLogOpener(io.directory, csv, "csv")
+      : tsv !== undefined
+        ? csvLogOpener(io.directory, tsv, "tsv")
+        : undefined;
+  // A table is machine-readable output, so the lines around it (the adapter, a profile's notes) go to standard error.
+  const note = (line: string): void => {
+    if (table === undefined) io.out(line);
+    else io.err(`${line}\n`);
+  };
   return connected(io, args, kline, async (elm, adapter) => {
-    printAdapter(adapter, io.out);
-    const csv = args.optionalText("csv");
-    const openLog = csv === undefined ? undefined : csvLogOpener(io.directory, csv);
+    printAdapter(adapter, note);
     switch (name) {
       case "capture":
         return captureOnSession(io, args, elm, adapter, profile);
@@ -837,6 +907,12 @@ async function carCommand(io: CliIo, args: ParsedArgs, name: string): Promise<nu
           ...(scheme === undefined ? {} : { kline: scheme }),
         };
         const output = args.optionalText("output");
+        if (table !== undefined) {
+          const scan = await obdScanCommand(elm, options);
+          const { names } = await codeNames(io, undefined, []);
+          io.out(obdScanTable(table, scan, describerOf(names, true)));
+          return 0;
+        }
         if (output === undefined) return obdCommand(elm, options, io.out);
         const scan = await obdScanCommand(elm, options);
         for (const line of describeObdScan(
@@ -858,14 +934,25 @@ async function carCommand(io: CliIo, args: ParsedArgs, name: string): Promise<nu
       }
       default: {
         if (profile === undefined) throw new Error(`${name} needs a profile`);
+        const describe =
+          table === undefined
+            ? undefined
+            : describerOf((await codeNames(io, profileName, [])).names, false);
         const params: ProfileCommandParams = {
           elm,
           adapter,
           profile,
           store,
           files: new FileOutputFiles(io.directory),
-          out: io.out,
+          out: note,
           ask: io.ask,
+          ...(table === undefined || describe === undefined
+            ? {}
+            : {
+                emitUnits: (reports: readonly UnitReport[]) => {
+                  io.out(unitReportsTable(table, reports, describe));
+                },
+              }),
         };
         return profileCommand(profileCommandOf(args), params);
       }

@@ -12,6 +12,7 @@ import { asyncIteratorObject, oc } from "@orpc/contract";
 import { z } from "zod";
 import { captureStatusSchema, startCaptureInputSchema } from "./capture-jobs.js";
 import { obdScanSchema } from "./obd-scan.js";
+import { TABLE_FORMATS } from "./tabular.js";
 import { SCHEMES } from "./transport.js";
 import {
   aggregateQuerySchema,
@@ -66,8 +67,11 @@ export const startRunInputSchema = collectionRequestSchema.extend({
 /** What a caller gives to start a collection run. */
 export type StartRunInput = z.output<typeof startRunInputSchema>;
 
-/** The file formats a run can be exported in. */
-export const EXPORT_FORMATS = ["csv", "json"] as const;
+/** The file formats a run can be exported in: CSV, TSV and JSON. */
+export const EXPORT_FORMATS = TABLE_FORMATS;
+
+/** What a caller gives to import a run: the text of its CSV or TSV export and the file's name for the run's record. */
+export const importRunInputSchema = z.object({ text: z.string(), name: nameSchema });
 
 /** A run exported as a file the caller saves. */
 export const exportedRunSchema = z.object({
@@ -393,10 +397,12 @@ export const diagnosticsContract = {
     samples: oc.input(sampleQuerySchema).output(z.array(sampleSchema)),
     /** Per-signal summaries of a run's samples. */
     aggregate: oc.input(aggregateQuerySchema).output(z.array(signalAggregateSchema)),
-    /** A run as CSV or JSON text for the caller to save. */
+    /** A run as CSV, TSV or JSON text for the caller to save. */
     export: oc
       .input(z.object({ runId: nameSchema, format: z.enum(EXPORT_FORMATS) }))
       .output(exportedRunSchema),
+    /** Keeps a run read from its CSV or TSV export as a stopped run of origin `imported`. Rejects with `BAD_REQUEST` naming the first header column that is not the export's. */
+    import: oc.input(importRunInputSchema).output(runSchema),
   },
   live: {
     /**

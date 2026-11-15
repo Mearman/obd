@@ -182,6 +182,36 @@ export function describeServiceContract(
         });
       }));
 
+    it("exports a run as TSV and reads a CSV or TSV export back as an imported run", () =>
+      withService(async ({ client, collector, clock }) => {
+        const run = await client.runs.start({ profile: "p", adapter: "ble://x" });
+        await collector.sink?.write([
+          { runId: run.id, signal: "battery", unit: "V", timestamp: clock.time, value: 12.5 },
+          { runId: run.id, signal: "note", unit: "", timestamp: clock.time, value: "a\tb" },
+        ]);
+        const tsv = await client.runs.export({ runId: run.id, format: "tsv" });
+        expect(tsv).toMatchObject({
+          filename: `obd-read-run-${run.id}.tsv`,
+          mediaType: "text/tab-separated-values",
+        });
+        expect(tsv.content).toBe(
+          "time\telapsed (s)\tbattery (V)\tnote\n2023-11-14T22:13:20.000Z\t0.000\t12.5\ta\\tb\n",
+        );
+        const imported = await client.runs.import({ text: tsv.content, name: "run.tsv" });
+        expect(imported).toMatchObject({ origin: "imported", adapter: "file run.tsv" });
+        expect(await client.runs.samples({ runId: imported.id })).toMatchObject([
+          { signal: "battery", value: 12.5 },
+          { signal: "note", value: "a\tb" },
+        ]);
+        const refused = await client.runs
+          .import({ text: "when,x\r\n", name: "bad.csv" })
+          .catch((error: unknown) => error);
+        expect(refused).toMatchObject({ code: "BAD_REQUEST" });
+        expect(refused instanceof Error ? refused.message : "").toContain(
+          'column 1 of the header is "when"',
+        );
+      }));
+
     it("streams samples as they are collected, to every subscriber, filtered by run", () =>
       withService(async ({ client, collector, clock }) => {
         const one = await client.runs.start({ profile: "p", adapter: "ble://x" });

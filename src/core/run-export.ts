@@ -1,10 +1,11 @@
 /**
- * Exporting a stored run as CSV or JSON.
+ * Exporting a stored run as CSV, TSV or JSON, and reading a CSV or TSV export back.
  *
- * The CSV has the layout of the live log the Python tool wrote: a `time` column (ISO 8601 with milliseconds, UTC), an `elapsed (s)` column counted from the run's start, then one column per signal titled `signal (unit)`, in the order the signals first appear. A row holds the readings that share a timestamp, and a signal with no reading there is left empty. It goes through {@link CsvLog}, so it is written the way every other log is. This module is platform-free.
+ * The CSV has the layout of the live log the Python tool wrote: a `time` column (ISO 8601 with milliseconds, UTC), an `elapsed (s)` column counted from the run's start, then one column per signal titled `signal (unit)`, in the order the signals first appear. A row holds the readings that share a timestamp, and a signal with no reading there is left empty. It goes through {@link CsvLog}, so it is written the way every other log is, in either delimited dialect. The whole layout is {@link runTable}, so a table added to the export later (events beside the readings) has one place to join. This module is platform-free.
  */
 
 import { CsvLog, type CsvSink } from "./csvlog.js";
+import { parseTable, type Dialect } from "./tabular.js";
 import {
   StorageError,
   runSchema,
@@ -59,7 +60,7 @@ export async function exportRunJson(
   return { format: "obd-read-run", version: 1, run, samples };
 }
 
-function columnTitle(sample: Sample): string {
+function columnTitle(sample: Pick<Sample, "signal" | "unit">): string {
   return sample.unit === "" ? sample.signal : `${sample.signal} (${sample.unit})`;
 }
 
@@ -68,61 +69,236 @@ function cell(value: SampleValue): string {
   return typeof value === "string" ? value : String(Number(value.toPrecision(10)));
 }
 
+/** The two columns every run table starts with, before one column per signal. */
+export const RUN_FIXED_COLUMNS = ["time", "elapsed (s)"] as const;
+
+/** A run's readings laid out as a table: the header, then one row per timestamp. */
+export interface RunTable {
+  readonly header: string[];
+  readonly rows: string[][];
+}
+
 /**
- * Writes a run to `sink` as CSV, one row at a time, and closes the sink.
+ * The layout of a run's table: {@link RUN_FIXED_COLUMNS}, then one column per signal titled `signal (unit)` (or `signal` when it has no unit) in the order the signals first appear. A row holds the readings that share a timestamp, and a signal with no reading there is left empty. Two readings of one signal at one timestamp go on separate rows with the same time, so none is lost.
  *
- * Two readings of one signal at one timestamp go on separate rows with the same time, so none is lost.
- *
- * @throws StorageError `not-found` for an unknown run.
+ * `samples` are in time order.
  */
-export async function exportRunCsv(storage: Storage, runId: string, sink: CsvSink): Promise<void> {
-  const run = await loadRun(storage, runId);
-  const readings: { readonly sample: Sample; readonly column: number }[] = [];
+export function runTable(startedAt: number, samples: readonly Sample[]): RunTable {
   const columns = new Map<string, number>();
-  for await (const sample of samplesOf(storage, runId)) {
+  const readings = samples.map((sample) => {
     const title = columnTitle(sample);
     const column = columns.get(title) ?? columns.size;
     columns.set(title, column);
-    readings.push({ sample, column });
-  }
-  const log = await CsvLog.create(sink, ["time", "elapsed (s)", ...columns.keys()]);
+    return { sample, column };
+  });
+  const rows: string[][] = [];
   let row: (string | undefined)[] = [];
   let rowTime: number | undefined;
-  const flush = async (): Promise<void> => {
+  const flush = (): void => {
     if (rowTime === undefined) return;
-    await log.write([
+    rows.push([
       new Date(rowTime).toISOString(),
-      ((rowTime - run.startedAt) / 1000).toFixed(3),
+      ((rowTime - startedAt) / 1000).toFixed(3),
       ...row.map((value) => value ?? ""),
     ]);
     row = [];
     rowTime = undefined;
   };
   for (const { sample, column } of readings) {
-    if (rowTime !== sample.timestamp || row[column] !== undefined) await flush();
+    if (rowTime !== sample.timestamp || row[column] !== undefined) flush();
     if (rowTime === undefined) {
       rowTime = sample.timestamp;
       row = Array.from({ length: columns.size }, () => undefined);
     }
     row[column] = cell(sample.value);
   }
-  await flush();
+  flush();
+  return { header: [...RUN_FIXED_COLUMNS, ...columns.keys()], rows };
+}
+
+/**
+ * Writes a run to `sink` as CSV or TSV, one row at a time, and closes the sink.
+ *
+ * @throws StorageError `not-found` for an unknown run.
+ */
+export async function exportRunDelimited(
+  storage: Storage,
+  runId: string,
+  sink: CsvSink,
+  dialect: Dialect,
+): Promise<void> {
+  const run = await loadRun(storage, runId);
+  const samples: Sample[] = [];
+  for await (const sample of samplesOf(storage, runId)) samples.push(sample);
+  const table = runTable(run.startedAt, samples);
+  const log = await CsvLog.create(sink, table.header, dialect);
+  for (const row of table.rows) await log.write(row);
   await log.close();
 }
 
 /**
- * A run as CSV text, in the layout {@link exportRunCsv} writes.
+ * A run as CSV or TSV text, in the layout {@link exportRunDelimited} writes.
  *
  * @throws StorageError `not-found` for an unknown run.
  */
-export async function exportRunCsvText(storage: Storage, runId: string): Promise<string> {
+export async function exportRunDelimitedText(
+  storage: Storage,
+  runId: string,
+  dialect: Dialect,
+): Promise<string> {
   let text = "";
-  await exportRunCsv(storage, runId, {
-    write: (chunk) => {
-      text += chunk;
-      return Promise.resolve();
+  await exportRunDelimited(
+    storage,
+    runId,
+    {
+      write: (chunk) => {
+        text += chunk;
+        return Promise.resolve();
+      },
+      close: () => Promise.resolve(),
     },
-    close: () => Promise.resolve(),
-  });
+    dialect,
+  );
   return text;
+}
+
+/** A run's CSV or TSV export that cannot be read back as a run. */
+export class RunImportError extends Error {
+  override name = "RunImportError";
+}
+
+/** The readings of an imported run and when it started. */
+export interface ParsedRun {
+  readonly startedAt: number;
+  readonly samples: readonly Omit<Sample, "runId">[];
+}
+
+const ISO_TIME = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/;
+const NUMBER = /^-?\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i;
+
+/** A title as {@link columnTitle} writes it, back to the signal and its unit. A signal whose own name ends in a parenthesised word and has no unit reads back with that word as the unit. */
+function titleParts(title: string): { readonly signal: string; readonly unit: string } {
+  const match = /^(.+) \(([^()]*)\)$/.exec(title);
+  return match?.[1] === undefined || match[2] === undefined
+    ? { signal: title, unit: "" }
+    : { signal: match[1], unit: match[2] };
+}
+
+function dialectOf(text: string): Dialect {
+  return text.replace(/^\uFEFF/, "").startsWith(`${RUN_FIXED_COLUMNS[0]}\t`) ? "tsv" : "csv";
+}
+
+/**
+ * Reads a run's CSV or TSV export (the layout of {@link runTable}) back into its readings, in the dialect the first header column says: a header starting `time<TAB>` is TSV, any other CSV.
+ *
+ * A cell that is a plain number (digits, an optional fraction and exponent) is a number and any other text a string, so a text reading that looks like a number comes back as one. The run starts at the first row's time less its elapsed seconds.
+ *
+ * @throws RunImportError naming the first column that is not the writer's header, a row of the wrong width, a time or elapsed value that is not the writer's, or a file with no rows.
+ * @throws TabularError for text that is not valid in its dialect.
+ */
+export function parseRunTable(text: string): ParsedRun {
+  const records = parseTable(dialectOf(text), text);
+  const [header, ...rows] = records;
+  if (header === undefined) throw new RunImportError("the file is empty");
+  RUN_FIXED_COLUMNS.forEach((expected, index) => {
+    const found = header[index];
+    if (found !== expected) {
+      throw new RunImportError(
+        `column ${String(index + 1)} of the header is ${found === undefined ? "missing" : `"${found}"`} and a run export has "${expected}" there`,
+      );
+    }
+  });
+  const signals = header.slice(RUN_FIXED_COLUMNS.length).map((title, index) => {
+    const column = RUN_FIXED_COLUMNS.length + index + 1;
+    if (title === "") throw new RunImportError(`column ${String(column)} of the header is empty`);
+    const first = header.indexOf(title);
+    if (first !== column - 1) {
+      throw new RunImportError(
+        `column ${String(column)} of the header repeats column ${String(first + 1)}, "${title}"`,
+      );
+    }
+    return titleParts(title);
+  });
+  let startedAt: number | undefined;
+  const samples: Omit<Sample, "runId">[] = [];
+  rows.forEach((row, index) => {
+    const line = index + 2;
+    if (row.length !== header.length) {
+      throw new RunImportError(
+        `row ${String(line)} has ${String(row.length)} columns and the header has ${String(header.length)}`,
+      );
+    }
+    const [time = "", elapsed = ""] = row;
+    const timestamp = Date.parse(time);
+    if (!ISO_TIME.test(time) || Number.isNaN(timestamp)) {
+      throw new RunImportError(
+        `row ${String(line)} has the time "${time}", which is not an ISO 8601 UTC time with milliseconds`,
+      );
+    }
+    if (!/^-?\d+(?:\.\d+)?$/.test(elapsed)) {
+      throw new RunImportError(
+        `row ${String(line)} has the elapsed time "${elapsed}", which is not a number of seconds`,
+      );
+    }
+    startedAt ??= Math.round(timestamp - Number(elapsed) * 1000);
+    signals.forEach(({ signal, unit }, column) => {
+      const value = row[RUN_FIXED_COLUMNS.length + column];
+      if (value === undefined || value === "") return;
+      samples.push({ signal, unit, timestamp, value: NUMBER.test(value) ? Number(value) : value });
+    });
+  });
+  if (startedAt === undefined) throw new RunImportError("the file has a header and no rows");
+  return { startedAt, samples };
+}
+
+/** What an imported run is recorded under, as the file does not say. */
+export interface ImportedRunDetails {
+  readonly profile: string;
+  readonly adapter: string;
+  readonly notes: string;
+}
+
+/**
+ * Stores a run read from a CSV or TSV export with the origin `imported`, stopped at its last reading. Nothing is stored when a reading is refused.
+ *
+ * @throws RunImportError or TabularError as {@link parseRunTable} does, and StorageError from storage.
+ */
+export async function importRunTable(
+  storage: Storage,
+  text: string,
+  details: ImportedRunDetails,
+): Promise<Run> {
+  const parsed = parseRunTable(text);
+  const run = await storage.createRun({
+    ...details,
+    startedAt: parsed.startedAt,
+    origin: "imported",
+  });
+  try {
+    await storage.appendSamples(parsed.samples.map((sample) => ({ ...sample, runId: run.id })));
+    const stoppedAt = Math.max(
+      parsed.startedAt,
+      ...parsed.samples.map((sample) => sample.timestamp),
+    );
+    return await storage.stopRun(run.id, stoppedAt);
+  } catch (error) {
+    await storage.deleteRun(run.id);
+    throw error;
+  }
+}
+
+/**
+ * The JSON-export document of a run read from a CSV or TSV export, for the commands that take a run's JSON export (sharing).
+ *
+ * @throws RunImportError or TabularError as {@link parseRunTable} does.
+ */
+export function runTableDocument(text: string, details: ImportedRunDetails): RunExport {
+  const parsed = parseRunTable(text);
+  const stoppedAt = Math.max(parsed.startedAt, ...parsed.samples.map((sample) => sample.timestamp));
+  return {
+    format: "obd-read-run",
+    version: 1,
+    run: { id: "imported", ...details, startedAt: parsed.startedAt, stoppedAt, origin: "imported" },
+    samples: parsed.samples.map((sample) => ({ ...sample, runId: "imported" })),
+  };
 }

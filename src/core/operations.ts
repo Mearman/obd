@@ -448,6 +448,8 @@ export interface ProfileCommandParams {
   readonly out: LineSink;
   /** Shows a prompt and returns what the user typed. */
   readonly ask: (prompt: string) => Promise<string>;
+  /** Receives the unit reports a probe, scan or unit read took, in place of the text `printUnit` prints and the answered count; the command then prints nothing else about the units. */
+  readonly emitUnits?: (reports: readonly UnitReport[]) => void;
 }
 
 /**
@@ -468,7 +470,7 @@ export async function profileCommand(
   command: ProfileCommand,
   params: ProfileCommandParams,
 ): Promise<number> {
-  const { elm, adapter, profile, store, files, out, ask } = params;
+  const { elm, adapter, profile, store, files, out, ask, emitUnits } = params;
   await selectBus(elm, profile);
   if (profile.status !== "confirmed") {
     out(`profile ${profile.name}: address table is ${profile.status}`);
@@ -480,9 +482,13 @@ export async function profileCommand(
     const { result: reports } = await readThroughCapture(elm, (session) =>
       scan(session, profile, options),
     );
-    for (const report of reports) printUnit(report, out);
-    const answered = reports.filter((report) => report.answered).length;
-    out(`${String(answered)} of ${String(reports.length)} units answered`);
+    if (emitUnits === undefined) {
+      for (const report of reports) printUnit(report, out);
+      const answered = reports.filter((report) => report.answered).length;
+      out(`${String(answered)} of ${String(reports.length)} units answered`);
+    } else {
+      emitUnits(reports);
+    }
     if (withFaults && command.output !== undefined) {
       if (files === undefined) throw new OptionError("a scan report needs somewhere to write to");
       const saved = scanDocument(profile, adapter, reports, elm.transcript.entries);
@@ -529,7 +535,8 @@ export async function profileCommand(
     const { result: report } = await readThroughCapture(elm, (session) =>
       readUnit(session, profile, unit, options),
     );
-    printUnit(report, out);
+    if (emitUnits === undefined) printUnit(report, out);
+    else emitUnits([report]);
     return report.answered ? 0 : 1;
   }
 

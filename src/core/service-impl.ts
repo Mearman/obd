@@ -60,7 +60,13 @@ import { ImportError, importRecord } from "./capture-import.js";
 import { decodeCapture, decodedLines, type DecodeTarget, type DecodedCapture } from "./decode.js";
 import { decodeAsOf } from "./playback.js";
 import { checkProfile } from "./profile-check.js";
-import { exportRunCsvText, exportRunJson } from "./run-export.js";
+import {
+  RunImportError,
+  exportRunDelimitedText,
+  exportRunJson,
+  importRunTable,
+} from "./run-export.js";
+import { FORMAT_FILES, TabularError } from "./tabular.js";
 import { readSelection, userNotes, withSelection } from "./run-selection.js";
 import { isSimulatorUrl } from "./simulator-host.js";
 import { StorageSnapshotStore } from "./snapshot-store.js";
@@ -241,7 +247,9 @@ function callerError(error: unknown): ORPCError<string, undefined> | undefined {
     error instanceof OptionError ||
     error instanceof AdapterUrlError ||
     error instanceof CaptureError ||
-    error instanceof ImportError
+    error instanceof ImportError ||
+    error instanceof RunImportError ||
+    error instanceof TabularError
   ) {
     return new ORPCError("BAD_REQUEST", { message: error.message });
   }
@@ -273,6 +281,9 @@ function callerError(error: unknown): ORPCError<string, undefined> | undefined {
 }
 
 /** Runs `work`, turning the errors a caller can act on into oRPC errors with the matching code. */
+/** The profile an imported run is stored under, as a run's file does not name one. */
+const IMPORTED_RUN_PROFILE = "imported-file";
+
 async function translated<T>(work: () => Promise<T>): Promise<T> {
   try {
     return await work();
@@ -826,20 +837,32 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       export: os.runs.export.handler(({ input }) =>
         translated(async () => {
           const base = `obd-read-run-${input.runId}`;
-          if (input.format === "csv") {
+          const { extension, mediaType } = FORMAT_FILES[input.format];
+          if (input.format !== "json") {
             return {
-              filename: `${base}.csv`,
-              mediaType: "text/csv",
-              content: await exportRunCsvText(storage, input.runId),
+              filename: `${base}.${extension}`,
+              mediaType,
+              content: await exportRunDelimitedText(storage, input.runId, input.format),
             };
           }
           const exported = await exportRunJson(storage, input.runId);
           return {
-            filename: `${base}.json`,
-            mediaType: "application/json",
+            filename: `${base}.${extension}`,
+            mediaType,
             content: JSON.stringify({ ...exported, run: presented(exported.run) }),
           };
         }),
+      ),
+      import: os.runs.import.handler(({ input }) =>
+        translated(async () =>
+          presented(
+            await importRunTable(storage, input.text, {
+              profile: IMPORTED_RUN_PROFILE,
+              adapter: `file ${input.name}`,
+              notes: "",
+            }),
+          ),
+        ),
       ),
     },
     live: {
