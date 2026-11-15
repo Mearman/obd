@@ -15,6 +15,7 @@ import hondaAcura29bit from "./honda-acura-29bit.json" with { type: "json" };
 import hyundaiKiaGenesis from "./hyundai-kia-genesis.json" with { type: "json" };
 import mazdaSkyactiv from "./mazda-skyactiv.json" with { type: "json" };
 import mercedesMfa from "./mercedes-mfa.json" with { type: "json" };
+import mercedesW169W245 from "./mercedes-w169-w245.json" with { type: "json" };
 import mercedesW203W209 from "./mercedes-w203-w209.json" with { type: "json" };
 import mercedesW204W212 from "./mercedes-w204-w212.json" with { type: "json" };
 import mercedesW211 from "./mercedes-w211.json" with { type: "json" };
@@ -42,6 +43,7 @@ const SHIPPED: ReadonlyMap<string, unknown> = new Map<string, unknown>([
   ["hyundai-kia-genesis", hyundaiKiaGenesis],
   ["mazda-skyactiv", mazdaSkyactiv],
   ["mercedes-mfa", mercedesMfa],
+  ["mercedes-w169-w245", mercedesW169W245],
   ["mercedes-w203-w209", mercedesW203W209],
   ["mercedes-w204-w212", mercedesW204W212],
   ["mercedes-w211", mercedesW211],

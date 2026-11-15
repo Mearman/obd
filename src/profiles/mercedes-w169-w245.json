@@ -1,0 +1,22 @@
+{
+  "notes": "Mercedes-Benz W169 A-Class (2004 to 2012) and W245 B-Class (2005 to 2011), engine only.\n\nThe engine control unit is the one unit any open source places: OBDb's 2011 A 180 capture has 0x7E0 answering service 22 (identifiers 0163, 0168 and 016F) with multi-frame replies on 0x7E8 on 11-bit CAN, and its 2009 capture has 0x7E0 answering OBD mode 01. The 2011 capture is from a diesel car (OBDb names the identifiers boost, exhaust back pressure and diesel particulate filter pressure, and fuel temperature); a petrol engine such as the M266 has a different controller and may answer differently.\n\nProtocol and session: KWP2000 with session 0x92, as in the W211 profile. The basis is Xplatforms/mercedes-hacking-docs chapter 3, which lists the same wake-up frame for the W169 and W245 as for the W211 (ID 0x001C carrying `02 10 92`, a KWP2000 session start); that table is crowd-sourced, it is a broadcast on the interior bus rather than a request to the engine, and no source shows the engine accepting `10 92`, so the session is unverified. The bit rate is the 500 kbit/s that the sources in docs/vehicles/mercedes-benz.md give for CAN-C; OBDb's captures show 11-bit identifiers but do not state the rate, so that is unverified too.\n\nEvery other unit (transmission, ESP, airbags, cluster and the interior bus) is left out: no source gives W169 or W245 addresses for them (issue 88). Treat the engine row as unconfirmed on a given car until `obd-read probe` shows it answering. Sources and their limits are in docs/vehicles/mercedes-compact.md.",
+  "name": "mercedes-w169-w245",
+  "description": "Mercedes-Benz W169 A-Class and W245 B-Class, engine only, KWP2000 over 11-bit CAN",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "kwp2000",
+    "session": 146
+  },
+  "units": {
+    "engine": {
+      "description": "Engine control unit",
+      "request": 2016,
+      "response": 2024,
+      "source": "OBDb: 0x7E0 answering service 22 with replies on 0x7E8 on a 2011 A 180 (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/commands/7E0.7E8.220163.yaml (archived as the raw file https://web.archive.org/web/20261115173245/https://raw.githubusercontent.com/OBDb/Mercedes-Benz-A-180/main/tests/test_cases/2011/commands/7E0.7E8.220163.yaml); https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/command_support.yaml (archived https://web.archive.org/web/20261115171850/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/command_support.yaml)) and answering OBD mode 01 on a 2009 A 180 (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2009/command_support.yaml (archived https://web.archive.org/web/20261115171908/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2009/command_support.yaml)). The 2011 car is a diesel; one source. Not read from a car by this project."
+    }
+  }
+}
