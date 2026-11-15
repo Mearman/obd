@@ -1,0 +1,246 @@
+{
+  "notes": "Toyota and Lexus TNGA and TSS2 cars, about 2016 onwards: Corolla, Yaris, C-HR, RAV4, Prius, Lexus UX, NX, ES and RX. The e-TNGA battery electric cars (bZ4X, Solterra, RZ) are a separate deferred profile.\n\nThe bus is the OBD socket's ISO 15765-4 CAN, 11-bit identifiers at 500 kbit/s. The addresses are facts read from three open sources, recorded with their limits in docs/vehicles/japan-korea.md: the OBDb Toyota and Lexus signalset repositories (CC-BY-SA-4.0, addresses only), commaai/opendbc's Toyota files (MIT), the ScanGauge Gen IV Prius page, an Oguchi Gen 2 Prius PDF and three Priuschat threads. Toyota mixes KWP2000-style services (21, 1A) and UDS (22) from unit to unit, so each unit names its own protocol and session, and the profile's own protocol and session are the UDS default session. Which service a unit takes varies by platform and year, and several units answer both in some OBDb repositories; this profile picks one per unit, and the row's source says what else was found.\n\nUnits with at least three sources agreeing on the address: engine (0x7E0, one source being a Gen 2 car), hybrid-control (0x7D2), combination-meter (0x7C0) and hvac (0x7C4) with four each, hybrid-control-legacy (0x7E2) with four for Gen 2 and Gen 3 cars only, and hv-battery-legacy (0x7E3) with three for Gen 2 cars only. The HV battery unit for TNGA cars (hv-battery, 0x747), the ABS (0x7B0) and the SRS (0x780) have two sources, not three. Every other unit has one or two. This counts agreement among sources, never a reading from a car.\n\nA contradiction is left standing: the Prius Gen 2 PDF, a Gen 2 forum thread and OBDb place the HV battery on 0x7E3, while a Gen III forum thread reads the traction battery temperature with header 7E2. Neither generation is TNGA. For a Gen IV Prius a third placement exists: the ScanGauge battery gauges read the pack values on 0x7D2 with service 22, while OBDb lists 0x747 with cell signals; both rows are in the profile.\n\nLeft out: the 0x750 and 0x758 units addressed by an extended-address byte (TPMS, radar, camera, parking brake, telematics, gateway, body control), because opendbc matches their replies on the unit's own sub-address byte where this tool expects the tester address 0xF1, and because the profile check refuses a response identifier shared by two units; the DSU at 0x791, which belongs to TSS-P cars before TSS2; and the e-TNGA units. No source opened this session says whether a Toyota secure gateway blocks any of these units.\n\nThe identification this tool asks for is not what the sources send: the KWP2000 client sends 1A 86 where opendbc sends 1A 88 01, and the UDS client reads data identifiers F190, F187, F18C and F195 where opendbc reads F181. A unit that refuses is reported in its scan notes, not as an error. Treat every row as unconfirmed until obd-read probe shows the unit answering.",
+  "name": "toyota-tnga",
+  "description": "Toyota and Lexus TNGA and TSS2 cars (about 2016 onwards), mixed KWP2000 and UDS over ISO-TP",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 1
+  },
+  "units": {
+    "engine": {
+      "description": "Engine control unit, service 21 (the engine can also answer on 0x700)",
+      "request": 2016,
+      "response": 2024,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7E0 with response 0x7E8 and service 21 in 12 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): the engine at 0x7e0 in 22 of 39 fingerprinted cars, and 'on some models, the engine can show on two different addresses'; Oguchi's Gen 2 Prius PDF (https://www.oguchi-rd.com/Accomplishment/Automobile/07%20Toyota%20Prius/Parameter%20IDs/Toyota%20Gen%202%20Prius%20PIDs.pdf) sends the generic requests to 07E0 (2004 to 2009 car, not TNGA). Three sources agree on the address. Not read from a car."
+    },
+    "engine-700": {
+      "description": "Engine control unit on the second engine address, service 22",
+      "request": 1792,
+      "response": 1800,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x700 with response 0x708 and service 22 (engine, fuel and battery-voltage signals) in 18 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/fingerprints.py): the engine at 0x700 in 28 of 39 fingerprinted cars. Two sources agree. Not read from a car."
+    },
+    "transmission": {
+      "description": "Transmission control unit, service 21",
+      "request": 2017,
+      "response": 2025,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7E1 with response 0x7E9 and service 21, and its ecu table types it as a transmission in 12 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): lists 0x7e1 as a transmission with the note that a few platforms answer a tester present there. Two sources agree. Not read from a car."
+    },
+    "transmission-701": {
+      "description": "Transmission control unit on the combined-with-engine address, service 22",
+      "request": 1793,
+      "response": 1801,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x701 with response 0x709 and service 22 (transmission speed and shift-state signals) in 12 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): lists 0x701 as a transmission, 'combined with engine on some platforms, such as TSS-P RAV4'. Two sources agree. Not read from a car."
+    },
+    "hybrid-control": {
+      "description": "Hybrid control computer on TNGA hybrids, service 22",
+      "request": 2002,
+      "response": 2010,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7D2 with response 0x7DA and service 22 in 16 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): 'Hybrid control computer can be on 0x7e2 (KWP) or 0x7d2 (UDS) depending on platform'; ScanGauge Gen IV Prius 2016+ X-Gauge list (https://www.scangauge.com/x-gauge-commands/generation-iv-prius-2016/): 15 gauges sent to 7D2 with service 22, including the hybrid battery state of charge, current and voltage; Priuschat Gen IV thread (https://www.priuschat.com/threads/gen-iv-prius-custom-pids-for-torque-app.163271/, post 2489140): a European Gen IV Prius owner reports 7D2 for enquiries and 7DA for answers, and a service 21 request there returns 7F 21 11 (service not supported). Four sources agree on the address and on service 22 over service 21. Not read from a car."
+    },
+    "hybrid-control-legacy": {
+      "description": "Hybrid control computer on earlier hybrids, service 21",
+      "request": 2018,
+      "response": 2026,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7E2 with response 0x7EA and service 21, filtered to 2004 to 2009 in the Prius repository in 4 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): the same comment as for the hybrid-control unit names 0x7e2 as the KWP address; Oguchi's Gen 2 Prius PDF (https://www.oguchi-rd.com/Accomplishment/Automobile/07%20Toyota%20Prius/Parameter%20IDs/Toyota%20Gen%202%20Prius%20PIDs.pdf): drive condition 21D3 and the motor and inverter temperatures 21C3 are sent to 07E2; Priuschat Gen III thread (https://www.priuschat.com/threads/geniii-prius-custom-pids-for-torque-app.98693/page-2): custom PIDs such as 2187 with header 7E2. Four sources agree on the address for Gen 2 and Gen 3 Prius cars; none shows it on a TNGA car, so the row may not answer on one. Not read from a car."
+    },
+    "hv-battery": {
+      "description": "Hybrid battery control unit on TNGA hybrids, service 22",
+      "request": 1863,
+      "response": 1871,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x747 with response 0x74F and service 22 (cell and battery signals) in 14 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): lists the HV battery as answering UDS at 0x713 and 0x747. Two sources agree. A poster in the Priuschat Gen IV thread (https://www.priuschat.com/threads/gen-iv-prius-custom-pids-for-torque-app.163271/) names 747 the battery ECU and attributes that to ScanGauge, but the ScanGauge page (https://www.scangauge.com/x-gauge-commands/generation-iv-prius-2016/) reads the battery values on 7D2 and has no 747 gauge, so that attribution is not counted. Not read from a car."
+    },
+    "hv-battery-legacy": {
+      "description": "Hybrid battery control unit on earlier hybrids, service 21",
+      "request": 2019,
+      "response": 2027,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7E3 with response 0x7EB and service 21, filtered to 2004 to 2009 in the Prius repository in 3 of the 19 Toyota and Lexus repositories read; Oguchi's Gen 2 Prius PDF (https://www.oguchi-rd.com/Accomplishment/Automobile/07%20Toyota%20Prius/Parameter%20IDs/Toyota%20Gen%202%20Prius%20PIDs.pdf): HV battery state of charge 21CE and 21D0 on 07E3; Priuschat Gen 2 thread (https://www.priuschat.com/threads/gen2-prius-custom-pids-for-torque-android-app-with-formulas.95370/page-2): HV battery charge and discharge 21CF with header 7E3. Three sources place the HV battery on 0x7E3. They disagree with the Priuschat Gen III thread (https://www.priuschat.com/threads/geniii-prius-custom-pids-for-torque-app.98693/page-2), whose custom PIDs read the traction battery temperature (2187) with header 7E2. Left unresolved: the generations differ and neither is TNGA. Not read from a car."
+    },
+    "unit-745": {
+      "description": "Unit on 0x745 with HV battery charge signals on plug-in and some hybrid models, identity not named by the source",
+      "request": 1861,
+      "response": 1869,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x745 with response 0x74D and service 22 (a battery charge display signal; RAV4 Prime, Prius Prime, Corolla, RAV4 Hybrid and ES 300h) in 5 of the 19 Toyota and Lexus repositories read. The e-TNGA sibling profile issue names the same pair the on-board charger, which these repositories do not confirm. One source. Not read from a car."
+    },
+    "abs": {
+      "description": "ABS and brake control unit, service 21 on TSS2 cars before the 2023 generations",
+      "request": 1968,
+      "response": 1976,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7B0 with response 0x7B8 and service 21; 16 list service 22 there, and the Lexus NX repositories and the bZ4X list only 22 in 15 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/fingerprints.py): the ABS at 0x7b0 in 39 of 39 fingerprinted cars, queried with the KWP identification request 1A 88 01. Two sources agree on the address. The service is era-dependent: this row uses 21, newer platforms may need uds. Not read from a car."
+    },
+    "unit-7b1": {
+      "description": "Chassis unit on 0x7B1 with wheel-speed and torque signals, identity not named by the source",
+      "request": 1969,
+      "response": 1977,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7B1 with response 0x7B9 and service 22 (wheel speed, steering angle, engine torque and transmission signals) in 8 of the 19 Toyota and Lexus repositories read. One source. Not read from a car."
+    },
+    "steering-angle": {
+      "description": "Steering angle sensor",
+      "request": 1971,
+      "response": 1979,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7B3 with response 0x7BB and service 22 (a steering angle signal) in 15 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): lists the steering angle sensor at 0x7b3 as answering the KWP identification request 1A 88 01. Two sources agree on the address and disagree on the service; this row follows the data service of the first. Not read from a car."
+    },
+    "combination-meter": {
+      "description": "Combination meter (instrument cluster), service 21",
+      "request": 1984,
+      "response": 1992,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7C0 with response 0x7C8 and service 21; 18 also list service 22 in 16 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): lists the combination meter at 0x7c0 as responding to UDS; ScanGauge Gen IV Prius 2016+ X-Gauge list (https://www.scangauge.com/x-gauge-commands/generation-iv-prius-2016/): the fuel level gauge is service 21 E0 sent to 7C0; Priuschat Gen IV thread (https://www.priuschat.com/threads/gen-iv-prius-custom-pids-for-torque-app.163271/): 7C0 among the headers that answered on a European Gen IV Prius. Four sources agree on the address. The service differs between them; this row follows the ScanGauge gauge and the OBDb majority, and opendbc says UDS. Not read from a car."
+    },
+    "hvac": {
+      "description": "Air conditioning amplifier (HVAC)",
+      "request": 1988,
+      "response": 1996,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7C4 with response 0x7CC and service 21; 6 list service 22, which the Lexus NX repositories use alone in 17 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): adds 0x7c4 as an HVAC unit to its identification queries; ScanGauge Gen IV Prius 2016+ X-Gauge list (https://www.scangauge.com/x-gauge-commands/generation-iv-prius-2016/): 3 gauges sent to 7C4 with service 21, including cabin temperature; Priuschat Gen IV thread (https://www.priuschat.com/threads/gen-iv-prius-custom-pids-for-torque-app.163271/): 7C4 among the headers that answered on a European Gen IV Prius. Four sources agree on the address and on service 21. Not read from a car."
+    },
+    "srs": {
+      "description": "SRS airbag control unit",
+      "request": 1920,
+      "response": 1928,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x780 with response 0x788 and service 21 (seat belt buckle signals) in 14 of the 19 Toyota and Lexus repositories read; opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): lists the SRS airbag at 0x780. Two sources agree. Not read from a car."
+    },
+    "unit-7d0": {
+      "description": "Unit on 0x7D0 with a parking brake signal, identity not named by the source",
+      "request": 2000,
+      "response": 2008,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "OBDb (https://github.com/OBDb/Toyota-Corolla/blob/main/signalsets/v3/default.json is one of them): 0x7D0 with response 0x7D8 and service 21 (a parking brake signal); the RAV4 Hybrid repository gives the response as 0x7DA, which is the hybrid control response and is not used in 13 of the 19 Toyota and Lexus repositories read; Priuschat Gen IV thread (https://www.priuschat.com/threads/gen-iv-prius-custom-pids-for-torque-app.163271/): 7D0 among the headers that answered on a European Gen IV Prius. Two sources agree on the address. Not read from a car."
+    },
+    "eps": {
+      "description": "Electric power steering",
+      "request": 1953,
+      "response": 1961,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/fingerprints.py): the EPS at 0x7a1 in 37 of 39 fingerprinted cars, and a comment listing it as answering KWP 1A 88 01; the response is the request plus the default 8 offset of its identification queries. One source. Not read from a car."
+    },
+    "eps-7a0": {
+      "description": "Electric power steering on the second address, listed as EPS or EMPS",
+      "request": 1952,
+      "response": 1960,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): a comment listing 0x7a0 and 0x7a1 as EPS/EMPS answering KWP 1A 88 01; the response is the request plus the default 8 offset. One source. Not read from a car."
+    },
+    "srs-2": {
+      "description": "Second SRS airbag control unit",
+      "request": 1924,
+      "response": 1932,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): a comment listing a second SRS airbag at 0x784 answering KWP 1A 88 01; the response is the request plus the default 8 offset. One source. Not read from a car."
+    },
+    "hv-battery-713": {
+      "description": "Hybrid battery unit on the second address, answering UDS",
+      "request": 1811,
+      "response": 1819,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): a comment listing the HV battery at 0x713 and 0x747 as answering UDS; the response is the request plus the default 8 offset. One source. Not read from a car."
+    },
+    "motor-generator-716": {
+      "description": "Motor generator control unit",
+      "request": 1814,
+      "response": 1822,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): a comment listing the motor generator at 0x716 and 0x724 as answering UDS; the response is the request plus the default 8 offset. One source. Not read from a car."
+    },
+    "motor-generator-724": {
+      "description": "Motor generator control unit on the second address",
+      "request": 1828,
+      "response": 1836,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): a comment listing the motor generator at 0x716 and 0x724 as answering UDS; the response is the request plus the default 8 offset. One source. Not read from a car."
+    },
+    "brake-730": {
+      "description": "Second ABS, listed as brake and electric parking brake",
+      "request": 1840,
+      "response": 1848,
+      "diagnostics": {
+        "protocol": "uds",
+        "session": 1
+      },
+      "source": "opendbc (https://github.com/commaai/opendbc/blob/master/opendbc/car/toyota/values.py): a comment listing the 2nd ABS 'Brake/EPB' at 0x730 as answering UDS; the response is the request plus the default 8 offset. One source. Not read from a car."
+    }
+  }
+}
