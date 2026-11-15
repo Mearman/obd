@@ -10,6 +10,7 @@
 
 import { ScriptedTransport } from "./testing/scripted-transport.js";
 import { asciiDecode, asciiEncode, concatBytes, fromHex, hexNumber, toUpperHex } from "./bytes.js";
+import { EXTENDED_TESTER_ADDRESS } from "./elm.js";
 import { DiagProtocol } from "./guard.js";
 import type { Profile } from "./profile.js";
 
@@ -19,19 +20,34 @@ export type UnitResponder = (request: Uint8Array) => [number, Uint8Array][];
 /** The vehicle identification number the simulated car reports; it belongs to no real car. */
 export const SIMULATED_VIN = asciiEncode("SIMULATEDCAR00001");
 
-/** Splits one diagnostic message into ISO 15765-2 CAN frame data. */
-export function isotpFrames(payload: Uint8Array): Uint8Array[] {
-  if (payload.length <= 7) return [concatBytes(Uint8Array.of(payload.length), payload)];
+/**
+ * Splits one diagnostic message into ISO 15765-2 CAN frame data.
+ *
+ * @param address The extended address that starts every frame under extended addressing, which
+ * leaves one payload byte less per frame. Absent for normal addressing.
+ */
+export function isotpFrames(payload: Uint8Array, address?: number): Uint8Array[] {
+  const prefix = address === undefined ? new Uint8Array(0) : Uint8Array.of(address);
+  const single = 7 - prefix.length;
+  if (payload.length <= single)
+    return [concatBytes(prefix, Uint8Array.of(payload.length), payload)];
+  const first = 6 - prefix.length;
+  const consecutive = 7 - prefix.length;
   const frames = [
     concatBytes(
+      prefix,
       Uint8Array.of(0x10 | (payload.length >> 8), payload.length & 0xff),
-      payload.slice(0, 6),
+      payload.slice(0, first),
     ),
   ];
   let sequence = 1;
-  for (let offset = 6; offset < payload.length; offset += 7) {
+  for (let offset = first; offset < payload.length; offset += consecutive) {
     frames.push(
-      concatBytes(Uint8Array.of(0x20 | (sequence & 0x0f)), payload.slice(offset, offset + 7)),
+      concatBytes(
+        prefix,
+        Uint8Array.of(0x20 | (sequence & 0x0f)),
+        payload.slice(offset, offset + consecutive),
+      ),
     );
     sequence += 1;
   }
@@ -64,6 +80,13 @@ export class FakeElmCore {
   userOptions = 0xe0;
   userDivisor = 4;
   readonly stnRateStep: number;
+  /**
+   * Units reached with CAN extended addressing, by request identifier and then extended address:
+   * several share one identifier and the address byte picks one.
+   */
+  readonly addressedResponders: Record<number, Record<number, UnitResponder>> = {};
+  /** The extended address set with `ATCEA`; absent while extended addressing is off. */
+  extendedAddress: number | undefined;
   private partial = "";
 
   constructor(
@@ -106,20 +129,34 @@ export class FakeElmCore {
     const headerText = fields.get("H");
     const header = headerText === undefined ? this.header : Number.parseInt(headerText, 16);
     const payload = fromHex(fields.get("D") ?? "");
-    const replies = this.responders[header]?.(payload) ?? [];
+    // The x parameter is the extended address and overrides ATCEA, as the STN manual describes.
+    const addressText = fields.get("X");
+    const address =
+      addressText === undefined ? this.extendedAddress : Number.parseInt(addressText, 16);
+    const replies = this.responderFor(header, address)?.(payload) ?? [];
     if (replies.length === 0) return "NO DATA";
     const registered = replies.every(([sender]) =>
       this.flowControlPairs.has(`${String(header)}:${String(sender)}`),
     );
     if (!registered) return "FB ERROR"; // no flow control frame was recognised from the unit
     this.longRequests.push(payload);
-    return this.frames(replies);
+    return this.frames(replies, address);
   }
 
-  private frames(replies: [number, Uint8Array][]): string {
+  /** The unit a request to `header` reaches, picked by `address` under extended addressing. */
+  private responderFor(header: number, address: number | undefined): UnitResponder | undefined {
+    return address === undefined
+      ? this.responders[header]
+      : this.addressedResponders[header]?.[address];
+  }
+
+  private frames(replies: [number, Uint8Array][], address: number | undefined): string {
+    // Under extended addressing every reply frame starts with the tester address, which the adapter
+    // prints between the identifier and the PCI byte.
+    const prefix = address === undefined ? undefined : EXTENDED_TESTER_ADDRESS;
     return replies
       .flatMap(([sender, payload]) =>
-        isotpFrames(payload).map(
+        isotpFrames(payload, prefix).map(
           (frame) => `${hexNumber(sender, this.idChars)}${toUpperHex(frame)}`,
         ),
       )
@@ -179,10 +216,18 @@ export class FakeElmCore {
       this.header = Number.parseInt(line.slice(4), 16);
       return "OK";
     }
+    if (line === "ATCEA") {
+      this.extendedAddress = undefined;
+      return "OK";
+    }
+    if (line.startsWith("ATCEA")) {
+      this.extendedAddress = Number.parseInt(line.slice(5), 16);
+      return "OK";
+    }
     if (line.startsWith("AT") || line.startsWith("ST")) return "OK";
-    const replies = this.responders[this.header]?.(fromHex(line)) ?? [];
+    const replies = this.responderFor(this.header, this.extendedAddress)?.(fromHex(line)) ?? [];
     if (replies.length === 0) return "NO DATA";
-    return this.frames(replies);
+    return this.frames(replies, this.extendedAddress);
   }
 }
 
@@ -353,19 +398,27 @@ export const SIMULATED_UDS_RECORD: readonly [identifier: number, value: Uint8Arr
  * identifier. Each call returns a car untouched by any other.
  */
 export function simulatedCar(profile: Pick<Profile, "protocol" | "units">): FakeElmCore {
-  const responders: Record<number, UnitResponder> = { [FUNCTIONAL_REQUEST_ID]: obdResponder };
+  const car = new FakeElmCore({ [FUNCTIONAL_REQUEST_ID]: obdResponder });
   for (const unit of profile.units.values()) {
+    let respond: UnitResponder;
     if (profile.protocol === DiagProtocol.UDS) {
       const uds = new UdsEcu(unit.responseId, [[...SIMULATED_UDS_FAULT]]);
       uds.records.set(SIMULATED_UDS_RECORD[0], SIMULATED_UDS_RECORD[1]);
-      responders[unit.requestId] = uds.respond;
+      respond = uds.respond;
     } else {
       const kwp = new KwpEcu(unit.responseId, [[...SIMULATED_KWP_FAULT]]);
       kwp.records.set(SIMULATED_KWP_RECORD[0], SIMULATED_KWP_RECORD[1]);
-      responders[unit.requestId] = kwp.respond;
+      respond = kwp.respond;
+    }
+    if (unit.extendedAddress === undefined) {
+      car.responders[unit.requestId] = respond;
+    } else {
+      const shared = car.addressedResponders[unit.requestId] ?? {};
+      shared[unit.extendedAddress] = respond;
+      car.addressedResponders[unit.requestId] = shared;
     }
   }
-  return new FakeElmCore(responders);
+  return car;
 }
 
 /** An in-process adapter link backed by `core`. */

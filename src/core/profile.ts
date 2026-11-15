@@ -64,7 +64,9 @@ export const KLINE_SCHEME_NAMES = [
 /** A K-line initialisation scheme. */
 export type KLineScheme = (typeof KLINE_SCHEME_NAMES)[number];
 
-/** The address a tester uses on a K-line unit unless the profile gives one. */
+/**
+ * The address a tester uses on a K-line unit unless the profile gives one. It is also the ELM327's default tester address (`AT TA`), which this tool never changes, so under CAN extended addressing it is the byte every reply must start with: the datasheet says `AT CEA` passes only received messages "that have the Tester Address in the first byte position" (ELM327 datasheet, "CEA hh").
+ */
 export const DEFAULT_TESTER = 0xf1;
 
 /** A status a profile, unit value or sourced fact may carry. */
@@ -107,6 +109,7 @@ export const unitSchema = object({
   description: text(),
   request: whole(),
   response: whole(),
+  extended_address: byte().optional(),
   source: text(),
   values: z.record(z.string(), valueSchema).optional(),
 });
@@ -143,6 +146,17 @@ export const profileFileSchema = object({
   codes: profileCodesSchema.optional(),
 }).superRefine((file, context) => {
   const { protocol, session } = file.diagnostics;
+  if ("kline" in file.bus) {
+    for (const [unitName, unit] of Object.entries(file.units)) {
+      if (unit.extended_address !== undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["units", unitName],
+          message: "extended_address is ISO 15765-2 CAN addressing and a K-line bus has none",
+        });
+      }
+    }
+  }
   if ("kline" in file.bus && protocol !== "kwp2000") {
     context.addIssue({
       code: "custom",
@@ -221,12 +235,17 @@ export interface DataValue {
   readonly status: string;
 }
 
-/** One control unit: where to send requests and where its replies come from. */
+/**
+ * One control unit: where to send requests and where its replies come from.
+ *
+ * `extendedAddress` is present for a unit reached with ISO 15765-2 extended addressing: the byte goes first in the data of every frame sent to the unit (requests and flow control), and every frame the unit sends starts with the tester address {@link DEFAULT_TESTER}. Several units may then share one request identifier, told apart by this byte.
+ */
 export interface Unit {
   readonly name: string;
   readonly description: string;
   readonly requestId: number;
   readonly responseId: number;
+  readonly extendedAddress?: number;
   readonly source: string;
   readonly values: ReadonlyMap<string, DataValue>;
 }
@@ -368,6 +387,7 @@ function build(file: ProfileFile): Profile {
       description: unit.description,
       requestId: unit.request,
       responseId: unit.response,
+      ...(unit.extended_address === undefined ? {} : { extendedAddress: unit.extended_address }),
       source: unit.source,
       values,
     });

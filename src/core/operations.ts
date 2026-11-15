@@ -21,7 +21,10 @@ import { makeClient, unitSession, type LineSink, type UnitProfile } from "./unit
 import { writeCommand, type WriteCommand, type WritableSnapshotStore } from "./writes.js";
 
 /** The parts of a unit a report names. */
-export type ReportUnit = Pick<Unit, "name" | "description" | "requestId" | "responseId">;
+export type ReportUnit = Pick<
+  Unit,
+  "name" | "description" | "requestId" | "responseId" | "extendedAddress"
+>;
 
 /** One stored fault code in a report: the code and its status byte as two hexadecimal digits. */
 export interface ReportFault {
@@ -97,7 +100,7 @@ export async function readUnit(
     faults: null,
     freezeFrames: new Map(),
   };
-  await elm.addressUnit(unit.requestId, unit.responseId);
+  await elm.addressUnit(unit.requestId, unit.responseId, unit.extendedAddress);
   const client = makeClient(elm, profile, unit);
   try {
     await client.start();
@@ -524,7 +527,7 @@ export async function profileCommand(
 
   if (command.command === "request") {
     const payload = requestBytes(command.request);
-    await elm.addressUnit(unit.requestId, unit.responseId);
+    await elm.addressUnit(unit.requestId, unit.responseId, unit.extendedAddress);
     const reply = await unitSession(elm, profile, unit).request(payload);
     out(toUpperHex(reply));
     return 0;
