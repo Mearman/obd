@@ -11,7 +11,7 @@
 import { z } from "zod";
 import { runExportSchema } from "./run-export.js";
 import type { UnitReportData } from "./service.js";
-import type { Run, Sample, SignalAggregate } from "./storage.js";
+import type { Json, Run, Sample, SignalAggregate } from "./storage.js";
 
 /** The envelope version this module writes and reads. */
 export const SHARE_VERSION = 1;
@@ -225,21 +225,68 @@ export function isIdentifyingLabel(label: string): boolean {
 
 const REDACTED = "[redacted]";
 
+/** Seventeen letters and digits without I, O or Q, bounded so a longer run is not cut: the shape of a VIN. */
+const VIN_SHAPE = /(?<![A-Z0-9])[A-HJ-NPR-Z0-9]{17}(?![A-Z0-9])/g;
+
+/** The printable ASCII of hexadecimal bytes, or "" when the text is not whole hexadecimal bytes. */
+function asciiOfHex(hex: string): string {
+  if (hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex)) return "";
+  let text = "";
+  for (let index = 0; index < hex.length; index += 2) {
+    const byte = Number.parseInt(hex.slice(index, index + 2), 16);
+    text += byte >= 0x20 && byte <= 0x7e ? String.fromCharCode(byte) : "\u0000";
+  }
+  return text;
+}
+
+function hexOfAscii(text: string): string {
+  return Array.from(text, (character) =>
+    character.charCodeAt(0).toString(16).padStart(2, "0"),
+  ).join("");
+}
+
+/** VIN-shaped words in `text` that have both a letter and a digit, as a real VIN does. */
+function vinsIn(text: string): string[] {
+  return Array.from(text.matchAll(VIN_SHAPE), (match) => match[0]).filter(
+    (word) => /[A-Z]/.test(word) && /[0-9]/.test(word),
+  );
+}
+
+/**
+ * Every value in a scan that identifies the car or a unit: the values of identification entries {@link isIdentifyingLabel} names, and any VIN-shaped word in another identification value (as text or as the ASCII of its hexadecimal bytes) or in a note. A unit that gives its VIN inside an unlabelled identification block is caught by the second.
+ */
+function identifyingValues(data: ScanShareData): string[] {
+  const found = new Set<string>();
+  for (const unit of data.units) {
+    for (const [label, value] of Object.entries(unit.identification)) {
+      if (isIdentifyingLabel(label)) {
+        for (const text of [value.text, value.hex]) if (text.length >= 4) found.add(text);
+      }
+      for (const word of [...vinsIn(value.text), ...vinsIn(asciiOfHex(value.hex))]) found.add(word);
+    }
+    for (const note of unit.notes) for (const word of vinsIn(note)) found.add(word);
+  }
+  return [...found];
+}
+
+/** The texts to remove: each identifying value, and the hexadecimal spelling of each in both cases. */
+function secretSpellings(values: readonly string[]): string[] {
+  return values.flatMap((value) => [
+    value,
+    hexOfAscii(value).toUpperCase(),
+    hexOfAscii(value).toLowerCase(),
+  ]);
+}
+
 function scrub(text: string, secrets: readonly string[]): string {
   return secrets.reduce((current, secret) => current.replaceAll(secret, REDACTED), text);
 }
 
 /**
- * A copy of the scan with every identification value {@link isIdentifyingLabel} names blanked, and each such value removed wherever else it appears (notes, other identification values, freeze frames).
+ * A copy of the scan with every identifying value removed ({@link isIdentifyingLabel} entries are blanked, and a VIN-shaped word is replaced wherever it appears: identification values, notes and freeze frames).
  */
 export function redactScan(data: ScanShareData): ScanShareData {
-  const secrets = data.units
-    .flatMap((unit) =>
-      Object.entries(unit.identification)
-        .filter(([label]) => isIdentifyingLabel(label))
-        .flatMap(([, value]) => [value.hex, value.text]),
-    )
-    .filter((value) => value.length >= 4);
+  const secrets = secretSpellings(identifyingValues(data));
   return {
     ...data,
     redacted: true,
@@ -260,8 +307,6 @@ export function redactScan(data: ScanShareData): ScanShareData {
     })),
   };
 }
-
-type Json = null | boolean | number | string | readonly Json[] | { readonly [key: string]: Json };
 
 function sorted(value: unknown): Json {
   if (Array.isArray(value)) return value.map(sorted);
@@ -517,19 +562,8 @@ export function scanShareData(report: unknown): ShareResult<ScanShareData> {
   return { ok: true, value: parsed.data };
 }
 
-/** A saved scan report written from a shared scan: the fields `compare` and `describe` read, with an empty transcript and `origin` marking it as shared. */
-export interface SharedScanReport {
-  readonly tool: "obd-read";
-  readonly origin: "shared";
-  readonly taken: string;
-  readonly profile: ScanShareData["profile"];
-  readonly adapter: { readonly identity: string };
-  readonly units: ScanShareData["units"];
-  readonly transcript: readonly string[];
-}
-
-/** A shared scan as a saved scan report, for the app to store when the user chooses to keep it. */
-export function sharedScanReport(data: ScanShareData): SharedScanReport {
+/** A shared scan as a saved scan report, for the app to store when the user chooses to keep it. It reads in `compare` and `describe` like any report; `origin` marks it as shared and its transcript is empty. */
+export function sharedScanReport(data: ScanShareData): Record<string, Json> {
   return {
     tool: "obd-read",
     origin: "shared",
@@ -763,17 +797,16 @@ export function shareContents(envelope: ShareEnvelope): string[] {
   const { units, redacted } = envelope.data;
   const faults = units.reduce((total, unit) => total + (unit.faults?.length ?? 0), 0);
   const frames = units.reduce((total, unit) => total + Object.keys(unit.freeze_frames).length, 0);
-  const identifying = units.flatMap((unit) =>
-    Object.entries(unit.identification).filter(([label]) => isIdentifyingLabel(label)),
-  );
-  const present = identifying.filter(([, value]) => value.hex !== "" || value.text !== "");
+  const present = identifyingValues(envelope.data).length;
   return [
     `${plural(units.length, "control unit")}, with whether each answered and any notes it gave.`,
     `${plural(faults, "fault code")} with their status bytes.`,
     `${plural(frames, "freeze frame")}.`,
-    redacted || present.length === 0
-      ? "VIN and serial numbers: removed."
-      : `VIN and serial numbers: included (${plural(present.length, "value")}).`,
+    present > 0
+      ? `VIN and serial numbers: included (${plural(present, "value")}).`
+      : redacted
+        ? "VIN and serial numbers: removed."
+        : "No VIN or serial number was found in this scan.",
     "Profile name, the time of the scan and the adapter's own name for itself.",
     "Not included: the raw adapter transcript and the adapter's address.",
   ];
