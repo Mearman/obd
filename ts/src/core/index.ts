@@ -9,3 +9,6 @@ export * from "./isotp.js";
 export * from "./diag.js";
 export * from "./kwp2000.js";
 export * from "./uds.js";
+export * from "./profile.js";
+export * from "./profile-check.js";
+export * from "./codenames.js";

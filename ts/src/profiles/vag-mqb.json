@@ -1,0 +1,70 @@
+{
+  "notes": "Volkswagen Group MQB platform.\n\nThe addresses are the ISO-TP request and response pairs a community wiki lists from sniffing MQB cars, recorded in docs/vehicles/vag-group.md. They come from captures, not from a Volkswagen document, and other platforms (MLB, PQ and others) differ. Treat every row as unconfirmed on a given car until `obd-read probe` shows the unit answering. Newer cars may block some modules entirely through the gateway.\n\nThe bus is the OBD-II socket's ISO 15765-4 CAN on pins 6 and 14, 11-bit identifiers at 500 kbit/s (docs/vehicles/generic-standards.md). The wiki names no diagnostic session, so the default session, which every UDS unit must accept, is the one opened before reading.",
+  "name": "vag-mqb",
+  "description": "Volkswagen Group MQB platform, UDS over ISO-TP",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 1
+  },
+  "units": {
+    "engine": {
+      "description": "Engine control unit (engine 1)",
+      "request": 2016,
+      "response": 2024,
+      "source": "Mr-fix wiki 'CAN-BUS sniffing' (https://wiki.mr-fix.info/index.php?title=CAN-BUS_sniffing), as recorded in docs/vehicles/vag-group.md"
+    },
+    "engine-2": {
+      "description": "Second engine control unit (engine 2)",
+      "request": 2018,
+      "response": 2026,
+      "source": "Mr-fix wiki 'CAN-BUS sniffing' (https://wiki.mr-fix.info/index.php?title=CAN-BUS_sniffing), as recorded in docs/vehicles/vag-group.md"
+    },
+    "transmission": {
+      "description": "Transmission control unit",
+      "request": 2017,
+      "response": 2025,
+      "source": "Mr-fix wiki 'CAN-BUS sniffing' (https://wiki.mr-fix.info/index.php?title=CAN-BUS_sniffing), as recorded in docs/vehicles/vag-group.md"
+    },
+    "awd": {
+      "description": "All-wheel-drive control unit",
+      "request": 1807,
+      "response": 1913,
+      "source": "Mr-fix wiki 'CAN-BUS sniffing' (https://wiki.mr-fix.info/index.php?title=CAN-BUS_sniffing), as recorded in docs/vehicles/vag-group.md"
+    },
+    "gateway": {
+      "description": "Gateway",
+      "request": 1808,
+      "response": 1914,
+      "source": "Mr-fix wiki 'CAN-BUS sniffing' (https://wiki.mr-fix.info/index.php?title=CAN-BUS_sniffing), as recorded in docs/vehicles/vag-group.md"
+    },
+    "abs": {
+      "description": "ABS",
+      "request": 1811,
+      "response": 1917,
+      "source": "Mr-fix wiki 'CAN-BUS sniffing' (https://wiki.mr-fix.info/index.php?title=CAN-BUS_sniffing), as recorded in docs/vehicles/vag-group.md"
+    },
+    "dashboard": {
+      "description": "Dashboard (instrument cluster)",
+      "request": 1812,
+      "response": 1918,
+      "source": "Mr-fix wiki 'CAN-BUS sniffing' (https://wiki.mr-fix.info/index.php?title=CAN-BUS_sniffing), as recorded in docs/vehicles/vag-group.md"
+    },
+    "srs": {
+      "description": "SRS (airbags)",
+      "request": 1813,
+      "response": 1919,
+      "source": "Mr-fix wiki 'CAN-BUS sniffing' (https://wiki.mr-fix.info/index.php?title=CAN-BUS_sniffing), as recorded in docs/vehicles/vag-group.md"
+    },
+    "hvac": {
+      "description": "Climate control",
+      "request": 1862,
+      "response": 1968,
+      "source": "Mr-fix wiki 'CAN-BUS sniffing' (https://wiki.mr-fix.info/index.php?title=CAN-BUS_sniffing), as recorded in docs/vehicles/vag-group.md"
+    }
+  }
+}

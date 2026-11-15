@@ -1,0 +1,94 @@
+{
+  "notes": "Mercedes-Benz E-Class, chassis 211 (W211 saloon, S211 estate).\n\nThe diagnostic socket's CAN pair (pins 6 and 14) reaches the central gateway at 500 kbit/s. Control units answer KWP2000 requests carried over ISO 15765-2.\n\nThe address table is transcribed from an open E55 AMG project that states no model year. Treat every row as unconfirmed on a given car until `obd-read probe` shows the unit answering.\n\n0x92 is the session W211 instrument-cluster code opens before reading data.",
+  "name": "mercedes-w211",
+  "description": "Mercedes-Benz E-Class, chassis 211",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "kwp2000",
+    "session": 146
+  },
+  "units": {
+    "engine": {
+      "description": "Engine control unit",
+      "request": 2016,
+      "response": 2024,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "gearbox": {
+      "description": "Transmission control unit",
+      "request": 2017,
+      "response": 2025,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "esp": {
+      "description": "Electronic stability programme",
+      "request": 1924,
+      "response": 1925,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "ewm": {
+      "description": "Electronic selector lever module (EWM)",
+      "request": 1928,
+      "response": 1929,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "fscm": {
+      "description": "FSCM, as named in the source",
+      "request": 1912,
+      "response": 1913,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "cas": {
+      "description": "CAS, as named in the source",
+      "request": 1914,
+      "response": 1915,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "ehb": {
+      "description": "Electrohydraulic brake (EHB)",
+      "request": 1946,
+      "response": 1947,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "dtr": {
+      "description": "Distronic (DTR)",
+      "request": 1794,
+      "response": 1184,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "kombi": {
+      "description": "Instrument cluster (KOMBI)",
+      "request": 1942,
+      "response": 1943,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "lwr": {
+      "description": "Headlamp range control (LWR)",
+      "request": 1940,
+      "response": 1941,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "fs": {
+      "description": "FS, as named in the source",
+      "request": 1932,
+      "response": 1933,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "rgs-1": {
+      "description": "RGS, as named in the source (first address pair)",
+      "request": 1970,
+      "response": 1971,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    },
+    "rgs-2": {
+      "description": "RGS, as named in the source (second address pair)",
+      "request": 1972,
+      "response": 1973,
+      "source": "can_spec_canc.txt in https://github.com/rnd-ash/mb-w211-pc"
+    }
+  }
+}
