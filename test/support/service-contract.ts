@@ -79,7 +79,9 @@ export function describeServiceContract(
         });
         expect(collector.started).toHaveLength(1);
         expect(collector.started[0]?.signals).toEqual(["battery"]);
-        expect(collector.started[0]?.run).toEqual(run);
+        expect(collector.started[0]?.request).toEqual({ signals: ["battery"] });
+        expect(collector.started[0]?.run).toMatchObject({ id: run.id, profile: run.profile });
+        expect(collector.started[0]?.run.notes).toContain("idle");
         clock.time += 4000;
         const stopped = await client.runs.stop({ runId: run.id });
         expect(stopped).toEqual({ ...run, stoppedAt: clock.time });

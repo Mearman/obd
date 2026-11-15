@@ -1,24 +1,44 @@
 import {
+  DeviceGrants,
+  DeviceLink,
   MemoryStorage,
   createDiagnosticsHost,
+  registryTransportHost,
+  type CollectionRequest,
+  type CollectionStatus,
   type Collector,
   type DiagnosticsHost,
   type Run,
   type SampleSink,
 } from "../../src/core/index.js";
+import { loadBuiltinProfile } from "../../src/profiles/index.js";
 
 /** A collector that records what it was asked and keeps the sink it was given, so a test can feed samples as the live layer would. */
 export class FakeCollector implements Collector {
-  readonly started: { run: Run; signals: readonly string[] | undefined }[] = [];
+  readonly started: {
+    run: Run;
+    signals: readonly string[] | undefined;
+    request: CollectionRequest;
+  }[] = [];
   readonly stopped: string[] = [];
   sink: SampleSink | undefined;
   failWith: Error | undefined;
 
-  start(run: Run, signals: readonly string[] | undefined, sink: SampleSink): Promise<void> {
+  start(run: Run, request: CollectionRequest, sink: SampleSink): Promise<void> {
     if (this.failWith !== undefined) return Promise.reject(this.failWith);
-    this.started.push({ run, signals });
+    this.started.push({ run, signals: request.signals, request });
     this.sink = sink;
     return Promise.resolve();
+  }
+
+  active(): readonly string[] {
+    return this.started.map((start) => start.run.id).filter((id) => !this.stopped.includes(id));
+  }
+
+  status(runId: string): CollectionStatus | undefined {
+    return this.active().includes(runId)
+      ? { state: "collecting", attempt: 0, lastError: null, samples: 0 }
+      : undefined;
   }
 
   stop(runId: string): Promise<void> {
@@ -37,6 +57,18 @@ export function newHost(): {
   const collector = new FakeCollector();
   const storage = new MemoryStorage();
   const clock = { time: 1_700_000_000_000 };
-  const host = createDiagnosticsHost({ storage, collector, now: () => clock.time });
+  const transports = registryTransportHost();
+  const link = new DeviceLink({
+    transports,
+    loadProfile: (name) => Promise.resolve(loadBuiltinProfile(name)),
+  });
+  const host = createDiagnosticsHost({
+    storage,
+    collector,
+    link,
+    transports,
+    grants: new DeviceGrants(),
+    now: () => clock.time,
+  });
   return { host, collector, storage, clock };
 }

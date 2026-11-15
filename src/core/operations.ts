@@ -382,8 +382,12 @@ export function withSuffix(path: string, suffix: string): string {
   return `${path.slice(0, separator + 1)}${stem}${suffix}`;
 }
 
-/** Bytes from hexadecimal text, skipping ASCII whitespace between the byte pairs. */
-function requestBytes(text: string): Uint8Array {
+/**
+ * Bytes from hexadecimal text, skipping ASCII whitespace between the byte pairs.
+ *
+ * @throws GuardError when the text is not hexadecimal bytes.
+ */
+export function requestBytes(text: string): Uint8Array {
   if (!/^[ \t\n\r\v\f]*([0-9a-fA-F]{2}[ \t\n\r\v\f]*)*$/.test(text)) {
     throw new GuardError(`request is not hexadecimal bytes: ${pythonRepr(text)}`);
   }

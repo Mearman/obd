@@ -1,54 +1,78 @@
 /**
- * The in-process implementation of {@link diagnosticsContract} over {@link Storage}.
+ * The in-process implementation of {@link diagnosticsContract} over {@link Storage}, a {@link DeviceLink} and a {@link Collector}.
  *
- * This is the service an edge hosts: the UI's own process calls {@link DiagnosticsHost.client} directly, a dedicated worker serves {@link DiagnosticsHost.router} over a message port, and a Node daemon serves it over a socket. What actually polls an adapter is a {@link Collector} the host injects, so this module holds the run lifecycle, storage and live fan-out and nothing platform-specific.
+ * This is the service an edge hosts: the UI's own process calls {@link DiagnosticsHost.client} directly, a dedicated worker serves {@link DiagnosticsHost.router} over a message port, and a Node daemon serves it over a socket. The guard runs here, inside the commands the handlers call (`profileCommand`, `clearCodesCommand`), so no client can bypass it and no client holds a token. Operations that change the car are parked between their request and their confirmation by {@link PendingConfirmations}.
  */
 
 import { ORPCError, createRouterClient, implement, type RouterClient } from "@orpc/server";
 import {
   diagnosticsContract,
   type AdapterCapability,
+  type Connection,
   type DiagnosticsContract,
+  type GuardedRequestData,
+  type UnitReportData,
 } from "./service.js";
-import { exportRunCsvText, exportRunJson } from "./run-export.js";
-import { ProfileError, parseJson, parseProfile } from "./profile.js";
+import { ActuationError } from "./actuate.js";
+import { readVoltage } from "./battery.js";
+import type { Collector, SampleSink } from "./collector.js";
+import type { DeviceLink } from "./device-link.js";
+import { LinkBusy, NotConnected, type LinkSession } from "./device-link.js";
+import { NegativeResponse } from "./diag.js";
+import { ElmError } from "./elm.js";
+import {
+  ConfirmationPending,
+  PendingConfirmations,
+  UnknownConfirmation,
+  type GuardedKind,
+} from "./guarded.js";
+import { GuardError } from "./guard.js";
+import { runMonitor } from "./monitor.js";
+import { jsonText } from "./ordered-json.js";
+import { OptionError } from "./options.js";
+import {
+  ClearRefused,
+  readUnit,
+  requestBytes,
+  scan,
+  scanDocument,
+  type UnitReport,
+  profileCommand,
+} from "./operations.js";
+import { clearCodesCommand } from "./obd-clear.js";
+import { ProfileError, canBus, parseJson, parseProfile, profileUnit } from "./profile.js";
 import { checkProfile } from "./profile-check.js";
+import { exportRunCsvText, exportRunJson } from "./run-export.js";
+import { readSelection, userNotes, withSelection } from "./run-selection.js";
+import { isSimulatorUrl } from "./simulator-host.js";
+import { StorageSnapshotStore } from "./snapshot-store.js";
+import { now as clockNow, sleep as realSleep } from "./time.js";
 import { StorageError, jsonSchema, type Run, type Sample, type Storage } from "./storage.js";
-import { SCHEMES, registeredSchemes, type Scheme } from "./transport.js";
-
-/** Where a {@link Collector} sends the samples it reads. */
-export interface SampleSink {
-  /**
-   * Stores the samples and hands them to live subscribers. Resolves once they are stored.
-   *
-   * @throws StorageError when a sample names an unknown or stopped run.
-   */
-  write(samples: readonly Sample[]): Promise<void>;
-}
-
-/**
- * Polls an adapter for a run. The implementation of this is the live-data layer: it opens the adapter named by the run, reads the signals on the profile's schedule and writes what it reads to the sink.
- */
-export interface Collector {
-  /**
-   * Begins collecting for `run` and returns once collection is under way; samples then arrive on `sink` until {@link Collector.stop}.
-   *
-   * @param signals The profile values to poll, or `undefined` for every value the profile names.
-   * @throws Error when collection cannot start (unknown profile, adapter unreachable); the service removes the run it opened.
-   */
-  start(run: Run, signals: readonly string[] | undefined, sink: SampleSink): Promise<void>;
-
-  /** Stops collecting for the run. Does nothing for a run this collector is not collecting. */
-  stop(runId: string): Promise<void>;
-}
+import { AdapterUrlError, SCHEMES, TransportError, type Scheme } from "./transport.js";
+import type { DeviceGrants } from "./transport-host.js";
+import { type TransportHost } from "./transport-host.js";
+import { WriteRefused } from "./writes.js";
 
 /** What {@link createDiagnosticsHost} needs from its edge. */
 export interface DiagnosticsDependencies {
   readonly storage: Storage;
   readonly collector: Collector;
-  /** The clock for run start and stop times; defaults to `Date.now`. */
+  /** The connection the operations share with the collector. */
+  readonly link: DeviceLink;
+  /** What the capability listing and the monitor build transports from. */
+  readonly transports: TransportHost;
+  /** The devices a page's picker granted, for transports that run in a worker. */
+  readonly grants: DeviceGrants;
+  /** The clock for run, snapshot and confirmation times; defaults to `Date.now`. */
   readonly now?: () => number;
+  /** Waits during an actuator test; defaults to a timer. */
+  readonly sleep?: (milliseconds: number) => Promise<void>;
+  /** How long a clear, write or actuator request waits for its confirmation, in milliseconds. */
+  readonly confirmationTtlMs?: number;
 }
+
+/** How long a guarded request waits for its confirmation unless the edge says otherwise, in milliseconds. */
+export const CONFIRMATION_TTL_MS = 120_000;
 
 /** The most samples a live subscriber may have waiting before it is ended as too slow. */
 export const LIVE_SUBSCRIBER_BUFFER = 10_000;
@@ -159,9 +183,9 @@ const SCHEME_FACTS: Readonly<
   },
 };
 
-/** Every adapter scheme with whether a transport is registered for it in this runtime. */
-export function listAdapterCapabilities(): AdapterCapability[] {
-  const registered = new Set(registeredSchemes());
+/** Every adapter scheme with whether `served` includes it. */
+export function listAdapterCapabilities(served: readonly Scheme[]): AdapterCapability[] {
+  const registered = new Set(served);
   return SCHEMES.map((scheme) => ({
     scheme,
     ...SCHEME_FACTS[scheme],
@@ -175,80 +199,426 @@ const STORAGE_ERROR_CODES = {
   invalid: "BAD_REQUEST",
 } as const;
 
+/** The oRPC error a failure a caller can act on becomes, or `undefined` for a failure that is a bug. */
+function callerError(error: unknown): ORPCError<string, undefined> | undefined {
+  if (error instanceof StorageError) {
+    return new ORPCError(STORAGE_ERROR_CODES[error.code], { message: error.message });
+  }
+  if (
+    error instanceof ProfileError ||
+    error instanceof OptionError ||
+    error instanceof AdapterUrlError
+  ) {
+    return new ORPCError("BAD_REQUEST", { message: error.message });
+  }
+  if (error instanceof GuardError) return new ORPCError("FORBIDDEN", { message: error.message });
+  if (
+    error instanceof ClearRefused ||
+    error instanceof WriteRefused ||
+    error instanceof LinkBusy ||
+    error instanceof ConfirmationPending
+  ) {
+    return new ORPCError("CONFLICT", { message: error.message });
+  }
+  if (error instanceof NotConnected) {
+    return new ORPCError("PRECONDITION_FAILED", { message: error.message });
+  }
+  if (error instanceof UnknownConfirmation) {
+    return new ORPCError("NOT_FOUND", { message: error.message });
+  }
+  if (
+    error instanceof TransportError ||
+    error instanceof ElmError ||
+    error instanceof NegativeResponse ||
+    error instanceof ActuationError
+  ) {
+    return new ORPCError("BAD_GATEWAY", { message: error.message });
+  }
+  return undefined;
+}
+
 /** Runs `work`, turning the errors a caller can act on into oRPC errors with the matching code. */
 async function translated<T>(work: () => Promise<T>): Promise<T> {
   try {
     return await work();
   } catch (error) {
-    if (error instanceof StorageError) {
-      throw new ORPCError(STORAGE_ERROR_CODES[error.code], { message: error.message });
-    }
-    if (error instanceof ProfileError) {
-      throw new ORPCError("BAD_REQUEST", { message: error.message });
-    }
-    throw error;
+    throw callerError(error) ?? error;
   }
 }
 
-/** The implemented service, ready to be called in process or served over a link. */
-export interface DiagnosticsHost {
-  /** The router to serve with an oRPC handler (message port, WebSocket, ...). */
-  readonly router: ReturnType<typeof buildRouter>;
-  /** A client that calls the router directly, in this process. */
-  readonly client: RouterClient<ReturnType<typeof buildRouter>>;
+function unitReportData(report: UnitReport): UnitReportData {
+  return {
+    unit: report.unit,
+    description: report.description,
+    requestId: report.requestId,
+    responseId: report.responseId,
+    answered: report.answered,
+    notes: report.notes,
+    identification: Array.from(report.identification, ([label, value]) => ({
+      label,
+      hex: value.hex,
+      text: value.text,
+    })),
+    faults: report.faults === null ? null : report.faults.map((fault) => ({ ...fault })),
+    freezeFrames: Object.fromEntries(report.freezeFrames),
+  };
 }
 
-/** The type of the client {@link DiagnosticsHost.client} and the worker link produce. */
-export type DiagnosticsClient = RouterClient<ReturnType<typeof buildRouter>>;
+function connectionData(session: LinkSession): Connection {
+  return {
+    profile: session.profile.name,
+    adapter: session.adapterUrl,
+    simulated: isSimulatorUrl(session.adapterUrl),
+    info: { ...session.adapter },
+  };
+}
 
+/** The run as a caller sees it: its notes are what the user wrote, without the collection selection. */
+function presented(run: Run): Run {
+  return { ...run, notes: userNotes(run.notes) };
+}
+
+/** The service's router: the contract's operations implemented over the dependencies. */
 function buildRouter(dependencies: DiagnosticsDependencies) {
-  const { storage, collector } = dependencies;
-  const now = dependencies.now ?? Date.now;
+  const { storage, collector, link, transports, grants } = dependencies;
+  const now = dependencies.now ?? clockNow;
+  const sleep = dependencies.sleep ?? realSleep;
   const hub = new LiveHub();
+  const confirmations = new PendingConfirmations(
+    dependencies.confirmationTtlMs ?? CONFIRMATION_TTL_MS,
+    now,
+  );
   const sink: SampleSink = {
     write: async (samples) => {
       await storage.appendSamples(samples);
       hub.publish(samples);
     },
   };
+
+  /** Refuses work that would start a second use of the adapter while a clear, write or actuator test waits for its answer. */
+  const requirePassive = (): void => {
+    if (confirmations.isPending) {
+      throw new ORPCError("CONFLICT", {
+        message: "an operation is waiting for its confirmation; confirm or cancel it first",
+      });
+    }
+  };
+
+  /** Refuses work on the adapter while something else holds it. */
+  const requireFree = (): void => {
+    requirePassive();
+    if (collector.active().length > 0) {
+      throw new ORPCError("CONFLICT", {
+        message: "a collection run holds the adapter; stop it first",
+      });
+    }
+  };
+
+  /** Runs `read` on the open connection while the adapter is free. */
+  const onLink = <T>(read: (session: LinkSession) => Promise<T>): Promise<T> =>
+    translated(() => {
+      requireFree();
+      return link.withSession(read);
+    });
+
+  const readOne = (unit: string, options: { faults: boolean; freeze: boolean }) =>
+    onLink(async (session) =>
+      unitReportData(
+        await readUnit(session.elm, session.profile, profileUnit(session.profile, unit), options),
+      ),
+    );
+
+  /** Starts a guarded command on the open connection and returns what it asks to have confirmed. */
+  const request = (
+    kind: GuardedKind,
+    label: string,
+    command: (
+      session: LinkSession,
+      store: StorageSnapshotStore,
+      save: string,
+      io: Parameters<Parameters<PendingConfirmations["begin"]>[1]>[0],
+    ) => Promise<number>,
+  ): Promise<GuardedRequestData> =>
+    translated(async () => {
+      requireFree();
+      const open = link.session;
+      if (open === undefined) throw new NotConnected("connect an adapter first");
+      const takenAt = now();
+      const store = new StorageSnapshotStore(storage, {
+        profile: open.profile.name,
+        adapter: open.adapterUrl,
+        takenAt,
+      });
+      const save = `${kind}-${label}-${String(takenAt)}`;
+      const asked = await confirmations.begin(kind, (io) =>
+        link.withSession((session) => command(session, store, save, io)),
+      );
+      return { ...asked, snapshot: store.saved.at(-1) ?? null };
+    });
+
   const os = implement(diagnosticsContract);
   return os.router({
     adapters: {
-      list: os.adapters.list.handler(() => listAdapterCapabilities()),
+      list: os.adapters.list.handler(() => listAdapterCapabilities(transports.schemes())),
+      grant: os.adapters.grant.handler(({ input }) => {
+        grants.grant(input);
+        return { scheme: input.scheme };
+      }),
+    },
+    link: {
+      status: os.link.status.handler(() => {
+        const session = link.session;
+        return session === undefined ? null : connectionData(session);
+      }),
+      connect: os.link.connect.handler(({ input }) =>
+        translated(async () => {
+          requireFree();
+          return connectionData(await link.connect(input.profile, input.adapter));
+        }),
+      ),
+      disconnect: os.link.disconnect.handler(() =>
+        translated(async () => {
+          requireFree();
+          const was = link.session !== undefined;
+          await link.disconnect();
+          return { disconnected: was };
+        }),
+      ),
+      probe: os.link.probe.handler(() =>
+        onLink(async (session) => ({
+          adapter: { ...session.adapter },
+          units: (await scan(session.elm, session.profile, { faults: false, freeze: false })).map(
+            unitReportData,
+          ),
+        })),
+      ),
+    },
+    units: {
+      ident: os.units.ident.handler(({ input }) =>
+        readOne(input.unit, { faults: false, freeze: false }),
+      ),
+      faults: os.units.faults.handler(({ input }) =>
+        readOne(input.unit, { faults: true, freeze: false }),
+      ),
+      freeze: os.units.freeze.handler(({ input }) =>
+        readOne(input.unit, { faults: true, freeze: true }),
+      ),
+    },
+    scan: {
+      run: os.scan.run.handler(({ input }) =>
+        onLink(async (session) => {
+          const reports = await scan(session.elm, session.profile, {
+            faults: true,
+            freeze: input.freeze,
+          });
+          const document = scanDocument(
+            session.profile,
+            session.adapter,
+            reports,
+            session.elm.transcript.entries,
+          );
+          const saved = await storage.saveScanReport({
+            profile: session.profile.name,
+            adapter: session.adapterUrl,
+            takenAt: now(),
+            label: input.label,
+            report: jsonSchema.parse(JSON.parse(jsonText(document.json))),
+          });
+          return {
+            report: {
+              id: saved.id,
+              profile: saved.profile,
+              adapter: saved.adapter,
+              takenAt: saved.takenAt,
+              label: saved.label,
+            },
+            units: reports.map(unitReportData),
+          };
+        }),
+      ),
+    },
+    reports: {
+      list: os.reports.list.handler(({ input }) =>
+        translated(() => storage.listScanReports(input)),
+      ),
+      get: os.reports.get.handler(({ input }) =>
+        translated(async () => {
+          const report = await storage.getScanReport(input.id);
+          if (report === undefined) throw new StorageError("not-found", `no report ${input.id}`);
+          return report;
+        }),
+      ),
+    },
+    battery: {
+      voltage: os.battery.voltage.handler(() =>
+        onLink(async (session) => ({
+          volts: await readVoltage(session.elm, { stn: session.adapter.hasStnExtensions }),
+        })),
+      ),
+    },
+    monitor: {
+      capture: os.monitor.capture.handler(({ input }) =>
+        translated(() => {
+          requireFree();
+          return link.exclusive(async () => {
+            if (link.session !== undefined) {
+              throw new LinkBusy(
+                "disconnect before monitoring: the monitor opens the adapter itself",
+              );
+            }
+            const lines: string[] = [];
+            await runMonitor(
+              {
+                adapter: input.adapter,
+                idBits: input.idBits,
+                bitrate: input.bitrate,
+                durationMs: input.durationMs,
+                ...(input.count === undefined ? {} : { count: input.count }),
+              },
+              (line) => lines.push(line),
+              (url) => transports.create(url),
+            );
+            return { lines };
+          });
+        }),
+      ),
+    },
+    clear: {
+      request: os.clear.request.handler(({ input }) =>
+        request(
+          "clear",
+          input.target.kind === "obd" ? "obd" : input.target.unit,
+          (session, store, save, io) => {
+            if (input.target.kind === "obd") {
+              const bus = canBus(session.profile);
+              return clearCodesCommand({
+                elm: session.elm,
+                adapter: session.adapter,
+                store,
+                idBits: bus.idBits,
+                bitrate: bus.bitrate,
+                save,
+                yes: false,
+                ...io,
+              });
+            }
+            return profileCommand(
+              { command: "clear", unit: input.target.unit, save, yes: false },
+              {
+                elm: session.elm,
+                adapter: session.adapter,
+                profile: session.profile,
+                store,
+                ...io,
+              },
+            );
+          },
+        ),
+      ),
+      confirm: os.clear.confirm.handler(({ input }) =>
+        translated(() => confirmations.confirm(input.confirmation, "clear")),
+      ),
+    },
+    write: {
+      request: os.write.request.handler(({ input }) =>
+        request("write", input.unit, (session, store, save, io) =>
+          profileCommand(
+            {
+              command: "write",
+              unit: input.unit,
+              save,
+              request: requestBytes(input.request),
+              read: requestBytes(input.read),
+            },
+            { elm: session.elm, adapter: session.adapter, profile: session.profile, store, ...io },
+          ),
+        ),
+      ),
+      confirm: os.write.confirm.handler(({ input }) =>
+        translated(() => confirmations.confirm(input.confirmation, "write")),
+      ),
+    },
+    actuate: {
+      request: os.actuate.request.handler(({ input }) =>
+        request("actuate", input.unit, (session, store, save, io) =>
+          profileCommand(
+            {
+              command: "actuate",
+              unit: input.unit,
+              request: requestBytes(input.request),
+              stop: requestBytes(input.stop),
+              durationMs: input.durationMs,
+              sleep,
+            },
+            { elm: session.elm, adapter: session.adapter, profile: session.profile, store, ...io },
+          ),
+        ),
+      ),
+      confirm: os.actuate.confirm.handler(({ input }) =>
+        translated(() => confirmations.confirm(input.confirmation, "actuate")),
+      ),
+    },
+    guarded: {
+      cancel: os.guarded.cancel.handler(({ input }) =>
+        translated(() => confirmations.cancel(input.confirmation)),
+      ),
     },
     runs: {
       start: os.runs.start.handler(({ input }) =>
         translated(async () => {
+          requirePassive();
+          const selection = {
+            ...(input.unit === undefined ? {} : { unit: input.unit }),
+            ...(input.signals === undefined ? {} : { signals: input.signals }),
+          };
           const run = await storage.createRun({
             profile: input.profile,
             adapter: input.adapter,
             startedAt: now(),
-            notes: input.notes,
+            notes: withSelection(input.notes ?? "", selection),
           });
           try {
-            await collector.start(run, input.signals, sink);
+            await collector.start(run, selection, sink);
           } catch (error) {
             await storage.deleteRun(run.id);
-            throw new ORPCError("INTERNAL_SERVER_ERROR", {
-              message: `could not start collecting: ${error instanceof Error ? error.message : String(error)}`,
-              cause: error,
-            });
+            throw (
+              callerError(error) ??
+              new ORPCError("INTERNAL_SERVER_ERROR", {
+                message: `could not start collecting: ${error instanceof Error ? error.message : String(error)}`,
+                cause: error,
+              })
+            );
           }
-          return run;
+          return presented(run);
+        }),
+      ),
+      resume: os.runs.resume.handler(({ input }) =>
+        translated(async () => {
+          requirePassive();
+          const run = await storage.getRun(input.runId);
+          if (run === undefined) throw new StorageError("not-found", `no run ${input.runId}`);
+          if (run.stoppedAt !== null) {
+            throw new StorageError("conflict", `run ${run.id} is stopped and cannot be resumed`);
+          }
+          await collector.start(run, readSelection(run.notes), sink);
+          return presented(run);
         }),
       ),
       stop: os.runs.stop.handler(({ input }) =>
         translated(async () => {
           await collector.stop(input.runId);
-          return storage.stopRun(input.runId, now());
+          return presented(await storage.stopRun(input.runId, now()));
         }),
       ),
-      list: os.runs.list.handler(({ input }) => translated(() => storage.listRuns(input))),
+      status: os.runs.status.handler(({ input }) => collector.status(input.runId) ?? null),
+      list: os.runs.list.handler(({ input }) =>
+        translated(async () => (await storage.listRuns(input)).map(presented)),
+      ),
       get: os.runs.get.handler(({ input }) =>
         translated(async () => {
           const run = await storage.getRun(input.runId);
           if (run === undefined) throw new StorageError("not-found", `no run ${input.runId}`);
-          return run;
+          return presented(run);
         }),
       ),
       samples: os.runs.samples.handler(({ input }) => translated(() => storage.readSamples(input))),
@@ -265,10 +635,11 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
               content: await exportRunCsvText(storage, input.runId),
             };
           }
+          const exported = await exportRunJson(storage, input.runId);
           return {
             filename: `${base}.json`,
             mediaType: "application/json",
-            content: JSON.stringify(await exportRunJson(storage, input.runId)),
+            content: JSON.stringify({ ...exported, run: presented(exported.run) }),
           };
         }),
       ),
@@ -298,10 +669,21 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
   });
 }
 
+/** The implemented service, ready to be called in process or served over a link. */
+export interface DiagnosticsHost {
+  /** The router to serve with an oRPC handler (message port, WebSocket, ...). */
+  readonly router: ReturnType<typeof buildRouter>;
+  /** A client that calls the router directly, in this process. */
+  readonly client: RouterClient<ReturnType<typeof buildRouter>>;
+}
+
+/** The type of the client {@link DiagnosticsHost.client} and the worker link produce. */
+export type DiagnosticsClient = RouterClient<ReturnType<typeof buildRouter>>;
+
 /**
  * Builds the diagnostics service over `dependencies`.
  *
- * Handlers translate {@link StorageError} and `ProfileError` into oRPC errors with codes `NOT_FOUND`, `CONFLICT` and `BAD_REQUEST`; anything else surfaces as an internal error.
+ * Handlers translate the failures a caller can act on into oRPC errors: `NOT_FOUND`, `CONFLICT` and `BAD_REQUEST` for storage and profile problems, `FORBIDDEN` for a request the guard refuses, `PRECONDITION_FAILED` for an operation that needs a connection, `BAD_GATEWAY` for an adapter or unit that failed. Anything else surfaces as an internal error.
  */
 export function createDiagnosticsHost(dependencies: DiagnosticsDependencies): DiagnosticsHost {
   const router = buildRouter(dependencies);

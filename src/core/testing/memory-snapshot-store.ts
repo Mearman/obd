@@ -1,14 +1,5 @@
+import { utf8Length } from "../bytes.js";
 import type { SnapshotStore } from "../guard.js";
-
-function utf8Length(text: string): number {
-  let bytes = 0;
-  for (let index = 0; index < text.length; index++) {
-    const code = text.charCodeAt(index);
-    // A surrogate pair is two UTF-16 units and four UTF-8 bytes, so each unit counts two.
-    bytes += code < 0x80 ? 1 : code < 0x800 || (code >= 0xd800 && code < 0xe000) ? 2 : 3;
-  }
-  return bytes;
-}
 
 /** An in-memory {@link SnapshotStore} for tests: snapshots are strings in a map. */
 export class MemorySnapshotStore implements SnapshotStore {

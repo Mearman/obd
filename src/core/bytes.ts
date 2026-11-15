@@ -86,3 +86,14 @@ export function asciiEncode(text: string): Uint8Array {
 export function asciiDecode(data: Uint8Array): string {
   return Array.from(data, (byte) => (byte > 0x7f ? "�" : String.fromCharCode(byte))).join("");
 }
+
+/** The number of bytes `text` takes as UTF-8, counting each UTF-16 surrogate unit as two bytes. */
+export function utf8Length(text: string): number {
+  let bytes = 0;
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index);
+    // A surrogate pair is two UTF-16 units and four UTF-8 bytes, so each unit counts two.
+    bytes += code < 0x80 ? 1 : code < 0x800 || (code >= 0xd800 && code < 0xe000) ? 2 : 3;
+  }
+  return bytes;
+}
