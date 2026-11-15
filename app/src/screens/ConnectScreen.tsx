@@ -1,13 +1,13 @@
-import { GENERIC_PROFILE } from "obd-read";
 import { useState } from "react";
 import { adapterAvailability } from "../connect/availability";
 import type { BrowserSupport } from "../connect/support";
 import { CaptureCard } from "../captures/CaptureCard";
 import { failureMessage, type AdapterKind } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
-import { GENERIC_SUMMARY, GENERIC_TITLE, profileTitle } from "../profiles/generic";
+import { GENERIC_SUMMARY, profileTitle } from "../profiles/generic";
+import { ProfilePicker } from "../profiles/ProfilePicker";
 import { useProfiles } from "../profiles/ProfilesProvider";
-import { Badge, Button, Card, Dialog, Select, Switch } from "../ui";
+import { Badge, Button, Card, Dialog, Switch } from "../ui";
 import { error, list, muted, optionGrid, page } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
 
@@ -54,7 +54,7 @@ export function ConnectScreen({
   readonly onCaptured?: (id: string) => void;
 }) {
   const { connection, connect, disconnect, profile, setProfile } = useDiagnostics();
-  const { names } = useProfiles();
+  const { builtin, imported } = useProfiles();
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState<AdapterKind | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
@@ -96,16 +96,11 @@ export function ConnectScreen({
         title="Vehicle"
         description="A profile names the control units to talk to. Generic OBD-II needs none. Choose before connecting."
       >
-        <Select
-          label="Vehicle profile"
-          value={profile ?? GENERIC_PROFILE}
-          options={[
-            { value: GENERIC_PROFILE, label: GENERIC_TITLE },
-            ...names.map((name) => ({ value: name, label: name })),
-          ]}
-          onValueChange={(value) => {
-            setProfile(value === GENERIC_PROFILE ? undefined : value);
-          }}
+        <ProfilePicker
+          builtin={builtin}
+          imported={imported}
+          value={profile}
+          onValueChange={setProfile}
           disabled={connection !== undefined}
         />
         {profile === undefined && <p className={muted}>{GENERIC_SUMMARY}</p>}
