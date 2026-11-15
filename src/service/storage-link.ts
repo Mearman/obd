@@ -148,7 +148,8 @@ export function remoteStorage(port: SupportedMessagePort): Storage {
     try {
       return await call();
     } catch (error) {
-      const code = error instanceof ORPCError ? ERROR_CODES.get(error.code) : undefined;
+      const wire: unknown = error instanceof ORPCError ? error.code : undefined;
+      const code = typeof wire === "string" ? ERROR_CODES.get(wire) : undefined;
       if (code !== undefined && error instanceof Error) throw new StorageError(code, error.message);
       if (error instanceof ORPCError) throw new Error(error.message, { cause: error });
       throw error;

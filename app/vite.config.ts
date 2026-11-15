@@ -42,13 +42,11 @@ export default defineConfig({
       },
     }),
   ],
-  // The database worker is an ES module worker: sqlite-wasm resolves its WebAssembly file with
+  // The database and service workers are ES module workers: sqlite-wasm resolves its WebAssembly file with
   // import.meta.url, which the default IIFE worker format cannot express.
   worker: { format: "es" },
   // Relative URLs let the static build be served from any path.
   base: "./",
-  // The service worker is a module worker that imports shared chunks, which the default format cannot.
-  worker: { format: "es" },
   build: {
     target: "es2023",
     // The whole bundle is precached for offline use, so one chunk is the cheaper shape here.
