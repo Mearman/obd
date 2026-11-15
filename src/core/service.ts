@@ -379,7 +379,7 @@ export const diagnosticsContract = {
   runs: {
     /** Opens a run and starts collecting; the run is returned open. A run with no profile is stored under the name `generic-obd2` and collects the legislated values; naming a `unit` without a profile rejects with `PROFILE_REQUIRED`. */
     start: oc.input(startRunInputSchema).output(runSchema),
-    /** Collects again for a run that is open and not being collected, as after a reload; it keeps what the run was started with. */
+    /** Collects again for a run that is open and not being collected, as after a reload; it keeps what the run was started with. Rejects with `CONFLICT` for a run that is not `local`, since a shared or imported run was not read here. */
     resume: oc.input(runIdInput).output(runSchema),
     /** Stops collecting for a run and closes it. */
     stop: oc.input(runIdInput).output(runSchema),

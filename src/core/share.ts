@@ -803,6 +803,45 @@ export function sharedScanReport(data: ScanShareData): Record<string, Json> {
   };
 }
 
+/** A shared generic OBD-II read as the document `obd --output` writes, for the app to store when the user chooses to keep it; `origin` marks it as shared and `share` reads it back like any saved read. */
+export function sharedObdReportDocument(data: ObdReportShareData): Record<string, Json> {
+  return {
+    tool: "obd-read",
+    format: OBD_REPORT_FORMAT,
+    origin: "shared",
+    taken: data.taken,
+    adapter: { identity: data.adapter.label },
+    obd: data.obd,
+  };
+}
+
+/** The readings a shared run summary carries, as samples of the run `runId`: each series point at the run's start plus its offset. A summary holds at most {@link MAX_SERIES_POINTS} readings of each signal, so these are a thinned copy of the sender's run. */
+export function sharedRunSamples(data: RunSummaryShareData, runId: string): Sample[] {
+  return data.signals
+    .flatMap((signal) =>
+      signal.series.map(([offset, value]) => ({
+        runId,
+        signal: signal.signal,
+        unit: signal.unit,
+        timestamp: data.run.startedAt + offset,
+        value,
+      })),
+    )
+    .sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/** When a saved copy of a shared run stops: when the sender's run stopped, or else at its last reading. */
+export function sharedRunStop(data: RunSummaryShareData): number {
+  return (
+    data.run.stoppedAt ??
+    data.signals.reduce(
+      (latest, signal) =>
+        Math.max(latest, ...signal.series.map(([offset]) => data.run.startedAt + offset)),
+      data.run.startedAt,
+    )
+  );
+}
+
 /** The lines of a shared scan: where it came from, then each unit's identification and fault codes. */
 export function describeSharedScan(data: ScanShareData, createdAt: number): string[] {
   const lines = [
@@ -852,7 +891,7 @@ function roundOrNull(value: number | null): number | null {
  * `samples` need not be sorted; readings that are not numbers are left out of the series.
  */
 export function runSummaryShareData(
-  run: Run,
+  run: Pick<Run, "profile" | "adapter" | "startedAt" | "stoppedAt" | "notes">,
   aggregates: readonly SignalAggregate[],
   samples: readonly Sample[],
 ): RunSummaryShareData {
