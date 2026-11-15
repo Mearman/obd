@@ -716,49 +716,84 @@ export class Elm {
     const longRequest = payload.length > singleFrame && !nativeLong;
     const text = longRequest ? this.longRequestCommand(payload) : toUpperHex(payload);
     const lines = await this.command(text, timeoutMs);
-    const idChars = this.idBits === 11 ? 3 : 8;
-    const frames: IdentifiedFrame[] = [];
-    for (const line of lines) {
-      const compact = line.replaceAll(" ", "").toUpperCase();
-      if (NOISE.includes(compact)) continue;
-      if (compact === "NODATA") throw new NoResponse("no control unit answered");
-      if (compact === "?") {
-        if (longRequest) {
-          throw new AdapterUnsupported(
-            "the adapter rejected STPX (replied '?'); " +
-              "it has STN extensions but would not send a request over one frame",
-          );
-        }
-        throw new ElmError(`the adapter did not understand ${toUpperHex(payload)}`);
-      }
-      if (ADAPTER_ERRORS.some((error) => compact.startsWith(error))) {
-        throw new ElmError(`adapter error: ${line}`);
-      }
-      const body = compact.slice(idChars);
-      if (
-        !/^[0-9A-F]+$/.test(compact) ||
-        body.length % 2 !== 0 ||
-        body.length < (extended ? 4 : 2) ||
-        body.length > 2 * FRAME_BYTES
-      ) {
-        throw new ElmError(`unreadable reply line: ${quoted(line)}`);
-      }
-      const data = fromHex(body);
-      // With headers on, the adapter prints the extended address after the identifier and before
-      // the PCI byte, as Quantex's BMW exchange shows ("610F10662F1500F25F0": "610=CAN ID,
-      // F1=tester, 06=length"); https://www.quantexlab.com/en/develop/elm327.html
-      if (extended && byteAt(data, 0) !== EXTENDED_TESTER_ADDRESS) {
-        throw new ElmError(
-          `reply line ${quoted(line)} does not start with the tester address ` +
-            hexNumber(EXTENDED_TESTER_ADDRESS, 2),
+    return parseReplyLines(lines, {
+      idBits: this.idBits === 11 ? 11 : 29,
+      extended,
+      longRequest,
+      request: payload,
+    });
+  }
+}
+
+/** What {@link parseReplyLines} needs to know about the request the lines answer. */
+export interface ReplyContext {
+  /** The identifier width the adapter prints headers with. */
+  readonly idBits: 11 | 29;
+  /** Whether CAN extended addressing was on, so each frame starts with the tester address. */
+  readonly extended: boolean;
+  /** Whether the request was sent with STPX, so `?` means the adapter rejected STPX. */
+  readonly longRequest: boolean;
+  /** The request bytes, for error messages. */
+  readonly request: Uint8Array;
+}
+
+/**
+ * Each sender's reply messages from the lines an adapter printed for one request, headers on.
+ *
+ * Status lines ({@link NOISE}) are skipped. Under extended addressing each frame's leading tester address is checked and removed before reassembly.
+ *
+ * @throws NoResponse when the adapter printed `NO DATA` or no frames.
+ * @throws AdapterUnsupported when a long request's `STPX` was rejected.
+ * @throws ElmError for an adapter error line, a `?` or an unreadable line.
+ */
+export function parseReplyLines(
+  lines: readonly string[],
+  context: ReplyContext,
+): Map<number, Uint8Array[]> {
+  const { extended, longRequest } = context;
+  const payload = context.request;
+  const idChars = context.idBits === 11 ? 3 : 8;
+  const frames: IdentifiedFrame[] = [];
+  for (const line of lines) {
+    const compact = line.replaceAll(" ", "").toUpperCase();
+    if (NOISE.includes(compact)) continue;
+    if (compact === "NODATA") throw new NoResponse("no control unit answered");
+    if (compact === "?") {
+      if (longRequest) {
+        throw new AdapterUnsupported(
+          "the adapter rejected STPX (replied '?'); " +
+            "it has STN extensions but would not send a request over one frame",
         );
       }
-      frames.push([
-        Number.parseInt(compact.slice(0, idChars), 16),
-        extended ? data.subarray(1) : data,
-      ]);
+      throw new ElmError(`the adapter did not understand ${toUpperHex(payload)}`);
     }
-    if (frames.length === 0) throw new NoResponse("no control unit answered");
-    return isotpReassemble(frames);
+    if (ADAPTER_ERRORS.some((error) => compact.startsWith(error))) {
+      throw new ElmError(`adapter error: ${line}`);
+    }
+    const body = compact.slice(idChars);
+    if (
+      !/^[0-9A-F]+$/.test(compact) ||
+      body.length % 2 !== 0 ||
+      body.length < (extended ? 4 : 2) ||
+      body.length > 2 * FRAME_BYTES
+    ) {
+      throw new ElmError(`unreadable reply line: ${quoted(line)}`);
+    }
+    const data = fromHex(body);
+    // With headers on, the adapter prints the extended address after the identifier and before
+    // the PCI byte, as Quantex's BMW exchange shows ("610F10662F1500F25F0": "610=CAN ID,
+    // F1=tester, 06=length"); https://www.quantexlab.com/en/develop/elm327.html
+    if (extended && byteAt(data, 0) !== EXTENDED_TESTER_ADDRESS) {
+      throw new ElmError(
+        `reply line ${quoted(line)} does not start with the tester address ` +
+          hexNumber(EXTENDED_TESTER_ADDRESS, 2),
+      );
+    }
+    frames.push([
+      Number.parseInt(compact.slice(0, idChars), 16),
+      extended ? data.subarray(1) : data,
+    ]);
   }
+  if (frames.length === 0) throw new NoResponse("no control unit answered");
+  return isotpReassemble(frames);
 }
