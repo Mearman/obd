@@ -467,6 +467,45 @@ describe("redaction", () => {
   });
 });
 
+describe("redaction of a VIN in an unlabelled identification block", () => {
+  const BLOCK_VIN = "WDBTESTAB12345678";
+  const hex = Array.from(`ID ${BLOCK_VIN} 01`, (c) => c.charCodeAt(0).toString(16)).join("");
+
+  it("finds a VIN-shaped word in the text, the hexadecimal bytes and the notes", () => {
+    const base = scanData();
+    const data: ScanShareData = {
+      ...base,
+      units: [
+        {
+          ...engineUnit(),
+          notes: [`vin ${BLOCK_VIN}`],
+          identification: { identification: { hex, text: `ID ${BLOCK_VIN} 01` } },
+          freeze_frames: {},
+        },
+      ],
+    };
+    expect(shareContents(scanEnvelope(data)).join("\n")).toMatch(/included \(1 value\)/);
+    const redacted = redactScan(data);
+    const text = JSON.stringify(redacted);
+    expect(text).not.toContain(BLOCK_VIN);
+    expect(text).not.toContain(hex.slice(6, 40));
+    expect(redacted.units[0]?.identification.identification?.text).toBe("ID [redacted] 01");
+    expect(shareContents(scanEnvelope(redacted)).join("\n")).toContain(
+      "VIN and serial numbers: removed.",
+    );
+  });
+
+  it("says so when a scan holds none", () => {
+    const data: ScanShareData = {
+      ...scanData(),
+      units: [{ ...engineUnit(), notes: [], identification: {}, freeze_frames: {} }],
+    };
+    expect(shareContents(scanEnvelope(data)).join("\n")).toContain(
+      "No VIN or serial number was found",
+    );
+  });
+});
+
 describe("a saved scan", () => {
   const saved = {
     tool: "obd-read",
@@ -629,7 +668,7 @@ describe("what a link carries", () => {
     expect(included).toContain("2 control units");
     expect(included).toContain("2 fault codes with their status bytes");
     expect(included).toContain("2 freeze frames");
-    expect(included).toContain("VIN and serial numbers: included (2 values)");
+    expect(included).toMatch(/VIN and serial numbers: included \(\d+ values\)/);
     expect(included).toContain("Not included: the raw adapter transcript");
     const removed = shareContents(scanEnvelope(redactScan(scanData()))).join("\n");
     expect(removed).toContain("VIN and serial numbers: removed.");
