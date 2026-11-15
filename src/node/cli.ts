@@ -5,6 +5,21 @@
  */
 
 import { readFile, stat } from "node:fs/promises";
+import type { z } from "zod";
+import { CaptureError, captureId } from "../core/capture.js";
+import { ImportError, importRecord } from "../core/capture-import.js";
+import { captureFileBytes, readCaptureFile } from "../core/capture-file.js";
+import {
+  DEFAULT_DISCOVERY,
+  captureEverything,
+  discoveryRangeSchema,
+  identifierSweepSchema,
+  type CaptureStep,
+} from "../core/capture-run.js";
+import { decodeCapture, decodedLines } from "../core/decode.js";
+import { captureUnits } from "../core/storage.js";
+import { randomSuffix } from "../core/time.js";
+import { toolVersion } from "./version.js";
 import { createServer, type Socket } from "node:net";
 import { resolve } from "node:path";
 import { Elm, MAX_SINGLE_FRAME, Transcript, type AdapterInfo } from "../core/elm.js";
@@ -97,6 +112,7 @@ import {
   lineAsker,
   monitorLogFile,
   transcriptAppender,
+  writeNewFile,
 } from "./cli-files.js";
 import { createNobleCentral } from "./noble.js";
 import { zlibShareCodec } from "./share-codec.js";
@@ -584,7 +600,124 @@ async function mqttCommand(
   }
 }
 
-/** Runs a command that connects to an adapter. */
+/** The options a schema refused, as the command line reports them. */
+function optionsOf<T>(schema: z.ZodType<T>, value: unknown, what: string): T {
+  const parsed = schema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  throw new OptionError(
+    `${what}: ${parsed.error.issues.map((issue) => `${issue.path.join(".") || "range"} ${issue.message}`).join("; ")}`,
+  );
+}
+
+/** Refuses an output file that exists before a long operation starts, so its work is not lost. */
+async function requireNewFile(io: CliIo, path: string): Promise<void> {
+  if ((await isFile(io, path)) !== undefined) {
+    throw new OptionError(`${path} already exists; choose a new file`);
+  }
+}
+
+/** The `capture` command on an open session. */
+async function captureOnSession(
+  io: CliIo,
+  args: ParsedArgs,
+  elm: Elm,
+  adapter: AdapterInfo,
+  profile: Profile | undefined,
+): Promise<number> {
+  const output = args.text("output");
+  await requireNewFile(io, output);
+  const discovery = optionsOf(
+    discoveryRangeSchema,
+    {
+      first: args.number("discoverFirst"),
+      last: args.number("discoverLast"),
+      protocols: DEFAULT_DISCOVERY.protocols,
+    },
+    "discovery range",
+  );
+  const identifiers = args.flag("sweep")
+    ? optionsOf(
+        identifierSweepSchema,
+        {
+          first: args.number("sweepFirst"),
+          last: args.number("sweepLast"),
+          budget: args.number("sweepBudget"),
+          pauseMs: args.number("sweepPause"),
+        },
+        "identifier sweep",
+      )
+    : undefined;
+  if (identifiers !== undefined) {
+    io.out(
+      `warning: the identifier sweep sends up to ${String(identifiers.budget)} read requests; some units answer slowly or log the requests. Stop it with Ctrl-C and what was read is kept.`,
+    );
+  }
+  let step: CaptureStep | undefined;
+  const capture = await captureEverything(elm, {
+    profile,
+    discovery,
+    ...(identifiers === undefined ? {} : { identifiers }),
+    adapter,
+    adapterUrl: args.text("adapter"),
+    toolVersion: toolVersion(),
+    id: captureId(Date.now(), randomSuffix()),
+    progress: (progress) => {
+      if (progress.step === step && progress.step === "identifiers") return;
+      step = progress.step;
+      io.out(progress.detail);
+    },
+    stopped: () => io.signal?.aborted === true,
+  });
+  await writeNewFile(io.directory, output, captureFileBytes(capture, args.flag("compress")));
+  for (const note of capture.notes) io.out(`note: ${note}`);
+  io.out(
+    `captured ${String(capture.exchanges.length)} exchanges with ${String(captureUnits(capture).length)} addresses${capture.origin.complete ? "" : " (stopped before it finished)"}`,
+  );
+  io.out(
+    `wrote ${output}; decode it with: obd-read decode ${output}${profile === undefined ? "" : ` --profile ${profile.name}`}`,
+  );
+  return 0;
+}
+
+async function decodeCommand(io: CliIo, args: ParsedArgs): Promise<number> {
+  const path = args.text("capture");
+  let bytes: Uint8Array;
+  try {
+    bytes = await readFile(resolve(io.directory, path));
+  } catch (error) {
+    throw new CaptureError(fileErrorText(error, path));
+  }
+  const capture = readCaptureFile(bytes, path);
+  const profileName = args.optionalText("profile");
+  const decoded = await decodeCapture(
+    capture,
+    profileName === undefined
+      ? { kind: "generic" }
+      : { kind: "profile", profile: await loadProfile(io, profileName) },
+  );
+  for (const line of decodedLines(decoded)) io.out(line);
+  return 0;
+}
+
+async function importCaptureCommand(io: CliIo, args: ParsedArgs): Promise<number> {
+  const file = args.text("file");
+  const output = args.text("output");
+  await requireNewFile(io, output);
+  const text = await readText(io, file, (message) => new ImportError(message));
+  const { capture, unrecovered } = importRecord(
+    text,
+    `import-${new Date().toISOString().replace(/[-:.]/g, "")}-${randomSuffix()}`,
+    file,
+  );
+  for (const line of unrecovered) io.out(`not recovered: ${line}`);
+  await writeNewFile(io.directory, output, captureFileBytes(capture, args.flag("compress")));
+  io.out(
+    `recovered ${String(capture.exchanges.length)} exchanges in ${String(capture.sessions.length)} adapter sessions; wrote ${output}`,
+  );
+  return 0;
+}
+
+/** Runs a command that connects to an adapter. */ /** Runs a command that connects to an adapter. */
 async function carCommand(io: CliIo, args: ParsedArgs, name: string): Promise<number> {
   const profileName = args.optionalText("profile");
   const usesProfile = !["obd", "discover", "clear-codes", "battery"].includes(name);
@@ -598,6 +731,8 @@ async function carCommand(io: CliIo, args: ParsedArgs, name: string): Promise<nu
     const csv = args.optionalText("csv");
     const openLog = csv === undefined ? undefined : csvLogOpener(io.directory, csv);
     switch (name) {
+      case "capture":
+        return captureOnSession(io, args, elm, adapter, profile);
       case "live": {
         const unit = args.optionalText("unit");
         return liveCommand(
@@ -717,6 +852,8 @@ function isReportable(error: unknown): error is Error {
     error instanceof CodeNameError ||
     error instanceof ScanFileError ||
     error instanceof ShareLinkError ||
+    error instanceof CaptureError ||
+    error instanceof ImportError ||
     (error instanceof Error && error.name === "DefinitionError")
   );
 }
@@ -740,6 +877,10 @@ async function dispatch(io: CliIo, args: ParsedArgs): Promise<number> {
       return importNamesCommand(io, args);
     case "share":
       return shareCommand(io, args);
+    case "decode":
+      return decodeCommand(io, args);
+    case "import-capture":
+      return importCaptureCommand(io, args);
     default:
       return carCommand(io, args, String(name));
   }
@@ -776,7 +917,8 @@ export async function run(argv: readonly string[], io: CliIo): Promise<number> {
     }
     throw error;
   }
-  const cooperative = ["simulate", "mqtt"].includes(String(args.path[0]));
+  // A capture stops itself at an interrupt and still writes what it read.
+  const cooperative = ["simulate", "mqtt", "capture"].includes(String(args.path[0]));
   try {
     const status = await (cooperative
       ? dispatch(io, args)

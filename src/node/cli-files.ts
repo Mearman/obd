@@ -61,6 +61,27 @@ async function createExclusive(path: string, refusal: string): ReturnType<typeof
 }
 
 /**
+ * Writes `bytes` to a new file `path` under `directory`, refusing to replace one that exists.
+ *
+ * @throws OptionError naming the file when it exists.
+ */
+export async function writeNewFile(
+  directory: string,
+  path: string,
+  bytes: Uint8Array,
+): Promise<void> {
+  const handle = await createExclusive(
+    resolve(directory, path),
+    `${path} already exists; choose a new file`,
+  );
+  try {
+    await handle.write(bytes);
+  } finally {
+    await handle.close();
+  }
+}
+
+/**
  * Snapshots and drafts as files under `directory`, named as the user gave them (a relative name stays relative in every message). A snapshot is created exclusively, so an earlier one is never replaced.
  */
 export class FileSnapshotStore implements WritableSnapshotStore {

@@ -347,6 +347,68 @@ export const COMMANDS: readonly CommandSpec[] = [
       { required: true },
     ),
   ]),
+  car(
+    "capture",
+    "record every raw request and reply through the read-only services, to decode later under any profile (TypeScript only)",
+    [
+      option(
+        "--profile",
+        "string",
+        "profile whose units to read (name or .json path); without one, sweep for units",
+      ),
+      option("--output", "string", "the new capture file to write (.obdcap.json)", {
+        required: true,
+      }),
+      option("--compress", "flag", "write the capture gzip-compressed (.obdcap.json.gz)"),
+      option(
+        "--discover-first",
+        "autoInt",
+        "without a profile, the first request identifier to try",
+        {
+          default: 0x700,
+        },
+      ),
+      option(
+        "--discover-last",
+        "autoInt",
+        "without a profile, the last request identifier to try",
+        {
+          default: 0x7ff,
+        },
+      ),
+      option(
+        "--sweep",
+        "flag",
+        "also read every data identifier in a range on each unit that answered: many requests, off by default",
+      ),
+      option("--sweep-first", "autoInt", "the first identifier the sweep reads", { default: 0 }),
+      option("--sweep-last", "autoInt", "the last identifier the sweep reads", { default: 0xff }),
+      option("--sweep-budget", "int", "the most requests the sweep sends", { default: 2000 }),
+      option("--sweep-pause", "int", "milliseconds between two sweep requests", { default: 50 }),
+    ],
+    false,
+  ),
+  {
+    name: "decode",
+    summary: "print what a capture says under a profile, or under none (TypeScript only)",
+    description:
+      "Decode a capture file (capture --output, or import-capture --output) under a profile, or under none for the legislated OBD-II reads only. Nothing is sent to a car. Every exchange no reader decodes is listed with its raw bytes.",
+    args: [
+      positional("capture", "the capture file (.obdcap.json or .obdcap.json.gz)"),
+      option("--profile", "string", "profile name or path to a .json file; omitted, no profile"),
+    ],
+  },
+  {
+    name: "import-capture",
+    summary: "turn a saved scan or an adapter transcript into a capture file (TypeScript only)",
+    description:
+      "Recover the raw exchanges of a saved scan (scan --output, from its transcript) or an adapter transcript (--log) and write them as a capture, listing what could not be recovered.",
+    args: [
+      positional("file", "a saved scan .json or a --log transcript"),
+      option("--output", "string", "the new capture file to write", { required: true }),
+      option("--compress", "flag", "write the capture gzip-compressed"),
+    ],
+  },
   {
     name: "share",
     summary:

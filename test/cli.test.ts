@@ -60,7 +60,10 @@ describe("the argument parser", () => {
       "write",
       "restore",
       "actuate",
-      // TypeScript only: the Python tool had no sharing.
+      // TypeScript only: the Python tool had no captures and no sharing.
+      "capture",
+      "decode",
+      "import-capture",
       "share",
     ]);
   });
