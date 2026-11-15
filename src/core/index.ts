@@ -62,3 +62,4 @@ export * from "./capture.js";
 export * from "./replay.js";
 export * from "./captured-read.js";
 export * from "./decode.js";
+export * from "./capture-run.js";
