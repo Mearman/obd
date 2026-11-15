@@ -1,4 +1,5 @@
 import {
+  decodeAsOf,
   decodeCapture,
   decodedCaptureData,
   parseProfile,
@@ -8,9 +9,9 @@ import {
   type Storage,
 } from "obd-read";
 import { builtinProfiles, loadBuiltinProfile } from "obd-read/profiles";
-import { useEffect, useState } from "react";
-import { DecodedView } from "../captures/DecodedView";
+import { useCallback, useEffect, useState } from "react";
 import { GENERIC_CHOICE, chosenProfile, useDecodeChoices } from "../captures/decode-choices";
+import { PlaybackView } from "../captures/playback/PlaybackView";
 import { error, muted, stack } from "../screens/screen.css";
 import { Card, Select } from "../ui";
 
@@ -84,6 +85,12 @@ export function SharedCaptureView({
     };
   }, [capture, choice, storage]);
 
+  const decodeAt = useCallback(
+    async (count: number) =>
+      decodedCaptureData(await decodeAsOf(capture, await targetFor(choice, storage), count)),
+    [capture, choice, storage],
+  );
+
   const current = decoding?.choice === choice ? decoding : undefined;
   return (
     <Card
@@ -102,7 +109,9 @@ export function SharedCaptureView({
             {current.message}
           </p>
         )}
-        {current?.status === "ready" && <DecodedView capture={capture} decoded={current.decoded} />}
+        {current?.status === "ready" && (
+          <PlaybackView capture={capture} decoded={current.decoded} decodeAt={decodeAt} />
+        )}
       </div>
     </Card>
   );
