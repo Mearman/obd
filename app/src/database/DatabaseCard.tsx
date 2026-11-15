@@ -1,22 +1,12 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 import type { DatabaseInfo } from "obd-read/web/storage";
-import { Button, Card } from "../ui";
+import { Button, Card, download } from "../ui";
 import { error, muted, stack } from "../screens/screen.css";
 import { useDatabase } from "./DatabaseProvider";
 
 /** A name for the exported file that sorts by date, from the time it is exported. */
 export function exportFileName(now: Date): string {
   return `obd-read-${now.toISOString().slice(0, 10)}.sqlite`;
-}
-
-/** Hands `bytes` to the browser as a download. */
-function download(bytes: Uint8Array<ArrayBuffer>, name: string): void {
-  const url = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.sqlite3" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  link.click();
-  URL.revokeObjectURL(url);
 }
 
 function persistenceText(persisted: boolean | null): string {
@@ -53,7 +43,11 @@ export function DatabaseCard() {
   async function onExport(): Promise<void> {
     if (ready === undefined) return;
     try {
-      download(new Uint8Array(await ready.control.exportFile()), exportFileName(new Date()));
+      download(
+        exportFileName(new Date()),
+        "application/vnd.sqlite3",
+        new Uint8Array(await ready.control.exportFile()),
+      );
       setMessage({ ok: true, text: "Exported the database." });
     } catch (cause) {
       setMessage({ ok: false, text: cause instanceof Error ? cause.message : String(cause) });
