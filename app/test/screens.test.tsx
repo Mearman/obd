@@ -1,3 +1,4 @@
+import { pickProfile } from "./ui-helpers";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { builtinProfileData } from "obd-read/profiles";
@@ -84,8 +85,7 @@ describe("Connect screen", () => {
 
 /** Picks a vehicle profile on the Connect screen; the default is generic OBD-II. */
 async function chooseProfile(name: string): Promise<void> {
-  await userEvent.click(screen.getByRole("combobox", { name: "Vehicle profile" }));
-  await userEvent.click(await screen.findByRole("option", { name }));
+  await pickProfile(name);
 }
 
 async function connectSimulator(profile?: string): Promise<void> {
@@ -268,15 +268,29 @@ describe("Settings screen", () => {
 describe("Generic OBD-II (no profile)", () => {
   it("is the first option and the default, with a line saying what it can and cannot do", async () => {
     renderApp(<App support={CHROME} />);
-    const select = screen.getByRole("combobox", { name: "Vehicle profile" });
+    const select = screen.getByRole("button", { name: /Vehicle profile/ });
     expect(select).toHaveTextContent("Generic OBD-II (no profile)");
     expect(screen.getByText(/It cannot address one control unit/)).toBeInTheDocument();
     await userEvent.click(select);
     const options = await screen.findAllByRole("option");
     expect(options[0]).toHaveTextContent("Generic OBD-II (no profile)");
     expect(options.length).toBeGreaterThan(1);
-    await userEvent.click(screen.getByRole("option", { name: "mercedes-w211" }));
+    const w211 = options.find((option) => option.dataset.profile === "mercedes-w211");
+    if (w211 === undefined) throw new Error("no w211 option");
+    await userEvent.click(w211);
     expect(screen.queryByText(/It cannot address one control unit/)).not.toBeInTheDocument();
+  });
+
+  it("narrows the list as the user types and says when nothing matches", async () => {
+    renderApp(<App support={CHROME} />);
+    await userEvent.click(screen.getByRole("button", { name: /Vehicle profile/ }));
+    await userEvent.type(screen.getByRole("searchbox", { name: "Search vehicle profiles" }), "w211");
+    const options = await screen.findAllByRole("option");
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveAttribute("data-profile", "mercedes-w211");
+    await userEvent.clear(screen.getByRole("searchbox"));
+    await userEvent.type(screen.getByRole("searchbox"), "zzzz");
+    expect(screen.getByText(/No profile matches/)).toBeInTheDocument();
   });
 
   it("connects the simulator without a profile and names the connection as generic", async () => {

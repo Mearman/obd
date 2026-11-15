@@ -1,3 +1,4 @@
+import { pickProfile } from "./ui-helpers";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -53,8 +54,7 @@ async function openTab(name: string): Promise<void> {
 
 /** Scans the simulated Volkswagen, whose units answer with a VIN. */
 async function scanWithSimulator(): Promise<void> {
-  await userEvent.click(screen.getByRole("combobox", { name: "Vehicle profile" }));
-  await userEvent.click(await screen.findByRole("option", { name: /vag-mqb/ }));
+  await pickProfile("vag-mqb");
   await userEvent.click(screen.getByRole("button", { name: /connect with the simulator/i }));
   await screen.findByText("Connected to Simulator");
   await openTab("Scan");
