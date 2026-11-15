@@ -105,12 +105,19 @@ export const valueSchema = object({
   status: text().default("unconfirmed"),
 });
 
+/** The diagnostic protocol and the session that opens it. A profile has one; a unit may carry its own. */
+export const diagnosticsSchema = object({
+  protocol: z.literal(PROFILE_PROTOCOLS, { error: wrong("kwp2000 or uds") }),
+  session: whole(),
+});
+
 export const unitSchema = object({
   description: text(),
   request: whole(),
   response: whole(),
   extended_address: byte().optional(),
   id_bits: z.literal([11, 29], { error: wrong("11 or 29") }).optional(),
+  diagnostics: diagnosticsSchema.optional(),
   source: text(),
   values: z.record(z.string(), valueSchema).optional(),
 });
@@ -137,10 +144,7 @@ export const profileFileSchema = object({
   description: text(),
   status: text(),
   bus: z.union([klineBusSchema, canBusSchema]),
-  diagnostics: object({
-    protocol: z.literal(PROFILE_PROTOCOLS, { error: wrong("kwp2000 or uds") }),
-    session: whole(),
-  }),
+  diagnostics: diagnosticsSchema,
   units: z
     .record(z.string(), unitSchema)
     .refine((units) => Object.keys(units).length > 0, { error: "no units" }),
@@ -180,12 +184,29 @@ export const profileFileSchema = object({
     });
   }
   for (const [unitName, unit] of Object.entries(file.units)) {
+    const own = unit.diagnostics ?? file.diagnostics;
+    if (unit.diagnostics !== undefined) {
+      if ("kline" in file.bus && own.protocol !== "kwp2000") {
+        context.addIssue({
+          code: "custom",
+          path: ["units", unitName, "diagnostics"],
+          message: `a K-line bus carries kwp2000 only, got ${JSON.stringify(own.protocol)}`,
+        });
+      }
+      if (!isReadOnlySession(own.protocol, own.session)) {
+        context.addIssue({
+          code: "custom",
+          path: ["units", unitName, "diagnostics"],
+          message: `diagnostic session ${hex(own.session, 2)} is not a read-only session`,
+        });
+      }
+    }
     for (const [valueName, value] of Object.entries(unit.values ?? {})) {
-      if (value.identifier < 0 || value.identifier > MAX_IDENTIFIER[protocol]) {
+      if (value.identifier < 0 || value.identifier > MAX_IDENTIFIER[own.protocol]) {
         context.addIssue({
           code: "custom",
           path: ["units", unitName, "values", valueName],
-          message: `identifier ${hex(value.identifier)} does not fit a ${protocol} identifier`,
+          message: `identifier ${hex(value.identifier)} does not fit a ${own.protocol} identifier`,
         });
       }
     }
@@ -246,6 +267,8 @@ export interface DataValue {
 /**
  * One control unit: where to send requests and where its replies come from.
  *
+ * `protocol` and `session` are the unit's own diagnostics when the profile gives it some, else the profile's, so one profile can hold units that read through KWP2000 service 21 beside units that read through UDS service 22.
+ *
  * `extendedAddress` is present for a unit reached with ISO 15765-2 extended addressing: the byte goes first in the data of every frame sent to the unit (requests and flow control), and every frame the unit sends starts with the tester address {@link DEFAULT_TESTER}. Several units may then share one request identifier, told apart by this byte.
  *
  * `idBits` is the width of the unit's CAN identifiers: the unit's own `id_bits` when the profile gives one, else the bus's, so a car that mixes 11-bit and 29-bit units names each one's width. A K-line unit has none.
@@ -257,6 +280,8 @@ export interface Unit {
   readonly responseId: number;
   readonly extendedAddress?: number;
   readonly idBits?: 11 | 29;
+  readonly protocol: ProfileProtocol;
+  readonly session: number;
   readonly source: string;
   readonly values: ReadonlyMap<string, DataValue>;
 }
@@ -320,6 +345,7 @@ function sectionLabel(where: string, path: readonly PropertyKey[]): string {
   const [first, unitName, third, valueName] = path.map(String);
   if (first === "bus" || first === "diagnostics") return `${where} [${first}]`;
   if (first === "units" && unitName !== undefined) {
+    if (third === "diagnostics") return `${where} [units.${unitName}.diagnostics]`;
     return third === "values" && valueName !== undefined
       ? `${where} [units.${unitName}.values.${valueName}]`
       : `${where} [units.${unitName}]`;
@@ -400,6 +426,8 @@ function build(file: ProfileFile): Profile {
       responseId: unit.response,
       ...(unit.extended_address === undefined ? {} : { extendedAddress: unit.extended_address }),
       ...(bus.kind === "can" ? { idBits: unit.id_bits ?? bus.idBits } : {}),
+      protocol: (unit.diagnostics ?? file.diagnostics).protocol,
+      session: (unit.diagnostics ?? file.diagnostics).session,
       source: unit.source,
       values,
     });

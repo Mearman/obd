@@ -407,11 +407,11 @@ export const SIMULATED_UDS_RECORD: readonly [identifier: number, value: Uint8Arr
  * A fresh adapter wired to one scripted unit per profile unit, plus OBD-II on the functional
  * identifier. Each call returns a car untouched by any other.
  */
-export function simulatedCar(profile: Pick<Profile, "protocol" | "units">): FakeElmCore {
+export function simulatedCar(profile: Pick<Profile, "units">): FakeElmCore {
   const car = new FakeElmCore({ [FUNCTIONAL_REQUEST_ID]: obdResponder });
   for (const unit of profile.units.values()) {
     let respond: UnitResponder;
-    if (profile.protocol === DiagProtocol.UDS) {
+    if (unit.protocol === DiagProtocol.UDS) {
       const uds = new UdsEcu(unit.responseId, [[...SIMULATED_UDS_FAULT]]);
       uds.records.set(SIMULATED_UDS_RECORD[0], SIMULATED_UDS_RECORD[1]);
       respond = uds.respond;

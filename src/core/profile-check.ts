@@ -6,6 +6,7 @@
 
 import {
   canBusSchema,
+  diagnosticsSchema,
   klineBusSchema,
   parseJson,
   profileFileSchema,
@@ -45,16 +46,21 @@ function unrecognisedKeys(raw: unknown, file: ProfileFile): string[] {
   const busShape = "kline" in file.bus ? klineBusSchema.shape : canBusSchema.shape;
   problems.push(...unknownKeys(raw.bus, Object.keys(busShape), "[bus]"));
   problems.push(
-    ...unknownKeys(
-      raw.diagnostics,
-      Object.keys(profileFileSchema.shape.diagnostics.shape),
-      "[diagnostics]",
-    ),
+    ...unknownKeys(raw.diagnostics, Object.keys(diagnosticsSchema.shape), "[diagnostics]"),
   );
   const rawUnits = raw.units;
   if (!isRecord(rawUnits)) return problems;
   for (const [name, unit] of Object.entries(rawUnits)) {
     problems.push(...unknownKeys(unit, Object.keys(unitSchema.shape), `[units.${name}]`));
+    if (isRecord(unit)) {
+      problems.push(
+        ...unknownKeys(
+          unit.diagnostics,
+          Object.keys(diagnosticsSchema.shape),
+          `[units.${name}.diagnostics]`,
+        ),
+      );
+    }
     const values = isRecord(unit) ? unit.values : undefined;
     if (!isRecord(values)) continue;
     for (const [valueName, value] of Object.entries(values)) {

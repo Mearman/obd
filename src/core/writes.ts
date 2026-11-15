@@ -22,6 +22,7 @@ import {
 } from "./guard.js";
 import {
   makeClient,
+  unitDiagnostics,
   unitSession,
   type LineSink,
   type UnitAddress,
@@ -240,10 +241,9 @@ export async function planRestore(
       `${snapshot} was taken from ${pythonJsonRepr(recorded)}, not ${pythonJsonRepr(expected)}`,
     );
   }
-  if (saved.protocol !== profile.protocol) {
-    throw new WriteRefused(
-      `${snapshot} was taken over ${String(saved.protocol)}, not ${profile.protocol}`,
-    );
+  const { protocol } = unitDiagnostics(profile, unit);
+  if (saved.protocol !== protocol) {
+    throw new WriteRefused(`${snapshot} was taken over ${String(saved.protocol)}, not ${protocol}`);
   }
   const names = ["read_request", "write_request", "previous_value"] as const;
   const missing = names.filter((name) => typeof saved[name] !== "string");
@@ -264,9 +264,9 @@ export async function planRestore(
     throw new WriteRefused(`${snapshot} holds a value that is not hexadecimal`, { cause: error });
   }
   if (write.length === 0) throw new WriteRefused(`${snapshot} records an empty write request`);
-  const original = planWrite(profile.protocol, write, read);
+  const original = planWrite(protocol, write, read);
   return planWrite(
-    profile.protocol,
+    protocol,
     concatBytes(Uint8Array.of(byteAt(write, 0)), original.identifier, previous),
     original.read,
   );
@@ -307,7 +307,7 @@ export async function writeCommand(
   const plan =
     command.command === "restore"
       ? await planRestore(store, command.snapshot, profile, unit)
-      : planWrite(profile.protocol, command.request, command.read);
+      : planWrite(unitDiagnostics(profile, unit).protocol, command.request, command.read);
   const confirm = async (previous: Uint8Array): Promise<boolean> => {
     out(`unit: ${unit.name} (${hexNumber(unit.requestId, 1)} -> ${hexNumber(unit.responseId, 1)})`);
     out(`read request: ${toUpperHex(plan.read)}`);

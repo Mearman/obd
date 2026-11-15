@@ -60,6 +60,15 @@ describe("checkProfile", () => {
       /^\[diagnostics\]: unknown key extra/,
     ],
     [
+      "a stray key in a unit's diagnostics",
+      edit(MINIMAL, ["units", "engine", "diagnostics"], {
+        protocol: "uds",
+        session: 1,
+        extra: 1,
+      }),
+      /^\[units\.engine\.diagnostics\]: unknown key extra/,
+    ],
+    [
       "a misspelt value key",
       edit(KWP_PROFILE, ["units", "engine", "values", "boost", "scal"], 0.1),
       /^\[units\.engine\.values\.boost\]: unknown key scal/,

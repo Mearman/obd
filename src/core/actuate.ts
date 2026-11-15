@@ -20,6 +20,7 @@ import {
 import { sleep as realSleep } from "./time.js";
 import {
   makeClient,
+  unitDiagnostics,
   unitSession,
   type LineSink,
   type UnitAddress,
@@ -151,7 +152,7 @@ export interface ActuateCommandParams {
  */
 export async function actuateCommand(params: ActuateCommandParams): Promise<number> {
   const { elm, profile, unit, request, stop, durationMs, out, ask } = params;
-  checkActuation(profile.protocol, request, stop, durationMs);
+  checkActuation(unitDiagnostics(profile, unit).protocol, request, stop, durationMs);
   await elm.addressUnit(unit.requestId, unit.responseId, unit.extendedAddress, unit.idBits);
   await makeClient(elm, profile, unit).start();
   const seconds = String(durationMs / 1000);
@@ -165,7 +166,12 @@ export async function actuateCommand(params: ActuateCommandParams): Promise<numb
     out("nothing sent");
     return 1;
   }
-  const tokens = authoriseActuation(profile.protocol, request, stop, durationMs);
+  const tokens = authoriseActuation(
+    unitDiagnostics(profile, unit).protocol,
+    request,
+    stop,
+    durationMs,
+  );
   await actuate(unitSession(elm, profile, unit), tokens, durationMs, out, params.sleep);
   out("control handed back to the unit");
   return 0;
