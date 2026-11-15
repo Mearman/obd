@@ -7,6 +7,7 @@
  */
 
 import { z } from "zod";
+import { FAULT_LISTS, type FaultList } from "./fault-history.js";
 import { PIDS } from "./pids.js";
 
 /** What a plan document's `format` field holds. */
@@ -26,12 +27,6 @@ export const DEFAULT_CODE_WATCH_INTERVAL_S = 15;
 
 /** The most times a phase may repeat. */
 export const MAX_REPEAT = 100;
-
-/** The fault code lists a plan can read or watch, as the legislated services name them. */
-export const CODE_LISTS = ["stored", "pending", "permanent"] as const;
-
-/** One fault code list. */
-export type CodeList = (typeof CODE_LISTS)[number];
 
 /** The reads a phase can take at its start or end, each through a read-only legislated service. */
 export const PLAN_READS = [
@@ -84,12 +79,12 @@ export type PlanCondition =
     }
   | {
       readonly kind: "code-appears";
-      readonly list?: CodeList | undefined;
+      readonly list?: FaultList | undefined;
       readonly code?: string | undefined;
     }
   | {
       readonly kind: "code-clears";
-      readonly list?: CodeList | undefined;
+      readonly list?: FaultList | undefined;
       readonly code?: string | undefined;
     }
   | { readonly kind: "confirm"; readonly prompt?: string | undefined }
@@ -132,12 +127,12 @@ export const planConditionSchema: z.ZodType<PlanCondition> = z.discriminatedUnio
   valueConditionSchema,
   z.strictObject({
     kind: z.literal("code-appears"),
-    list: z.enum(CODE_LISTS).optional(),
+    list: z.enum(FAULT_LISTS).optional(),
     code: faultCode.optional(),
   }),
   z.strictObject({
     kind: z.literal("code-clears"),
-    list: z.enum(CODE_LISTS).optional(),
+    list: z.enum(FAULT_LISTS).optional(),
     code: faultCode.optional(),
   }),
   z.strictObject({ kind: z.literal("confirm"), prompt: z.string().min(1).optional() }),
@@ -399,7 +394,7 @@ export function parsePlanText(text: string, where: string): Plan {
 export function describeCondition(condition: PlanCondition): string {
   const held = (text: string, duration: number | undefined): string =>
     duration === undefined ? text : `${text} for ${String(duration)} s`;
-  const where = (list: CodeList | undefined): string => (list === undefined ? "" : ` (${list})`);
+  const where = (list: FaultList | undefined): string => (list === undefined ? "" : ` (${list})`);
   switch (condition.kind) {
     case "elapsed":
       return `${String(condition.seconds)} s`;

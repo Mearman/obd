@@ -3,13 +3,14 @@
  *
  * {@link PlanRunner} drives one plan over a {@link PlanLink} (a `DeviceLink` is one) into a {@link Storage}, and reports what it does as {@link PlanEvent}s, so a command line and a page show the same steps. It reads the car only through the read-only legislated OBD-II functions (`readPid`, `codes`, `freezeFrame`, `misfireCounts`), each of which passes the guard; nothing in a plan can clear, write or actuate. It reads no clock of its own: time and waiting come from an injected {@link PlanClock}, so a test runs a plan of minutes in no time.
  *
- * The run holds three kinds of sample. Each reading is a sample whose signal is the value's label, as a collection run stores it. Each fault code list is a text sample, written whenever the list changes, under the signal and in the format {@link codeListSample} defines. Each phase is one text sample under {@link PLAN_PHASE_SIGNAL}, at the phase's start time, whose value is the JSON of its {@link PhaseRecord}: start and end times, outcome and the reads. {@link planPhases} reads them back. Because they are ordinary samples, the exports, the share link and the run screens carry them with no change to storage.
+ * The run holds three kinds of sample. Each reading is a sample whose signal is the value's label, as a collection run stores it. Each fault code list is a text sample, written whenever the list changes, under the signal and in the format collection runs use (`FAULT_SIGNALS`, `faultSampleValue`), so `faultEvents` turns either kind of run into code events. Each phase is one text sample under {@link PLAN_PHASE_SIGNAL}, at the phase's start time, whose value is the JSON of its {@link PhaseRecord}: start and end times, outcome and the reads. {@link planPhases} reads them back. Because they are ordinary samples, the exports, the share link and the run screens carry them with no change to storage.
  *
  * This module is platform-free.
  */
 
 import { z } from "zod";
 import { isCommandError } from "./command-errors.js";
+import { FAULT_LISTS, FAULT_SIGNALS, faultSampleValue, type FaultList } from "./fault-history.js";
 import type { Elm } from "./elm.js";
 import { buildSource, type Source } from "./live.js";
 import { GENERIC_PROFILE } from "./generic.js";
@@ -24,13 +25,11 @@ import {
 } from "./obd.js";
 import { PIDS } from "./pids.js";
 import {
-  CODE_LISTS,
   DEFAULT_CODE_WATCH_INTERVAL_S,
   conditionsIn,
   describeCondition,
   phaseValues,
   watchesCodes,
-  type CodeList,
   type Plan,
   type PlanPhase,
   type PlanRead,
@@ -59,44 +58,29 @@ export const systemClock: PlanClock = { now: clockNow, sleep: clockSleep };
 /** The signal a phase's record is stored under. */
 export const PLAN_PHASE_SIGNAL = "plan phase";
 
-/**
- * The signal each fault code list is stored under. They are the names the collection runs use for the same lists, so one reader turns either kind of run's samples into code events.
- */
-export const CODE_LIST_SIGNALS: Readonly<Record<CodeList, string>> = {
-  stored: "stored fault codes",
-  pending: "pending fault codes",
-  permanent: "permanent fault codes",
-};
-
-/** The value stored for a list with no codes. */
-export const NO_CODES_VALUE = "none";
-
-/**
- * The one place a fault code list becomes a stored sample: its codes, each once, sorted and separated by spaces, or {@link NO_CODES_VALUE}, under {@link CODE_LIST_SIGNALS}.
- */
-export function codeListSample(
+/** The one place a fault code list becomes a stored sample, in the format collection runs use (see fault-history.ts), so `faultEvents` reads either kind of run. */
+function faultListSample(
   runId: string,
-  list: CodeList,
+  list: FaultList,
   found: readonly string[],
   timestamp: number,
 ): Sample {
-  const unique = [...new Set(found)].sort();
   return {
     runId,
-    signal: CODE_LIST_SIGNALS[list],
+    signal: FAULT_SIGNALS[list],
     unit: "",
     timestamp,
-    value: unique.length === 0 ? NO_CODES_VALUE : unique.join(" "),
+    value: faultSampleValue(found),
   };
 }
 
-const CODE_MODES: Readonly<Record<CodeList, number>> = {
+const CODE_MODES: Readonly<Record<FaultList, number>> = {
   stored: STORED_CODES,
   pending: PENDING_CODES,
   permanent: PERMANENT_CODES,
 };
 
-const READ_LISTS: Readonly<Partial<Record<PlanRead, CodeList>>> = {
+const READ_LISTS: Readonly<Partial<Record<PlanRead, FaultList>>> = {
   "stored-codes": "stored",
   "pending-codes": "pending",
   "permanent-codes": "permanent",
@@ -111,7 +95,7 @@ function unitKey(sender: number): string {
 export const readResultSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("codes"),
-    list: z.enum(CODE_LISTS),
+    list: z.enum(FAULT_LISTS),
     units: z.array(z.object({ unit: z.string(), codes: z.array(z.string()) })),
   }),
   z.object({
@@ -270,7 +254,7 @@ export type PlanEvent =
       readonly type: "code-appeared" | "code-cleared";
       readonly at: number;
       readonly phase: string;
-      readonly list: CodeList;
+      readonly list: FaultList;
       readonly code: string;
     }
   | {
@@ -355,7 +339,7 @@ export class PlanRunner {
   private readonly clock: PlanClock;
   private readonly codesIntervalMs: number;
   private readonly sources = new Map<string, NamedSource>();
-  private readonly lastCodes = new Map<CodeList, readonly string[]>();
+  private readonly lastCodes = new Map<FaultList, readonly string[]>();
   private readonly pending: Sample[] = [];
   private readonly phases: PhaseRecord[] = [];
   private runId = "";
@@ -579,7 +563,7 @@ export class PlanRunner {
   /** Samples and watches until the wait's condition holds, it runs out or the person skips. */
   private async wait(phase: PlanPhase, stage: WaitStage, wait: PlanWait): Promise<WaitEnd> {
     const watching = watchesCodes(phase);
-    if (watching) await this.readCodeLists(phase.id);
+    if (watching) await this.readFaultLists(phase.id);
     const startedAt = this.clock.now();
     const timeoutMs = wait.timeout * 1000;
     const tracker = new ConditionTracker(wait.when, startedAt, this.lastCodes);
@@ -604,7 +588,7 @@ export class PlanRunner {
         this.checkAbort();
         if (this.interrupt === "skip") return "skipped";
         await this.sample(phase.id, named);
-        if (watching) await this.readCodeLists(phase.id);
+        if (watching) await this.readFaultLists(phase.id);
         const at = this.clock.now();
         const status = tracker.status(at);
         this.emit({
@@ -680,22 +664,22 @@ export class PlanRunner {
   }
 
   /** Reads every fault code list when one is due. */
-  private async readCodeLists(phase: string): Promise<void> {
+  private async readFaultLists(phase: string): Promise<void> {
     const at = this.clock.now();
     if (this.lastCodesAt !== undefined && at - this.lastCodesAt < this.codesIntervalMs) return;
-    for (const list of CODE_LISTS) await this.readList(phase, list);
+    for (const list of FAULT_LISTS) await this.readList(phase, list);
     this.lastCodesAt = this.clock.now();
   }
 
   /** Reads one code list, records a change and reports each code that appeared or cleared. */
-  private async readList(phase: string, list: CodeList): Promise<Map<number, string[]>> {
+  private async readList(phase: string, list: FaultList): Promise<Map<number, string[]>> {
     const answers = await this.options.link.withSession(({ elm }) => codes(elm, CODE_MODES[list]));
     const at = this.clock.now();
     const found = [...new Set([...answers.values()].flat())].sort();
     const before = this.lastCodes.get(list);
     this.lastCodes.set(list, found);
     if (before?.join(" ") !== found.join(" ")) {
-      this.pending.push(codeListSample(this.runId, list, found, at));
+      this.pending.push(faultListSample(this.runId, list, found, at));
     }
     if (before !== undefined) {
       for (const code of found.filter((code) => !before.includes(code))) {

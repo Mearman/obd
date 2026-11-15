@@ -4,7 +4,8 @@
  * A {@link ConditionTracker} is fed observations in time order and says, at any time, whether its condition holds and how far it has got, in words. It reads no clock of its own: every observation and every status call carries its time. This module is platform-free.
  */
 
-import { CODE_LISTS, describeCondition, type CodeList, type PlanCondition } from "./plan.js";
+import { FAULT_LISTS, type FaultList } from "./fault-history.js";
+import { describeCondition, type PlanCondition } from "./plan.js";
 
 /** One thing the runner saw. */
 export type Observation =
@@ -17,7 +18,7 @@ export type Observation =
   | {
       readonly type: "codes";
       readonly at: number;
-      readonly list: CodeList;
+      readonly list: FaultList;
       readonly codes: readonly string[];
     }
   | { readonly type: "confirmed"; readonly at: number };
@@ -30,7 +31,7 @@ export interface ConditionStatus {
 }
 
 /** The fault code lists as last read, by list. */
-export type CodeLists = ReadonlyMap<CodeList, readonly string[]>;
+export type FaultLists = ReadonlyMap<FaultList, readonly string[]>;
 
 interface Node {
   observe(observation: Observation): void;
@@ -120,8 +121,8 @@ function valueNode(condition: Extract<PlanCondition, { kind: "value" }>): Node {
 }
 
 function matches(
-  condition: { readonly list?: CodeList | undefined; readonly code?: string | undefined },
-  list: CodeList,
+  condition: { readonly list?: FaultList | undefined; readonly code?: string | undefined },
+  list: FaultList,
   code: string,
 ): boolean {
   return (
@@ -133,7 +134,7 @@ function matches(
 /** A code that was not in its list when the wait began appears in it; once seen, it stays met. */
 function appearsNode(
   condition: Extract<PlanCondition, { kind: "code-appears" }>,
-  baseline: CodeLists,
+  baseline: FaultLists,
 ): Node {
   const before = new Map(baseline);
   let found: string | undefined;
@@ -161,10 +162,10 @@ function appearsNode(
 /** A code present when the wait began, or seen since, is gone from its list; once seen, it stays met. */
 function clearsNode(
   condition: Extract<PlanCondition, { kind: "code-clears" }>,
-  baseline: CodeLists,
+  baseline: FaultLists,
 ): Node {
-  const seen = new Map<CodeList, Set<string>>(
-    CODE_LISTS.map((list) => [list, new Set(baseline.get(list) ?? [])]),
+  const seen = new Map<FaultList, Set<string>>(
+    FAULT_LISTS.map((list) => [list, new Set(baseline.get(list) ?? [])]),
   );
   let cleared: string | undefined;
   return {
@@ -187,7 +188,7 @@ function clearsNode(
   };
 }
 
-function build(condition: PlanCondition, startedAt: number, baseline: CodeLists): Node {
+function build(condition: PlanCondition, startedAt: number, baseline: FaultLists): Node {
   switch (condition.kind) {
     case "elapsed":
       return {
@@ -258,7 +259,7 @@ export class ConditionTracker {
   constructor(
     readonly condition: PlanCondition,
     startedAt: number,
-    baseline: CodeLists = new Map(),
+    baseline: FaultLists = new Map(),
   ) {
     this.root = build(condition, startedAt, baseline);
   }
