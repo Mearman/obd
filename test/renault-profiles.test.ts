@@ -123,6 +123,13 @@ describe("the shipped Renault profiles", () => {
     expect(notes).toMatch(/inference, not a sourced date/);
   });
 
+  it("the core profile names the Citan W415 and says its unit fit is unsourced", () => {
+    expect(loadBuiltinProfile("renault-dacia-core").description).toContain("Citan W415");
+    const notes = notesOf("renault-dacia-core");
+    expect(notes).toMatch(/"Daimler Citan" project \(code VS10/);
+    expect(notes).toMatch(/no source says which of these units a Citan fits/);
+  });
+
   it("keeps the addresses the CanZE files and the ddt4all table agree on", () => {
     const pairs: readonly [string, string, number, number][] = [
       ["renault-zoe-ph1", "evc", 0x7e4, 0x7ec],
