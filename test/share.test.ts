@@ -14,6 +14,7 @@ import {
   isIdentifyingLabel,
   redactObdReport,
   redactScan,
+  redactVinShapes,
   runExportShareData,
   runSummaryShareData,
   savedTime,
@@ -932,5 +933,18 @@ describe("a run export", () => {
 
   it("is refused when it is not a run export", () => {
     expect(runExportShareData({ format: "other" }).ok).toBe(false);
+  });
+});
+
+describe("redactVinShapes", () => {
+  it("replaces VIN-shaped words in either case and leaves other text", () => {
+    expect(redactVinShapes("car WDB2110202B121724 failed")).toBe("car [redacted] failed");
+    expect(redactVinShapes("car wdb2110202b121724 failed", "[vin]")).toBe("car [vin] failed");
+  });
+
+  it("leaves seventeen-letter words, seventeen digits and longer runs alone", () => {
+    expect(redactVinShapes("ABCDEFGHJKLMNPRST")).toBe("ABCDEFGHJKLMNPRST");
+    expect(redactVinShapes("12345678901234567")).toBe("12345678901234567");
+    expect(redactVinShapes("WDB2110202B121724X")).toBe("WDB2110202B121724X");
   });
 });
