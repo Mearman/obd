@@ -13,7 +13,7 @@ import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { OriginBadge } from "../origin/OriginBadge";
 import { ALL_ORIGINS, ORIGIN_FILTER_OPTIONS, originQuery } from "../origin/origins";
 import { profileTitle } from "../profiles/generic";
-import { Button, Card, DataTable, Select, type Column } from "../ui";
+import { Button, Card, DataTable, Select, download, type Column } from "../ui";
 import { ObdReport } from "./ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "./ScanResults";
 import { error, muted, row, stack } from "./screen.css";
@@ -149,6 +149,17 @@ export function SavedReports({
             <div className={row}>
               <OriginBadge origin={open.origin} />
               <span className={muted}>{ORIGIN_NOTES[open.origin](open)}</span>
+              <Button
+                onClick={() => {
+                  download(
+                    `${open.id}.json`,
+                    "application/json",
+                    `${JSON.stringify(open.report, null, 2)}\n`,
+                  );
+                }}
+              >
+                Download JSON
+              </Button>
               <Button
                 variant="ghost"
                 onClick={() => {

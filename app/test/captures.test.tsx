@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { decodeShare, fragmentOfLink, simulatorUrl } from "obd-read";
 import { streamShareCodec } from "obd-read/web";
@@ -123,6 +123,24 @@ describe("Captures", () => {
       new File([log], "run.log", { type: "text/plain" }),
     );
     expect(await screen.findByText("line 5: not a transcript line")).toBeVisible();
+    await summary(/Decoded 1.*Left raw 0.*Generic OBD-II/);
+    expect(screen.getByRole("table", { name: "Captures" })).toHaveTextContent("Imported");
+  });
+
+  it("imports a file dropped anywhere on the screen and opens the viewer", async () => {
+    renderApp(<App support={CHROME} />);
+    await userEvent.click(screen.getByRole("tab", { name: "Captures" }));
+    expect(screen.getByText(/No captures yet/)).toBeVisible();
+    const log = [
+      "2026-01-02T03:04:05.000+00:00 > ATSP6",
+      "2026-01-02T03:04:05.050+00:00 < OK",
+      "2026-01-02T03:04:05.100+00:00 > 0100",
+      "2026-01-02T03:04:05.150+00:00 < 7E8 06 41 00 08 18 00 00",
+    ].join("\n");
+    const file = new File([log], "dropped.log", { type: "text/plain" });
+    fireEvent.drop(screen.getByRole("heading", { level: 1, name: "Captures" }), {
+      dataTransfer: { files: [file] },
+    });
     await summary(/Decoded 1.*Left raw 0.*Generic OBD-II/);
     expect(screen.getByRole("table", { name: "Captures" })).toHaveTextContent("Imported");
   });
