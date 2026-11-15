@@ -39,3 +39,24 @@ export const optionGrid = style({
     "screen and (min-width: 1024px)": { gridTemplateColumns: "repeat(3, minmax(0, 1fr))" },
   },
 });
+
+export const transcript = style({
+  margin: 0,
+  padding: vars.space["3"],
+  maxHeight: "40dvh",
+  overflow: "auto",
+  whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
+  background: vars.color.background,
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.radius.medium,
+  fontFamily: vars.fontFamily.mono,
+  fontSize: vars.fontSize.small,
+});
+
+export const row = style({
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: vars.space["2"],
+});

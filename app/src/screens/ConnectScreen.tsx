@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { adapterAvailability } from "../connect/availability";
 import type { BrowserSupport } from "../connect/support";
-import { DiagnosticsError, type AdapterKind } from "../diagnostics/client";
+import { failureMessage, type AdapterKind } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
-import { Badge, Button, Card, Dialog, Switch } from "../ui";
+import { useProfiles } from "../profiles/ProfilesProvider";
+import { Badge, Button, Card, Dialog, Select, Switch } from "../ui";
 import { error, list, muted, optionGrid, page } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
 
@@ -31,14 +32,16 @@ const OPTIONS: readonly Option[] = [
   {
     kind: "simulator",
     title: "Simulator",
-    description: "Fixed invented values and no hardware, to try every screen.",
+    description:
+      "A car simulated inside the app: invented values and no hardware, to try every screen.",
     action: "Connect with the simulator",
   },
 ];
 
 /** Connect: choose how to reach the car, with clear reasons when this browser cannot. */
 export function ConnectScreen({ support }: { readonly support: BrowserSupport }) {
-  const { connection, connect, disconnect } = useDiagnostics();
+  const { connection, connect, disconnect, profile, setProfile } = useDiagnostics();
+  const { names } = useProfiles();
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState<AdapterKind | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
@@ -48,9 +51,9 @@ export function ConnectScreen({ support }: { readonly support: BrowserSupport })
     setBusy(kind);
     setProblem(undefined);
     try {
-      await connect({ kind, showAllBluetoothDevices: showAll });
+      await connect(kind, showAll);
     } catch (caught) {
-      setProblem(caught instanceof DiagnosticsError ? caught.message : "The connection failed.");
+      setProblem(failureMessage(caught, "The connection failed."));
     } finally {
       setBusy(undefined);
     }
@@ -61,15 +64,33 @@ export function ConnectScreen({ support }: { readonly support: BrowserSupport })
       <ScreenHeading simulated={connection?.simulated === true}>Connect</ScreenHeading>
 
       {connection !== undefined && (
-        <Card title={`Connected to ${connection.adapter}`}>
+        <Card
+          title={`Connected to ${connection.simulated ? "Simulator" : adapterLabel(connection.adapter)}`}
+          description={`Profile ${connection.profile}. Adapter ${connection.info.identity}.`}
+        >
           <div>
-            <Badge tone="success">Connected</Badge>
+            <Badge tone={connection.simulated ? "simulated" : "success"}>
+              {connection.simulated ? "Simulator" : "Connected"}
+            </Badge>
           </div>
           <Button block onClick={() => void disconnect()}>
             Disconnect
           </Button>
         </Card>
       )}
+
+      <Card
+        title="Vehicle"
+        description="The profile names the control units to talk to. Choose it before connecting."
+      >
+        <Select
+          label="Vehicle profile"
+          value={profile}
+          options={names.map((name) => ({ value: name, label: name }))}
+          onValueChange={setProfile}
+          disabled={connection !== undefined}
+        />
+      </Card>
 
       {problem !== undefined && (
         <p role="alert" className={error}>
@@ -91,7 +112,7 @@ export function ConnectScreen({ support }: { readonly support: BrowserSupport })
               <Button
                 variant={option.kind === "simulator" ? "secondary" : "primary"}
                 block
-                disabled={!state.available || busy !== undefined}
+                disabled={!state.available || busy !== undefined || connection !== undefined}
                 {...(state.reason === undefined ? {} : { "aria-describedby": reasonId })}
                 onClick={() => void choose(option.kind)}
               >
@@ -130,4 +151,10 @@ export function ConnectScreen({ support }: { readonly support: BrowserSupport })
       </Dialog>
     </div>
   );
+}
+
+/** The adapter URL's target, which is the name the user knows the adapter by. */
+function adapterLabel(adapter: string): string {
+  const target = adapter.slice(adapter.indexOf("://") + 3).split("?")[0];
+  return target === undefined || target === "" ? adapter : target;
 }

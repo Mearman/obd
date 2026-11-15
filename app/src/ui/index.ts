@@ -5,6 +5,7 @@ export * from "./DataTable";
 export * from "./Dialog";
 export * from "./Select";
 export * from "./Switch";
+export * from "./TextField";
 export * from "./Tabs";
 export * from "./Toast";
 export * from "./Tooltip";

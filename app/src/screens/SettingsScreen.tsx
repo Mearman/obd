@@ -4,6 +4,7 @@ import { useProfiles, type ImportResult } from "../profiles/ProfilesProvider";
 import { isThemePreference } from "../theme/preference";
 import { useTheme } from "../theme/ThemeProvider";
 import { Button, Card, Select } from "../ui";
+import { COLLECTION_LIMIT } from "./limits";
 import { error, list, muted, page } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
 
@@ -25,7 +26,7 @@ export function SettingsScreen() {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
     if (file === undefined) return;
-    setResult(importText(await file.text(), file.name));
+    setResult(await importText(await file.text()));
   }
 
   return (
@@ -43,11 +44,11 @@ export function SettingsScreen() {
       </Card>
       <Card
         title="Vehicle profiles"
-        description="Profiles are JSON files. Importing checks the file against the same schema as the bundled ones, and nothing leaves this device. Imported profiles last until the page closes."
+        description="Profiles are JSON files. Importing checks the file against the same schema as the bundled ones, and nothing leaves this device. Imported profiles are kept on this device."
       >
         <p>
           Bundled: {builtin.join(", ")}.
-          {imported.size > 0 && ` Imported: ${[...imported.keys()].join(", ")}.`}
+          {imported.length > 0 && ` Imported: ${imported.join(", ")}.`}
         </p>
         <input
           ref={input}
@@ -76,10 +77,7 @@ export function SettingsScreen() {
       </Card>
       <DatabaseCard />
       <Card title="About collection">
-        <p className={muted}>
-          Collection runs while the app is open. With the screen off or the app closed, Android may
-          suspend it.
-        </p>
+        <p className={muted}>{COLLECTION_LIMIT}</p>
       </Card>
     </div>
   );

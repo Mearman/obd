@@ -47,6 +47,8 @@ export default defineConfig({
   worker: { format: "es" },
   // Relative URLs let the static build be served from any path.
   base: "./",
+  // The service worker is a module worker that imports shared chunks, which the default format cannot.
+  worker: { format: "es" },
   build: {
     target: "es2023",
     // The whole bundle is precached for offline use, so one chunk is the cheaper shape here.

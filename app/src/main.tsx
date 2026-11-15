@@ -6,10 +6,11 @@ import { App } from "./App";
 import { DatabaseProvider } from "./database/DatabaseProvider";
 import { exposeForE2e } from "./database/e2e-hook";
 import { startDatabaseSession, type DatabaseSession } from "./database/session";
-import { createSimulatorClient } from "./diagnostics/simulator";
 import { DiagnosticsProvider } from "./diagnostics/DiagnosticsProvider";
 import { ProfilesProvider } from "./profiles/ProfilesProvider";
 import { PwaUpdater } from "./pwa/PwaUpdater";
+import { createPageService } from "./service/page-service";
+import { StorageBridge } from "./service/StorageBridge";
 import { applyThemePreference, readThemePreference } from "./theme/preference";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { ToastProvider, TooltipProvider } from "./ui";
@@ -24,6 +25,7 @@ function startSession(): DatabaseSession {
   return session;
 }
 const databaseSession = startSession();
+const service = createPageService();
 
 const root = document.getElementById("root");
 if (root === null) throw new Error("index.html has no #root element");
@@ -33,13 +35,14 @@ createRoot(root).render(
     <ThemeProvider>
       <TooltipProvider>
         <ToastProvider>
-          <DiagnosticsProvider client={createSimulatorClient()}>
-            <DatabaseProvider initial={databaseSession} start={startSession}>
-              <ProfilesProvider>
+          <DatabaseProvider initial={databaseSession} start={startSession}>
+            <StorageBridge source={service.storage} />
+            <ProfilesProvider client={service.client}>
+              <DiagnosticsProvider service={service}>
                 <App />
-              </ProfilesProvider>
-            </DatabaseProvider>
-          </DiagnosticsProvider>
+              </DiagnosticsProvider>
+            </ProfilesProvider>
+          </DatabaseProvider>
           <PwaUpdater />
         </ToastProvider>
       </TooltipProvider>

@@ -1,6 +1,15 @@
+import { ORPCError } from "@orpc/client";
 import { builtinProfiles } from "obd-read/profiles";
-import { ProfileError, parseProfileText, type Profile } from "obd-read";
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import type { DiagnosticsClient } from "../diagnostics/client";
 
 /** The outcome of importing a profile file. */
 export type ImportResult =
@@ -11,40 +20,60 @@ export type ImportResult =
 export interface ProfilesContextValue {
   /** Names of the profiles shipped in the bundle, sorted. */
   readonly builtin: readonly string[];
-  /** Profiles imported from files this session, by name. */
-  readonly imported: ReadonlyMap<string, Profile>;
+  /** Names of the profiles imported from files, kept in the service's storage across reloads. */
+  readonly imported: readonly string[];
   /** Every selectable name: shipped, then imported. */
   readonly names: readonly string[];
   /**
-   * Validates a profile file's text with the same schema the shipped profiles pass, and adds it
-   * on success. `fileName` names the source in any problem. Never throws for a bad file.
+   * Has the service validate a profile file's text against the same schema the shipped profiles pass, and keep it on success. Never throws for a bad file.
    */
-  readonly importText: (text: string, fileName: string) => ImportResult;
+  readonly importText: (text: string) => Promise<ImportResult>;
 }
 
 const ProfilesContext = createContext<ProfilesContextValue | undefined>(undefined);
 
-/** Holds the shipped and imported profiles. Imported ones last until the page closes. */
-export function ProfilesProvider({ children }: { readonly children: ReactNode }) {
-  const [imported, setImported] = useState<ReadonlyMap<string, Profile>>(new Map());
+/** Holds the shipped profiles and the ones the service has stored. */
+export function ProfilesProvider({
+  client,
+  children,
+}: {
+  readonly client: DiagnosticsClient;
+  readonly children: ReactNode;
+}) {
+  const [imported, setImported] = useState<readonly string[]>([]);
   const builtin = useMemo(() => builtinProfiles(), []);
 
-  const importText = useCallback((text: string, fileName: string): ImportResult => {
-    try {
-      const profile = parseProfileText(text, fileName);
-      setImported((previous) => new Map(previous).set(profile.name, profile));
-      return { ok: true, name: profile.name };
-    } catch (error) {
-      if (error instanceof ProfileError) return { ok: false, problems: error.problems };
-      throw error;
-    }
-  }, []);
+  useEffect(() => {
+    let current = true;
+    void client.profiles.list().then((names) => {
+      if (current) setImported(names);
+    });
+    return () => {
+      current = false;
+    };
+  }, [client]);
+
+  const importText = useCallback(
+    async (text: string): Promise<ImportResult> => {
+      try {
+        const { name } = await client.profiles.import({ json: text });
+        setImported(await client.profiles.list());
+        return { ok: true, name };
+      } catch (error) {
+        if (error instanceof ORPCError && error.code === "BAD_REQUEST") {
+          return { ok: false, problems: error.message.split("; ") };
+        }
+        throw error;
+      }
+    },
+    [client],
+  );
 
   const value = useMemo(
     () => ({
       builtin,
       imported,
-      names: [...builtin, ...[...imported.keys()].filter((name) => !builtin.includes(name))],
+      names: [...builtin, ...imported.filter((name) => !builtin.includes(name))],
       importText,
     }),
     [builtin, imported, importText],
