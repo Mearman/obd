@@ -1,9 +1,5 @@
-import {
-  AdapterUrlError,
-  TransportError,
-  type AdapterAddress,
-  type Transport,
-} from "../core/transport.js";
+import { TransportError, type AdapterAddress, type Transport } from "../core/transport.js";
+import { parseInteger } from "./params.js";
 import { ReadQueue } from "./read-queue.js";
 
 /** The baud rate used when the adapter URL gives none. Bluetooth SPP adapters ignore it. */
@@ -47,16 +43,6 @@ export function browserSerialEnvironment(): SerialEnvironment {
   if (typeof navigator === "undefined" || !("serial" in navigator)) return { serial: undefined };
   const serial: SerialLike = navigator.serial;
   return { serial };
-}
-
-function parseInteger(name: string, text: string): number {
-  const value = Number(text);
-  if (!Number.isInteger(value) || value < 0) {
-    throw new AdapterUrlError(
-      `${name} must be a non-negative integer (decimal or 0x hex): ${text}`,
-    );
-  }
-  return value;
 }
 
 /**

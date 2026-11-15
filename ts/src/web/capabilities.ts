@@ -4,6 +4,8 @@ export interface Capabilities {
   readonly webSerial: boolean;
   /** `navigator.bluetooth` exists: Bluetooth LE adapters. */
   readonly webBluetooth: boolean;
+  /** `navigator.usb` exists: gs_usb CAN adapters such as candleLight and CANable. */
+  readonly webUsb: boolean;
   /** The page is a secure context (HTTPS or localhost), which both APIs require. */
   readonly secureContext: boolean;
   /** Whether at least one transport can be used here. */
@@ -27,10 +29,10 @@ export function browserCapabilityEnvironment(): CapabilityEnvironment {
 }
 
 /**
- * Reports whether Web Serial and Web Bluetooth exist and whether the page is a secure context.
+ * Reports whether Web Serial, Web Bluetooth and WebUSB exist and whether the page is a secure context.
  *
  * Presence of an API is not permission: the user must still choose a device in a prompt. The
- * `issues` text names the limit that applies (Safari and Firefox implement neither API, and every
+ * `issues` text names the limit that applies (Safari and Firefox implement none of these APIs, and every
  * iOS browser uses Safari's engine), so the interface can explain why a button is disabled.
  */
 export function capabilities(
@@ -39,11 +41,12 @@ export function capabilities(
   const nav = environment.navigator;
   const webSerial = nav !== undefined && "serial" in nav;
   const webBluetooth = nav !== undefined && "bluetooth" in nav;
+  const webUsb = nav !== undefined && "usb" in nav;
   const secureContext = environment.isSecureContext === true;
   const issues: string[] = [];
   if (!secureContext) {
     issues.push(
-      "Open the page over HTTPS or from localhost: browsers hide Bluetooth and serial access on other pages.",
+      "Open the page over HTTPS or from localhost: browsers hide Bluetooth, serial and USB access on other pages.",
     );
   }
   if (!webSerial) {
@@ -56,11 +59,17 @@ export function capabilities(
       "Web Bluetooth is not available: it needs Chrome or Edge on desktop or Android (Safari, Firefox and every iOS browser lack it).",
     );
   }
+  if (!webUsb) {
+    issues.push(
+      "WebUSB is not available: it needs Chrome or Edge on desktop or Android (Safari, Firefox and every iOS browser lack it).",
+    );
+  }
   return {
     webSerial,
     webBluetooth,
+    webUsb,
     secureContext,
-    usable: secureContext && (webSerial || webBluetooth),
+    usable: secureContext && (webSerial || webBluetooth || webUsb),
     issues,
   };
 }
