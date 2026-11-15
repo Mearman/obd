@@ -14,6 +14,7 @@ export * from "./adapters.js";
 export * from "./ble.js";
 export * from "./noble.js";
 export * from "./serial.js";
+export * from "./storage.js";
 export * from "./tcp.js";
 
 const bleCentral = createNobleCentral();

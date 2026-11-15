@@ -26,7 +26,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit -p tsconfig.core.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "storage:generate": "drizzle-kit generate && node scripts/embed-migrations.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

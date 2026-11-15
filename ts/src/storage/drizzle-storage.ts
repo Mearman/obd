@@ -1,0 +1,319 @@
+/**
+ * The SQLite implementation of the core {@link Storage} contract, written with Drizzle ORM over its `sqlite-proxy` driver.
+ *
+ * It runs SQL only through an injected {@link SqlExecutor}, so the same code serves Node (`node:sqlite`) and the browser (sqlite-wasm in a worker). Drizzle and its prerelease API stay inside this directory: callers see only `Storage`.
+ */
+
+import { and, asc, avg, count, desc, eq, gte, inArray, lt, max, min, type SQL } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/sqlite-proxy";
+import { createSelectSchema } from "drizzle-orm/zod";
+import {
+  StorageError,
+  jsonSchema,
+  newRunSchema,
+  newScanReportSchema,
+  runSchema,
+  sampleSchema,
+  scanReportSchema,
+  scanReportSummarySchema,
+  signalAggregateSchema,
+  storedProfileSchema,
+  type AggregateQuery,
+  type NewRun,
+  type NewScanReport,
+  type Run,
+  type RunQuery,
+  type Sample,
+  type SampleQuery,
+  type ScanReport,
+  type ScanReportQuery,
+  type ScanReportSummary,
+  type SignalAggregate,
+  type Storage,
+  type StoredProfile,
+} from "../core/storage.js";
+import { proxyExecutors, type SqlExecutor } from "./executor.js";
+import { applyMigrations } from "./migrate.js";
+import { profiles, runs, samples, scanReports } from "./schema.js";
+
+/**
+ * Rows stored per INSERT. Each sample binds six parameters, and SQLite refuses a statement binding more than 32,766 of them, so a batch is split well below that.
+ */
+const INSERT_ROWS = 500;
+
+/** Row validators derived from the tables, so a row an executor returns is checked against the schema it was written with. */
+const runRow = createSelectSchema(runs).transform((row) => runSchema.parse(row));
+const sampleRow = createSelectSchema(samples).transform((row) =>
+  sampleSchema.parse({
+    runId: row.runId,
+    signal: row.signal,
+    unit: row.unit,
+    timestamp: row.timestamp,
+    value: row.valueNum ?? row.valueText,
+  }),
+);
+const reportRow = createSelectSchema(scanReports).transform((row) =>
+  scanReportSchema.parse({ ...row, report: jsonSchema.parse(JSON.parse(row.report)) }),
+);
+const profileRow = createSelectSchema(profiles).transform((row) =>
+  storedProfileSchema.parse({ ...row, document: jsonSchema.parse(JSON.parse(row.document)) }),
+);
+
+/** Options for {@link DrizzleStorage}. */
+export interface DrizzleStorageOptions {
+  /** Produces each new run and report id; defaults to `crypto.randomUUID`. */
+  readonly newId?: () => string;
+}
+
+/**
+ * {@link Storage} over a SQLite database reached through an {@link SqlExecutor}. Build one with {@link openDrizzleStorage}, which applies the migrations first.
+ *
+ * Calls are queued and run one at a time, so a multi-statement call such as `appendSamples` is never interleaved with another on the connection.
+ */
+export class DrizzleStorage implements Storage {
+  private readonly db;
+  private readonly newId: () => string;
+  private queue: Promise<unknown> = Promise.resolve();
+
+  /** Use {@link openDrizzleStorage}: this does not migrate the database. */
+  constructor(execute: SqlExecutor, options: DrizzleStorageOptions = {}) {
+    this.db = drizzle(proxyExecutors(execute));
+    this.newId = options.newId ?? (() => globalThis.crypto.randomUUID());
+  }
+
+  createRun(input: NewRun): Promise<Run> {
+    return this.serial(async () => {
+      const run: Run = { id: this.newId(), ...newRunSchema.parse(input), stoppedAt: null };
+      await this.db.insert(runs).values(run);
+      return run;
+    });
+  }
+
+  stopRun(runId: string, stoppedAt: number): Promise<Run> {
+    return this.serial(async () => {
+      const run = await this.requireRun(runId);
+      if (run.stoppedAt !== null) {
+        throw new StorageError("conflict", `run ${runId} is already stopped`);
+      }
+      if (stoppedAt < run.startedAt) {
+        throw new StorageError("invalid", `run ${runId} cannot stop before it started`);
+      }
+      await this.db.update(runs).set({ stoppedAt }).where(eq(runs.id, runId));
+      return { ...run, stoppedAt };
+    });
+  }
+
+  setRunNotes(runId: string, notes: string): Promise<Run> {
+    return this.serial(async () => {
+      const run = await this.requireRun(runId);
+      await this.db.update(runs).set({ notes }).where(eq(runs.id, runId));
+      return { ...run, notes };
+    });
+  }
+
+  getRun(runId: string): Promise<Run | undefined> {
+    return this.serial(() => this.findRun(runId));
+  }
+
+  listRuns(query: RunQuery = {}): Promise<Run[]> {
+    return this.serial(async () => {
+      const rows = await this.db
+        .select()
+        .from(runs)
+        .where(query.profile === undefined ? undefined : eq(runs.profile, query.profile))
+        .orderBy(desc(runs.startedAt), desc(runs.id))
+        .limit(query.limit ?? Number.MAX_SAFE_INTEGER)
+        .offset(query.offset ?? 0);
+      return rows.map((row) => runRow.parse(row));
+    });
+  }
+
+  deleteRun(runId: string): Promise<void> {
+    return this.serial(async () => {
+      await this.db.delete(runs).where(eq(runs.id, runId));
+    });
+  }
+
+  appendSamples(batch: readonly Sample[]): Promise<void> {
+    return this.serial(async () => {
+      const checked = batch.map((sample) => sampleSchema.parse(sample));
+      const ids = [...new Set(checked.map((sample) => sample.runId))];
+      if (ids.length === 0) return;
+      const known = new Map(
+        (
+          await this.db
+            .select({ id: runs.id, stoppedAt: runs.stoppedAt })
+            .from(runs)
+            .where(inArray(runs.id, ids))
+        ).map((row) => [row.id, row.stoppedAt]),
+      );
+      for (const id of ids) {
+        if (!known.has(id)) throw new StorageError("not-found", `no run ${id}`);
+        if (known.get(id) !== null) {
+          throw new StorageError("conflict", `run ${id} is stopped and takes no more samples`);
+        }
+      }
+      await this.db.transaction(async (tx) => {
+        for (let start = 0; start < checked.length; start += INSERT_ROWS) {
+          await tx.insert(samples).values(
+            checked.slice(start, start + INSERT_ROWS).map((sample) => ({
+              runId: sample.runId,
+              signal: sample.signal,
+              unit: sample.unit,
+              timestamp: sample.timestamp,
+              valueNum: typeof sample.value === "number" ? sample.value : null,
+              valueText: typeof sample.value === "string" ? sample.value : null,
+            })),
+          );
+        }
+      });
+    });
+  }
+
+  readSamples(query: SampleQuery): Promise<Sample[]> {
+    return this.serial(async () => {
+      const rows = await this.db
+        .select()
+        .from(samples)
+        .where(sampleFilter(query))
+        .orderBy(asc(samples.timestamp), asc(samples.id))
+        .limit(query.limit ?? Number.MAX_SAFE_INTEGER)
+        .offset(query.offset ?? 0);
+      return rows.map((row) => sampleRow.parse(row));
+    });
+  }
+
+  aggregate(query: AggregateQuery): Promise<SignalAggregate[]> {
+    return this.serial(async () => {
+      const rows = await this.db
+        .select({
+          signal: samples.signal,
+          unit: samples.unit,
+          count: count(),
+          numericCount: count(samples.valueNum),
+          min: min(samples.valueNum),
+          max: max(samples.valueNum),
+          mean: avg(samples.valueNum).mapWith(Number),
+          firstAt: min(samples.timestamp),
+          lastAt: max(samples.timestamp),
+        })
+        .from(samples)
+        .where(sampleFilter(query))
+        .groupBy(samples.signal, samples.unit)
+        .orderBy(asc(samples.signal), asc(samples.unit));
+      return rows.map((row) => signalAggregateSchema.parse(row));
+    });
+  }
+
+  saveScanReport(input: NewScanReport): Promise<ScanReport> {
+    return this.serial(async () => {
+      const report: ScanReport = { id: this.newId(), ...newScanReportSchema.parse(input) };
+      await this.db
+        .insert(scanReports)
+        .values({ ...report, report: JSON.stringify(report.report) });
+      return report;
+    });
+  }
+
+  getScanReport(id: string): Promise<ScanReport | undefined> {
+    return this.serial(async () => {
+      const [row] = await this.db.select().from(scanReports).where(eq(scanReports.id, id));
+      return row === undefined ? undefined : reportRow.parse(row);
+    });
+  }
+
+  listScanReports(query: ScanReportQuery = {}): Promise<ScanReportSummary[]> {
+    return this.serial(async () => {
+      const rows = await this.db
+        .select({
+          id: scanReports.id,
+          profile: scanReports.profile,
+          adapter: scanReports.adapter,
+          takenAt: scanReports.takenAt,
+          label: scanReports.label,
+        })
+        .from(scanReports)
+        .where(query.profile === undefined ? undefined : eq(scanReports.profile, query.profile))
+        .orderBy(desc(scanReports.takenAt), desc(scanReports.id))
+        .limit(query.limit ?? Number.MAX_SAFE_INTEGER)
+        .offset(query.offset ?? 0);
+      return rows.map((row) => scanReportSummarySchema.parse(row));
+    });
+  }
+
+  deleteScanReport(id: string): Promise<void> {
+    return this.serial(async () => {
+      await this.db.delete(scanReports).where(eq(scanReports.id, id));
+    });
+  }
+
+  saveProfile(profile: StoredProfile): Promise<{ readonly replaced: boolean }> {
+    return this.serial(async () => {
+      const checked = storedProfileSchema.parse(profile);
+      const [existing] = await this.db
+        .select({ name: profiles.name })
+        .from(profiles)
+        .where(eq(profiles.name, checked.name));
+      const values = { ...checked, document: JSON.stringify(checked.document) };
+      await this.db
+        .insert(profiles)
+        .values(values)
+        .onConflictDoUpdate({ target: profiles.name, set: values });
+      return { replaced: existing !== undefined };
+    });
+  }
+
+  getProfile(name: string): Promise<StoredProfile | undefined> {
+    return this.serial(async () => {
+      const [row] = await this.db.select().from(profiles).where(eq(profiles.name, name));
+      return row === undefined ? undefined : profileRow.parse(row);
+    });
+  }
+
+  listProfiles(): Promise<StoredProfile[]> {
+    return this.serial(async () => {
+      const rows = await this.db.select().from(profiles).orderBy(asc(profiles.name));
+      return rows.map((row) => profileRow.parse(row));
+    });
+  }
+
+  /** Runs `work` after every earlier call has settled, whether it succeeded or not. */
+  private serial<T>(work: () => Promise<T>): Promise<T> {
+    const result = this.queue.then(work, work);
+    this.queue = result.catch(() => undefined);
+    return result;
+  }
+
+  private async findRun(runId: string): Promise<Run | undefined> {
+    const [row] = await this.db.select().from(runs).where(eq(runs.id, runId));
+    return row === undefined ? undefined : runRow.parse(row);
+  }
+
+  private async requireRun(runId: string): Promise<Run> {
+    const run = await this.findRun(runId);
+    if (run === undefined) throw new StorageError("not-found", `no run ${runId}`);
+    return run;
+  }
+}
+
+function sampleFilter(query: AggregateQuery): SQL | undefined {
+  return and(
+    eq(samples.runId, query.runId),
+    query.signal === undefined ? undefined : eq(samples.signal, query.signal),
+    query.from === undefined ? undefined : gte(samples.timestamp, query.from),
+    query.to === undefined ? undefined : lt(samples.timestamp, query.to),
+  );
+}
+
+/**
+ * Applies any pending migrations through `execute` and returns the storage over it.
+ *
+ * @throws whatever the executor throws when a migration fails; the failed migration is rolled back.
+ */
+export async function openDrizzleStorage(
+  execute: SqlExecutor,
+  options: DrizzleStorageOptions = {},
+): Promise<DrizzleStorage> {
+  await applyMigrations(execute);
+  return new DrizzleStorage(execute, options);
+}
