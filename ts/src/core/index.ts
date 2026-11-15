@@ -29,3 +29,5 @@ export * from "./kline.js";
 export * from "./options.js";
 export * from "./openlog.js";
 export * from "./battery.js";
+export * from "./rawcan.js";
+export * from "./slcan.js";

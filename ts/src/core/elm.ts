@@ -5,7 +5,8 @@ import type { Permit } from "./guard.js";
 import { now } from "./time.js";
 import { TransportTimeout, type Transport } from "./transport.js";
 
-const PROMPT = 0x3e; // ">"
+/** The byte the adapter ends every reply with: ">". */
+export const PROMPT = 0x3e;
 
 /** Longest request the adapter can send as a single CAN frame: 8 data bytes less the length byte. */
 export const MAX_SINGLE_FRAME = 7;
@@ -37,8 +38,10 @@ function canProtocol(idBits: number, bitrate: number): string | undefined {
 // accepting 01 to 40 hex.
 // Source: ELM327 datasheet (Elm Electronics, ELM327DSJ), "Programmable Parameter Summary", PP 2B
 // to 2D; https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf
-const USER_PROTOCOL_BASE_RATE = 500_000;
-const USER_PROTOCOL_MAX_DIVISOR = 0x40;
+/** The rate user-defined protocol B divides to reach its bit rate. */
+export const USER_PROTOCOL_BASE_RATE = 500_000;
+/** The largest divisor user-defined protocol B accepts. */
+export const USER_PROTOCOL_MAX_DIVISOR = 0x40;
 
 // Protocol B options byte (PP 2C). Bit 7 set means an 11-bit transmit identifier, clear means
 // 29-bit; bit 6 clear means fixed 8-byte frames, which ISO 15765-4 requires; bits 2 to 0 equal to
@@ -46,8 +49,10 @@ const USER_PROTOCOL_MAX_DIVISOR = 0x40;
 // on protocols 6 to 9.
 // Source: the same datasheet, PP 2C; its AT PB example for 11-bit ISO 15765 at 50 kbit/s is
 // `AT PB 81 0A`.
-const USER_PROTOCOL_ISO15765_11_BIT = 0x81;
-const USER_PROTOCOL_ISO15765_29_BIT = 0x01;
+/** The protocol B options byte for ISO 15765-4 with 11-bit identifiers. */
+export const USER_PROTOCOL_ISO15765_11_BIT = 0x81;
+/** The protocol B options byte for ISO 15765-4 with 29-bit identifiers. */
+export const USER_PROTOCOL_ISO15765_29_BIT = 0x01;
 
 /** Replies that mean the adapter could not complete the request. */
 export const ADAPTER_ERRORS: readonly string[] = [
