@@ -72,6 +72,7 @@ export const SCREEN_LABELS: Readonly<Record<ScreenId, string>> = {
   connect: "Connect",
   scan: "Scan",
   live: "Live",
+  guide: "Guide",
   runs: "Runs",
   captures: "Captures",
   settings: "Settings",

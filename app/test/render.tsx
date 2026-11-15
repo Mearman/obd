@@ -6,7 +6,9 @@ import {
   profileLoader,
   simulatorTransportHost,
   type DiagnosticsService,
+  type PlanClock,
 } from "obd-read";
+import { shippedPlans } from "obd-read/plans";
 import { builtinProfileData } from "obd-read/profiles";
 import type { ReactElement } from "react";
 import { vi } from "vitest";
@@ -28,8 +30,11 @@ export interface TestService extends AppService {
   };
 }
 
-/** Builds a service that polls quickly, so a test sees readings without waiting. */
-export function createTestService(storage = new MemoryStorage()): TestService {
+/** Builds a service that polls quickly, so a test sees readings without waiting; recording plans run on `planClock` when one is given. */
+export function createTestService(
+  storage = new MemoryStorage(),
+  options: { readonly planClock?: PlanClock } = {},
+): TestService {
   const loadProfile = profileLoader(storage, builtinProfileData);
   const service = createDiagnosticsService({
     toolVersion: "test",
@@ -37,6 +42,8 @@ export function createTestService(storage = new MemoryStorage()): TestService {
     loadProfile,
     transports: composeTransportHosts(simulatorTransportHost(loadProfile)),
     timing: { pollMs: 5, flushMs: 0, batchSize: 1, reconnectDelay: () => 0 },
+    plans: shippedPlans,
+    ...(options.planClock === undefined ? {} : { planClock: options.planClock }),
   });
   return {
     storage,

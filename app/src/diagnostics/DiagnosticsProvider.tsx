@@ -1,4 +1,4 @@
-import { isSimulatorUrl, type Connection, type Run, type Sample } from "obd-read";
+import { isSimulatorUrl, type Connection, type PlanStatus, type Run, type Sample } from "obd-read";
 import {
   createContext,
   useCallback,
@@ -26,6 +26,13 @@ export interface CollectionView {
   readonly latest: readonly Sample[];
 }
 
+/** The recording plan the Guide screen started, which outlives the screen while the person looks elsewhere. */
+export interface GuidedPlan {
+  readonly runId: string;
+  /** `running` until the plan ends, then how it ended. */
+  readonly state: PlanStatus["state"];
+}
+
 /** What the screens see of the diagnostic service. */
 export interface DiagnosticsContextValue {
   readonly service: AppService;
@@ -47,6 +54,14 @@ export interface DiagnosticsContextValue {
   readonly resumeCollection: (run: Run) => Promise<void>;
   /** Bumps whenever a run starts, stops or resumes, so lists of runs reload. */
   readonly runsVersion: number;
+  /** The plan the Guide screen started, until the person starts afresh. */
+  readonly guided: GuidedPlan | undefined;
+  /** Tracks a plan the service has started, or forgets the last one with `undefined`. */
+  readonly trackPlan: (status: PlanStatus | undefined) => void;
+  /** Runs of recording plans an earlier page left open, which the service stopped at start-up because a plan never resumes. */
+  readonly interruptedPlans: readonly Run[];
+  /** True the first time it is asked about `key` (a plan's run and phase pass), so a phase is announced once however often the Guide screen replays its events. */
+  readonly isNewPhase: (key: string) => boolean;
 }
 
 const DiagnosticsContext = createContext<DiagnosticsContextValue | undefined>(undefined);
@@ -58,7 +73,9 @@ const STATUS_POLL_MS = 1000;
 /**
  * Gives the screens the service and tracks the connection and the collection run.
  *
- * A run left open by an earlier page (a reload) is resumed at once when it was collecting from the simulator, which needs no gesture. A run from hardware is only listed: reconnecting a device needs a click. A run another open tab is collecting is never resumed here: the tab collecting a run holds its lock ({@link runClaims}).
+ * A run left open by an earlier page (a reload) is resumed at once when it was collecting from the simulator, which needs no gesture. A run from hardware is only listed: reconnecting a device needs a click. A run another open tab is collecting or recording a plan into is never touched here: the tab working on a run holds its lock ({@link runClaims}). A run a recording plan left open is stopped first, never resumed, and listed in `interruptedPlans`.
+ *
+ * The screen is kept awake while a run collects or a plan runs.
  */
 export function DiagnosticsProvider({
   service,
@@ -72,22 +89,53 @@ export function DiagnosticsProvider({
   const [profile, setProfile] = useState<string | undefined>(undefined);
   const [collection, setCollection] = useState<CollectionView>(IDLE);
   const [runsVersion, setRunsVersion] = useState(0);
+  const [guided, setGuided] = useState<GuidedPlan | undefined>(undefined);
+  const [interruptedPlans, setInterruptedPlans] = useState<readonly Run[]>([]);
   const runId = collection.run?.id;
   const resumed = useRef(false);
   const [claims] = useState(() =>
     runClaims(typeof navigator.locks === "object" ? navigator.locks : undefined),
   );
+  const guidedRunning = guided?.state === "running" ? guided.runId : undefined;
 
-  useWakeLock(runId !== undefined);
+  useWakeLock(runId !== undefined || guidedRunning !== undefined);
 
-  // Holds the collected run's lock for as long as this tab collects it.
+  const announced = useRef(new Set<string>());
+  const isNewPhase = useCallback((key: string) => {
+    if (announced.current.has(key)) return false;
+    announced.current.add(key);
+    return true;
+  }, []);
+
+  const trackPlan = useCallback((status: PlanStatus | undefined) => {
+    setGuided(status === undefined ? undefined : { runId: status.runId, state: status.state });
+    setRunsVersion((version) => version + 1);
+  }, []);
+
   useEffect(() => {
-    if (runId === undefined) return;
-    void claims.claim(runId);
+    if (guidedRunning === undefined) return;
+    const live = { active: true };
+    const timer = setInterval(() => {
+      void client.plans.status({ runId: guidedRunning }).then((status) => {
+        if (!live.active || status === null || status.state === "running") return;
+        setGuided({ runId: status.runId, state: status.state });
+        setRunsVersion((version) => version + 1);
+      });
+    }, STATUS_POLL_MS);
     return () => {
-      claims.release(runId);
+      live.active = false;
+      clearInterval(timer);
     };
-  }, [claims, runId]);
+  }, [client, guidedRunning]);
+
+  // Holds the run's lock for as long as this tab collects it or records a plan into it.
+  useEffect(() => {
+    const held = [runId, guidedRunning].filter((id) => id !== undefined);
+    for (const id of held) void claims.claim(id);
+    return () => {
+      for (const id of held) claims.release(id);
+    };
+  }, [claims, runId, guidedRunning]);
 
   const track = useCallback((run: Run) => {
     setCollection({ run, state: "collecting", lastError: null, latest: [] });
@@ -108,6 +156,25 @@ export function DiagnosticsProvider({
     if (resumed.current) return;
     resumed.current = true;
     void (async () => {
+      try {
+        // Before the search for a run to resume, so a plan's run is never collected into; only
+        // runs no other live tab holds, so a plan recording in another tab carries on.
+        const unheld: string[] = [];
+        for (const run of await client.runs.list({})) {
+          if (run.stoppedAt === null && (await claims.claim(run.id))) unheld.push(run.id);
+        }
+        try {
+          const stopped = await client.plans.recover({ runIds: unheld });
+          if (stopped.length > 0) {
+            setInterruptedPlans(stopped);
+            setRunsVersion((version) => version + 1);
+          }
+        } finally {
+          for (const id of unheld) claims.release(id);
+        }
+      } catch {
+        // The runs stay open and listed; the next start-up tries again.
+      }
       try {
         const open = (await client.runs.list({})).find(
           (run) => run.stoppedAt === null && isSimulatorUrl(run.adapter),
@@ -223,6 +290,10 @@ export function DiagnosticsProvider({
       stopCollection,
       resumeCollection,
       runsVersion,
+      guided,
+      trackPlan,
+      interruptedPlans,
+      isNewPhase,
     }),
     [
       service,
@@ -235,6 +306,10 @@ export function DiagnosticsProvider({
       stopCollection,
       resumeCollection,
       runsVersion,
+      guided,
+      trackPlan,
+      interruptedPlans,
+      isNewPhase,
     ],
   );
   return <DiagnosticsContext.Provider value={value}>{children}</DiagnosticsContext.Provider>;

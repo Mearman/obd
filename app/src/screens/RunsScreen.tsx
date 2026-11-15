@@ -32,7 +32,7 @@ interface RunRow {
 const PAGE = 5000;
 
 /** The envelope that shares `run`: its aggregates and a thinned series, read from the service when the user asks to share. */
-async function runEnvelope(client: DiagnosticsClient, run: Run): Promise<ShareEnvelope> {
+export async function runEnvelope(client: DiagnosticsClient, run: Run): Promise<ShareEnvelope> {
   const aggregates = await client.runs.aggregate({ runId: run.id });
   const samples: Sample[] = [];
   for (let offset = 0; ; offset += PAGE) {
@@ -48,8 +48,8 @@ async function runEnvelope(client: DiagnosticsClient, run: Run): Promise<ShareEn
   };
 }
 
-/** Runs: the stored collection runs, with export and, for an open run, resume. */
-export function RunsScreen() {
+/** Runs: the stored collection runs, with export and, for an open run, resume. `open` names a run whose graphs to show, as when another screen sends the person here. */
+export function RunsScreen({ open }: { readonly open?: string | undefined }) {
   const { service, collection, runsVersion, resumeCollection, stopCollection } = useDiagnostics();
   const { client } = service;
   const { revision } = useDatabase();
@@ -80,6 +80,17 @@ export function RunsScreen() {
       live.active = false;
     };
   }, [client, runsVersion, collection.latest.length, shown, imported, revision]);
+
+  useEffect(() => {
+    if (open === undefined) return;
+    const live = { active: true };
+    void client.runs.get({ runId: open }).then((run) => {
+      if (live.active) setGraphed(run);
+    });
+    return () => {
+      live.active = false;
+    };
+  }, [client, open]);
 
   const act = useCallback(async (work: () => Promise<unknown>, failure: string) => {
     setProblem(undefined);

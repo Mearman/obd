@@ -7,6 +7,7 @@ import { App } from "../src/App";
 import type * as ConnectScreenModule from "../src/screens/ConnectScreen";
 import type * as ScanScreenModule from "../src/screens/ScanScreen";
 import type * as LiveScreenModule from "../src/screens/LiveScreen";
+import type * as GuideScreenModule from "../src/screens/GuideScreen";
 import type * as RunsScreenModule from "../src/screens/RunsScreen";
 import type * as SettingsScreenModule from "../src/screens/SettingsScreen";
 import type * as CapturesScreenModule from "../src/screens/CapturesScreen";
@@ -51,9 +52,18 @@ vi.mock("../src/screens/LiveScreen", async (original) => {
 vi.mock("../src/screens/RunsScreen", async (original) => {
   const real = await original<typeof RunsScreenModule>();
   return {
-    RunsScreen: () => {
+    RunsScreen: (props: Parameters<typeof real.RunsScreen>[0]) => {
       if (failing.has("runs")) throw new Error("runs failed");
-      return real.RunsScreen();
+      return real.RunsScreen(props);
+    },
+  };
+});
+vi.mock("../src/screens/GuideScreen", async (original) => {
+  const real = await original<typeof GuideScreenModule>();
+  return {
+    GuideScreen: (props: Parameters<typeof real.GuideScreen>[0]) => {
+      if (failing.has("guide")) throw new Error("guide failed");
+      return real.GuideScreen(props);
     },
   };
 });
@@ -110,6 +120,7 @@ const SCREENS = [
   ["connect", "Connect"],
   ["scan", "Scan"],
   ["live", "Live"],
+  ["guide", "Guide"],
   ["runs", "Runs"],
   ["captures", "Captures"],
   ["settings", "Settings"],
@@ -140,7 +151,7 @@ describe("a screen's boundary", () => {
       // The shell, the navigation and the other screens are untouched.
       expect(screen.getByText("obd-read")).toBeVisible();
       expect(screen.getByText("Not connected")).toBeVisible();
-      expect(screen.getAllByRole("tab")).toHaveLength(6);
+      expect(screen.getAllByRole("tab")).toHaveLength(SCREENS.length);
     },
   );
 
