@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   SCHEMES,
   registerTransport,
+  registeredSchemes,
   type DiagnosticsClient,
   type Sample,
 } from "../../src/core/index.js";
@@ -41,14 +42,18 @@ export function describeServiceContract(
 
     it("lists every adapter scheme and which this host serves", () =>
       withService(async ({ client }) => {
-        const remove = registerTransport("slcan", () => {
+        const served = new Set(registeredSchemes());
+        const unserved = SCHEMES.find((scheme) => !served.has(scheme));
+        if (unserved === undefined) throw new Error("this runtime serves every scheme");
+        const remove = registerTransport(unserved, () => {
           throw new Error("never opened");
         });
         try {
           const adapters = await client.adapters.list();
           expect(adapters.map((adapter) => adapter.scheme)).toEqual([...SCHEMES]);
-          expect(adapters.find((adapter) => adapter.scheme === "slcan")?.available).toBe(true);
-          expect(adapters.find((adapter) => adapter.scheme === "socketcan")?.available).toBe(false);
+          expect(adapters.map((adapter) => adapter.available)).toEqual(
+            SCHEMES.map((scheme) => served.has(scheme) || scheme === unserved),
+          );
           expect(adapters.find((adapter) => adapter.scheme === "webbluetooth")).toMatchObject({
             platform: "browser",
             userPicksDevice: true,
