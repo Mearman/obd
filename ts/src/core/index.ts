@@ -32,3 +32,4 @@ export * from "./battery.js";
 export * from "./rawcan.js";
 export * from "./slcan.js";
 export * from "./monitor.js";
+export * from "./live.js";
