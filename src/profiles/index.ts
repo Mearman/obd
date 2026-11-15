@@ -12,6 +12,7 @@ import bmwI3 from "./bmw-i3.json" with { type: "json" };
 import fordFocus from "./ford-focus.json" with { type: "json" };
 import fordRanger from "./ford-ranger.json" with { type: "json" };
 import hondaAcura29bit from "./honda-acura-29bit.json" with { type: "json" };
+import hyundaiKiaGenesis from "./hyundai-kia-genesis.json" with { type: "json" };
 import mazdaSkyactiv from "./mazda-skyactiv.json" with { type: "json" };
 import mercedesW211 from "./mercedes-w211.json" with { type: "json" };
 import mitsubishiPhevImiev from "./mitsubishi-phev-imiev.json" with { type: "json" };
@@ -35,6 +36,7 @@ const SHIPPED: ReadonlyMap<string, unknown> = new Map<string, unknown>([
   ["ford-focus", fordFocus],
   ["ford-ranger", fordRanger],
   ["honda-acura-29bit", hondaAcura29bit],
+  ["hyundai-kia-genesis", hyundaiKiaGenesis],
   ["mazda-skyactiv", mazdaSkyactiv],
   ["mercedes-w211", mercedesW211],
   ["mitsubishi-phev-imiev", mitsubishiPhevImiev],
