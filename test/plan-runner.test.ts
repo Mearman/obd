@@ -155,39 +155,47 @@ const IDLE_THEN_REV: Script = {
         : 800,
 };
 
+/** The most a whole shipped plan may take to run on the simulator in a test, in milliseconds: a bound for a heavily loaded machine, not an expectation. */
+const PLAN_RUN_BUDGET_MS = 30_000;
+
 describe("the plan runner", () => {
-  it("runs the shipped idle-then-rev plan through every phase and stores it as one run", async () => {
-    const { result, events, samples, run } = await runPlan(
-      loadBuiltinPlan("idle-then-rev"),
-      IDLE_THEN_REV,
-    );
-    expect(result.outcome).toBe("completed");
-    expect(
-      result.phases.map((phase) => `${phase.phase}#${String(phase.iteration)} ${phase.outcome}`),
-    ).toEqual([
-      "idle#1 completed",
-      "hold#1 completed",
-      "idle-again#1 completed",
-      "blip#1 completed",
-      "blip#2 completed",
-      "blip#3 completed",
-    ]);
-    expect(run?.stoppedAt).not.toBeNull();
-    expect(run?.notes).toBe("plan idle-then-rev: Idle, hold revs, idle, blips");
-    expect(run?.profile).toBe("generic-obd2");
-    // One stored record per pass, read back from the run's own samples.
-    expect(planPhases(samples)).toEqual(result.phases);
-    const hold = result.phases[1];
-    expect(hold === undefined ? 0 : hold.endedAt - hold.startedAt).toBeGreaterThanOrEqual(60_000);
-    expect(hold?.reads.map((read) => read.read)).toEqual(["stored-codes", "pending-codes"]);
-    expect(samples.filter((sample) => sample.signal === "engine speed").length).toBeGreaterThan(
-      150,
-    );
-    const instructions = events.flatMap((event) =>
-      event.type === "phase-started" ? [event.phase.instruction] : [],
-    );
-    expect(instructions[1]).toMatch(/^Still parked, handbrake on, in neutral or P/);
-  });
+  it(
+    "runs the shipped idle-then-rev plan through every phase and stores it as one run",
+    async () => {
+      const { result, events, samples, run } = await runPlan(
+        loadBuiltinPlan("idle-then-rev"),
+        IDLE_THEN_REV,
+      );
+      expect(result.outcome).toBe("completed");
+      expect(
+        result.phases.map((phase) => `${phase.phase}#${String(phase.iteration)} ${phase.outcome}`),
+      ).toEqual([
+        "idle#1 completed",
+        "hold#1 completed",
+        "idle-again#1 completed",
+        "blip#1 completed",
+        "blip#2 completed",
+        "blip#3 completed",
+      ]);
+      expect(run?.stoppedAt).not.toBeNull();
+      expect(run?.notes).toBe("plan idle-then-rev: Idle, hold revs, idle, blips");
+      expect(run?.profile).toBe("generic-obd2");
+      // One stored record per pass, read back from the run's own samples.
+      expect(planPhases(samples)).toEqual(result.phases);
+      const hold = result.phases[1];
+      expect(hold === undefined ? 0 : hold.endedAt - hold.startedAt).toBeGreaterThanOrEqual(60_000);
+      expect(hold?.reads.map((read) => read.read)).toEqual(["stored-codes", "pending-codes"]);
+      expect(samples.filter((sample) => sample.signal === "engine speed").length).toBeGreaterThan(
+        150,
+      );
+      const instructions = events.flatMap((event) =>
+        event.type === "phase-started" ? [event.phase.instruction] : [],
+      );
+      expect(instructions[1]).toMatch(/^Still parked, handbrake on, in neutral or P/);
+      // The plan is six phases and well over 150 simulated request round trips, so the budget is that work with a generous margin for a loaded machine, not vitest's default 5 s.
+    },
+    PLAN_RUN_BUDGET_MS,
+  );
 
   it("skips a phase whose wait times out with skip, after its end reads, and carries on", async () => {
     const plan = planOf([
