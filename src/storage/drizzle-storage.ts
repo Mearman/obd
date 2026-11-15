@@ -21,6 +21,7 @@ import {
   scanReportSchema,
   scanReportSummarySchema,
   signalAggregateSchema,
+  storedPlanSchema,
   storedProfileSchema,
   type AggregateQuery,
   type CaptureQuery,
@@ -37,11 +38,12 @@ import {
   type ScanReportSummary,
   type SignalAggregate,
   type Storage,
+  type StoredPlan,
   type StoredProfile,
 } from "../core/storage.js";
 import { proxyExecutors, type SqlExecutor } from "./executor.js";
 import { applyMigrations } from "./migrate.js";
-import { captureUnits, captures, profiles, runs, samples, scanReports } from "./schema.js";
+import { captureUnits, captures, plans, profiles, runs, samples, scanReports } from "./schema.js";
 
 /**
  * Rows stored per INSERT. Each sample binds six parameters, and SQLite refuses a statement binding more than 32,766 of them, so a batch is split well below that.
@@ -64,6 +66,10 @@ const reportRow = createSelectSchema(scanReports).transform((row) =>
 );
 const profileRow = createSelectSchema(profiles).transform((row) =>
   storedProfileSchema.parse({ ...row, document: jsonSchema.parse(JSON.parse(row.document)) }),
+);
+
+const planRow = createSelectSchema(plans).transform((row) =>
+  storedPlanSchema.parse({ ...row, document: jsonSchema.parse(JSON.parse(row.document)) }),
 );
 
 /** Options for {@link DrizzleStorage}. */
@@ -292,6 +298,37 @@ export class DrizzleStorage implements Storage {
     return this.serial(async () => {
       const rows = await this.db.select().from(profiles).orderBy(asc(profiles.name));
       return rows.map((row) => profileRow.parse(row));
+    });
+  }
+
+  savePlan(plan: StoredPlan): Promise<void> {
+    return this.serial(async () => {
+      const checked = storedPlanSchema.parse(plan);
+      const values = { ...checked, document: JSON.stringify(checked.document) };
+      await this.db
+        .insert(plans)
+        .values(values)
+        .onConflictDoUpdate({ target: plans.id, set: values });
+    });
+  }
+
+  getPlan(id: string): Promise<StoredPlan | undefined> {
+    return this.serial(async () => {
+      const [row] = await this.db.select().from(plans).where(eq(plans.id, id));
+      return row === undefined ? undefined : planRow.parse(row);
+    });
+  }
+
+  listPlans(): Promise<StoredPlan[]> {
+    return this.serial(async () => {
+      const rows = await this.db.select().from(plans).orderBy(desc(plans.updatedAt), asc(plans.id));
+      return rows.map((row) => planRow.parse(row));
+    });
+  }
+
+  deletePlan(id: string): Promise<void> {
+    return this.serial(async () => {
+      await this.db.delete(plans).where(eq(plans.id, id));
     });
   }
 
