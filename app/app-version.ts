@@ -1,22 +1,19 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFileSync } from "node:child_process";
 
 /**
- * Reads the `version` of the repository's root `package.json`, the single source of the version
- * the app shows. The build and the tests inject it as the `__APP_VERSION__` constant.
+ * The version of the latest release, read from the repository's git tags (`v<version>`). Releases
+ * are made from the commit messages and leave no commit behind, so the tag is the only record of the
+ * version, and the build and the tests inject what it names as the `__APP_VERSION__` constant.
  *
  * @returns The version string, for example `0.1.0`.
- * @throws When the file has no string `version`.
+ * @throws When the repository has no `v<version>` tag, as in a shallow clone without tags.
  */
-export function readRootVersion(): string {
-  const parsed: unknown = JSON.parse(
-    readFileSync(resolve(import.meta.dirname, "../package.json"), "utf8"),
-  );
-  if (typeof parsed === "object" && parsed !== null && "version" in parsed) {
-    const { version } = parsed;
-    if (typeof version === "string" && version !== "") return version;
-  }
-  throw new Error("The root package.json has no version.");
+export function readReleasedVersion(): string {
+  const tag = execFileSync("git", ["describe", "--tags", "--abbrev=0", "--match", "v[0-9]*"], {
+    cwd: import.meta.dirname,
+    encoding: "utf8",
+  }).trim();
+  return tag.slice(1);
 }
 
 /**

@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import { execFileSync } from "node:child_process";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
-import { readRootVersion, versionDefine } from "./app-version.ts";
+import { readReleasedVersion, versionDefine } from "./app-version.ts";
 import { basePathFrom } from "./base-path.ts";
 
 /** Theme colours of the manifest: the icon's navy, and the light theme's background. */
@@ -24,7 +24,7 @@ function buildCommit(): string {
 
 export default defineConfig({
   define: {
-    ...versionDefine(readRootVersion()),
+    ...versionDefine(readReleasedVersion()),
     "import.meta.env.VITE_OBD_BUILD": JSON.stringify(buildCommit()),
   },
   plugins: [
