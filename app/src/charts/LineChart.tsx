@@ -1,3 +1,4 @@
+import { formatReading, formatReadingWithUnit } from "../format/reading";
 import { useMemo, type KeyboardEvent, type PointerEvent } from "react";
 import {
   VIEW_HEIGHT,
@@ -5,7 +6,6 @@ import {
   describeSeries,
   extentOf,
   formatElapsed,
-  formatValue,
   fraction,
   polyline,
   stepTime,
@@ -48,10 +48,6 @@ export interface LineChartProps {
   readonly cursor?: number | undefined;
   /** Called with a new cursor time when the user points at the chart or uses its arrow keys. Without it the chart is not interactive. */
   readonly onCursorChange?: (time: number) => void;
-}
-
-function withUnit(value: number, unit: string): string {
-  return unit === "" ? formatValue(value) : `${formatValue(value)} ${unit}`;
 }
 
 /**
@@ -103,7 +99,11 @@ export function LineChart({
   const label = unit === "" ? name : `${name} (${unit})`;
   const at = cursor === undefined ? undefined : valueAt(points, cursor);
   const readout =
-    cursor === undefined ? "-" : at === undefined ? "no reading yet" : withUnit(at.v, unit);
+    cursor === undefined
+      ? "-"
+      : at === undefined
+        ? "no reading yet"
+        : formatReadingWithUnit(at.v, unit);
   const cursorLeft = cursor === undefined ? undefined : fraction(cursor, span[0], span[1]) * 100;
   const cursorTop =
     at === undefined || extent === undefined
@@ -141,8 +141,8 @@ export function LineChart({
       </figcaption>
       <div className={body}>
         <div className={yAxis} aria-hidden="true">
-          <span>{extent === undefined ? "" : formatValue(extent.max)}</span>
-          <span>{extent === undefined ? "" : formatValue(extent.min)}</span>
+          <span>{extent === undefined ? "" : formatReading(extent.max, unit)}</span>
+          <span>{extent === undefined ? "" : formatReading(extent.min, unit)}</span>
         </div>
         <div className={plotWrap}>
           <div className={plot} role="img" aria-label={summary}>

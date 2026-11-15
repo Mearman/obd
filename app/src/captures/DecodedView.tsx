@@ -1,5 +1,6 @@
 import type { Capture, DecodedCaptureData, Exchange } from "obd-read";
 import { useMemo } from "react";
+import { formatReadingWithUnit } from "../format/reading";
 import { GENERIC_TITLE } from "../profiles/generic";
 import { ObdReport } from "../screens/ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
@@ -68,7 +69,7 @@ export function DecodedView({
               header: "Reading",
               render: (value) =>
                 typeof value.value === "number"
-                  ? `${String(value.value)} ${value.measure}`.trim()
+                  ? formatReadingWithUnit(value.value, value.measure)
                   : `not decoded (${value.value.error})`,
             },
           ]}

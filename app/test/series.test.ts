@@ -8,7 +8,6 @@ import {
   extentOf,
   foldSamples,
   formatElapsed,
-  formatValue,
   fraction,
   indexAtOrBefore,
   polyline,
@@ -124,13 +123,6 @@ describe("formatting and description", () => {
     expect(formatElapsed(61_000)).toBe("1:01.0");
     expect(formatElapsed(3_723_000)).toBe("1:02:03.0");
     expect(formatElapsed(-5)).toBe("0:00.0");
-  });
-
-  it("trims trailing zeros", () => {
-    expect(formatValue(1.5)).toBe("1.5");
-    expect(formatValue(2)).toBe("2");
-    expect(formatValue(0.12345)).toBe("0.123");
-    expect(formatValue(1234.56)).toBe("1234.6");
   });
 
   it("describes a series in words, with its range and ends", () => {

@@ -1,3 +1,4 @@
+import { formatReadingWithUnit } from "../format/reading";
 import { muted } from "../screens/screen.css";
 import {
   countdown,
@@ -22,9 +23,7 @@ import {
 /** A reading's value as the card shows it. */
 function readingText(entry: ViewReading): string {
   if (entry.value === undefined) return "not read";
-  const value =
-    typeof entry.value === "number" ? String(Math.round(entry.value * 10) / 10) : entry.value;
-  return entry.unit === "" ? value : `${value} ${entry.unit}`;
+  return formatReadingWithUnit(entry.value, entry.unit);
 }
 
 /** The step and pass a phase is at, in words: "Phase 2 of 4", with the pass of a repeated phase. */

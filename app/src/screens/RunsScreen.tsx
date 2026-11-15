@@ -113,7 +113,7 @@ export function RunsScreen({ open }: { readonly open?: string | undefined }) {
       header: "State",
       render: ({ run }) =>
         run.id === collectingId ? (
-          <Badge tone="success">Collecting</Badge>
+          <Badge tone="success">{collection.stopping ? "Stopping…" : "Collecting"}</Badge>
         ) : run.stoppedAt === null ? (
           <Badge tone="warning">Open</Badge>
         ) : (
