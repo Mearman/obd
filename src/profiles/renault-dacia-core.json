@@ -1,0 +1,76 @@
+{
+  "notes": "Renault and Dacia cars of the CAN era, scoped to cars up to about the 2018 model year: 11-bit CAN at 500 kbit/s on the OBD-II socket, ISO 15765-2, core units only. The 2018 cut-off is an inference, not a sourced date: it is chosen to stay clear of the security gateway that reports say recent cars carry, and no source read gives the model or year from which it appears.\n\nThe ten units are the addresses CanZE lists for the Twingo III phase 2 (the sonar row comes from the CanZE Zoe file, which has no sonar in the Twingo's) and the ddt4all address table lists for the whole Alliance; ddt4all's table is the same in its Clio IV, Captur, Megane IV, Duster and Sandero projects, so one address plan serves them, but neither source says which of these units a given Clio, Captur, Megane, Duster or Sandero fits, and the engine and gearbox rows come from a small-car file and may not match a given engine control unit. Whether these units speak UDS or KWP2000 over CAN on these cars was not established: UDS comes from the CanZE files for the Zoe and Twingo, and ddt4all supports both. Treat every row as unconfirmed on a given car until `obd-read probe` shows the unit answering.\n\nSession: the default session, 0x01, which every UDS unit must accept; the Twingo file gives 0x03 for these units, which the guard also permits.\n\nSecurity gateway: a Renault security gateway is reported on recent cars, so a silent unit may be filtered rather than absent, and the tool reports a silent unit as no response, not as absent. A ddt4all issue (cedricp/ddt4all issue 404, Clio V, 2020) reports reads working through the OBD socket with writes blocked by a central gateway, and vendor pages (a Delphi article on a Renault Arkana, a Hella Gutmann page) say that fault codes and parameters can be read without unlocking it; none of them says which units a locked gateway hides from a read.",
+  "name": "renault-dacia-core",
+  "description": "Renault and Dacia CAN-era core units (Clio IV and V, Captur, Megane IV, Duster, Sandero), UDS over 11-bit CAN, address plan from CanZE and ddt4all",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 1
+  },
+  "units": {
+    "engine": {
+      "description": "Engine control module",
+      "request": 2016,
+      "response": 2024,
+      "source": "CanZE Twingo_3_Ph2/_Ecus.csv row 'Engine Control Module' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv): from 7E8, to 7E0; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 15 (ECM_29); 7A (ECM)"
+    },
+    "gearbox": {
+      "description": "Automatic transmission",
+      "request": 2017,
+      "response": 2025,
+      "source": "CanZE Twingo_3_Ph2/_Ecus.csv row 'Automatic Transmission' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv): from 7E9, to 7E1; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 18 (AT_29b); 6E (AT)"
+    },
+    "abs-vdc": {
+      "description": "ABS and stability control",
+      "request": 1856,
+      "response": 1888,
+      "source": "CanZE Twingo_3_Ph2/_Ecus.csv row 'ABS-VDC' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv): from 760, to 740; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 01 (ABS-VDC); 2D (ABS-VDC_29b)"
+    },
+    "eps": {
+      "description": "Electric power steering",
+      "request": 1858,
+      "response": 1890,
+      "source": "CanZE Twingo_3_Ph2/_Ecus.csv row 'Electric Power Steering' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv): from 762, to 742; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 04 (EPS)"
+    },
+    "bcm": {
+      "description": "Body control module (UCH)",
+      "request": 1861,
+      "response": 1893,
+      "source": "CanZE Twingo_3_Ph2/_Ecus.csv row 'Body Control Module' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv): from 765, to 745; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 26 (UCH)"
+    },
+    "cluster": {
+      "description": "Instrument cluster",
+      "request": 1859,
+      "response": 1891,
+      "source": "CanZE Twingo_3_Ph2/_Ecus.csv row 'Meter Cluster' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv): from 763, to 743; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 51 (TDB)"
+    },
+    "hvac": {
+      "description": "Climate control",
+      "request": 1860,
+      "response": 1892,
+      "source": "CanZE Twingo_3_Ph2/_Ecus.csv row 'Climate Control' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv): from 764, to 744; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 29 (HVAC)"
+    },
+    "airbag": {
+      "description": "Airbag (SRS)",
+      "request": 1874,
+      "response": 1906,
+      "source": "CanZE Twingo_3_Ph2/_Ecus.csv row 'Airbag-SRS' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv): from 772, to 752; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 2C (Airbag-SRS)"
+    },
+    "usm": {
+      "description": "Protection and switching unit (USM, UPC)",
+      "request": 1869,
+      "response": 1901,
+      "source": "CanZE Twingo_3_Ph2/_Ecus.csv row 'USM' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv, archived https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/Twingo_3_Ph2/_Ecus.csv): from 76D, to 74D; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 27 (UPC-EMM); 42 (USM_29)"
+    },
+    "parking-sonar": {
+      "description": "Parking sonar",
+      "request": 1870,
+      "response": 1902,
+      "source": "CanZE ZOE/_Ecus.csv row 'Park Assist' (https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE/_Ecus.csv, archived https://web.archive.org/web/20261115132728/https://github.com/fesch/CanZE/blob/master/app/src/main/assets/ZOE/_Ecus.csv): from 76E, to 74E; ddt4all projects.json (https://github.com/cedricp/ddt4all/blob/master/src/ddt4all/resources/projects.json) address table, Renault address, Renault address byte(s) 0E (Parking Sonar)"
+    }
+  }
+}
