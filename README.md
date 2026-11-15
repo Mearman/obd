@@ -341,6 +341,12 @@ The app is published as a GitHub Pages project site at <https://mearman.github.i
 
 The build reads one environment variable, `BASE_PATH`, in [`app/base-path.ts`](app/base-path.ts): Vite's `base`, the manifest's `id`, `scope` and `start_url`, and so the service worker's scope all follow it. It defaults to `/` for local use and previews, and the workflow sets `BASE_PATH=/obd/`. A fork publishing its own project site sets `BASE_PATH` in `pages.yml` to its repository name (`/<repository>/`), and enables Pages with the source set to GitHub Actions. The workflow skips itself in a private repository.
 
+## Releases
+
+A release is made by bumping `version` in the root [`package.json`](package.json) and in [`app/package.json`](app/package.json) (a test checks they match) in a pull request. When it merges to `main`, [`release.yml`](.github/workflows/release.yml) reads the version, and if the tag `v<version>` does not exist it creates the tag and a GitHub release with generated notes; a push that leaves the version unchanged does nothing. [`scripts/release-needed.ts`](scripts/release-needed.ts) holds that decision. The workflow uses the default `GITHUB_TOKEN` with `contents: write` and publishes nothing to a registry.
+
+The app shows its version in the top bar as a link to that release. The version is read from the root `package.json` when the app is built, so it needs no network, and the link opens the release page in a new tab (which cannot load offline).
+
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
