@@ -141,8 +141,14 @@ export class ReplayElm extends Elm {
     requestId: number,
     responseId: number,
     extendedAddress?: number,
+    idBits?: 11 | 29,
   ): Promise<void> {
-    const kline = this.state.bus?.kind === "kline";
+    const { bus } = this.state;
+    // As a live session does, a unit of another width moves the session to that width at the rate already selected.
+    if (idBits !== undefined && bus?.kind === "can" && bus.idBits !== idBits) {
+      this.setState({ bus: { ...bus, idBits } });
+    }
+    const kline = bus?.kind === "kline";
     this.setState({
       address: {
         mode: "physical",
