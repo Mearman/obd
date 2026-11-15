@@ -20,6 +20,7 @@ import { OriginBadge } from "../origin/OriginBadge";
 import { PlaybackView } from "./playback/PlaybackView";
 import { DecodedDownloads } from "./DecodedDownloads";
 import { ProfilePicker } from "../profiles/ProfilePicker";
+import { useProfiles } from "../profiles/ProfilesProvider";
 import { GENERIC_CHOICE, chosenProfile } from "./decode-choices";
 
 /** The link a decoding makes: the units under a profile, or the OBD-II report under none. Only the decoded summary travels; the raw capture has its own link. */
