@@ -369,6 +369,23 @@ describe("Generic OBD-II (no profile)", () => {
     await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
   });
 
+  it("shows the fault codes a run read, on Live while it collects and under Fault codes on Runs", async () => {
+    renderApp(<App support={CHROME} />);
+    await connectSimulator();
+    await openTab("Live");
+    await userEvent.click(screen.getByRole("button", { name: "Start collecting" }));
+    const live = await screen.findByRole("table", { name: "Fault code changes" });
+    expect(live).toHaveTextContent("P0420");
+    expect(live).toHaveTextContent("Present when collection began");
+    await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
+    await openTab("Runs");
+    await userEvent.click(await screen.findByRole("button", { name: /^Fault codes of run / }));
+    const dialog = await screen.findByRole("dialog", { name: "Fault codes" });
+    expect(
+      await within(dialog).findByRole("table", { name: "Fault code changes" }),
+    ).toHaveTextContent("P0420");
+  });
+
   it("renders a profile-only refusal as one line, never a crash", async () => {
     const service = createTestService();
     await service.client.link.connect({ adapter: GENERIC_SIMULATOR_URL });

@@ -13,9 +13,10 @@ import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { OriginBadge } from "../origin/OriginBadge";
 import { ALL_ORIGINS, ORIGIN_FILTER_OPTIONS, originQuery } from "../origin/origins";
-import { Badge, Button, DataTable, Select, download, type Column } from "../ui";
+import { Badge, Button, DataTable, Dialog, Select, download, type Column } from "../ui";
 import { error, muted, page, row } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
+import { FaultHistory } from "../faults/FaultHistory";
 import { ShareDialog } from "../share/ShareDialog";
 import { RunGraphs } from "./RunGraphs";
 import { RunImport } from "./RunImport";
@@ -143,6 +144,13 @@ export function RunsScreen() {
           >
             View graphs
           </Button>
+          <Dialog
+            trigger={<Button aria-label={`Fault codes of run ${run.id}`}>Fault codes</Button>}
+            title="Fault codes"
+            description="When each fault code appeared or disappeared while this run collected."
+          >
+            <FaultHistory client={client} runId={run.id} />
+          </Dialog>
           <ShareDialog
             label="Share"
             title="Share this run's summary"
