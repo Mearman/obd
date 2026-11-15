@@ -137,7 +137,7 @@ import {
   transcriptAppender,
   writeNewFile,
 } from "./cli-files.js";
-import { createNobleCentral } from "./noble.js";
+import { processCentral } from "./radio.js";
 import { zlibShareCodec } from "./share-codec.js";
 import type { BleCentral } from "./ble.js";
 
@@ -1047,10 +1047,12 @@ export async function run(argv: readonly string[], io: CliIo): Promise<number> {
   }
 }
 
-/** The command line's real surroundings: the process's streams, environment and registered transports. */
-export function processIo(signal: AbortSignal): { readonly io: CliIo; readonly close: () => void } {
+/** The command line's real surroundings: the process's streams, environment and registered transports. `close` releases what the command line opened (the prompt and the Bluetooth radio) so the process can exit. */
+export function processIo(
+  signal: AbortSignal,
+  central: BleCentral = processCentral,
+): { readonly io: CliIo; readonly close: () => void } {
   let asker: ReturnType<typeof lineAsker> | undefined;
-  let central: BleCentral | undefined;
   return {
     io: {
       out: (line) => {
@@ -1064,12 +1066,13 @@ export function processIo(signal: AbortSignal): { readonly io: CliIo; readonly c
       env: process.env,
       directory: process.cwd(),
       connect: mqttJsConnect(),
-      central: () => (central ??= createNobleCentral()),
+      central: () => central,
       listPorts: listSystemSerialPorts,
       signal,
     },
     close: () => {
       asker?.close();
+      central.close();
     },
   };
 }

@@ -111,8 +111,9 @@ function advertisementOf(peripheral: Peripheral): BleAdvertisement {
 export function createNobleCentral(): BleCentral {
   const seen = new Map<string, Peripheral>();
   let loaded: Promise<Noble> | undefined;
+  let loadedNoble: Noble | undefined;
   const load = (): Promise<Noble> =>
-    (loaded ??= import("@stoprocent/noble").then((m) => m.default));
+    (loaded ??= import("@stoprocent/noble").then((m) => (loadedNoble = m.default)));
 
   return {
     async scan(timeoutMs, stopWhen) {
@@ -151,6 +152,10 @@ export function createNobleCentral(): BleCentral {
         throw new TransportError(`Bluetooth LE device ${device.id} was not seen in a scan`);
       }
       return new NoblePeripheral(peripheral);
+    },
+    close() {
+      // Noble keeps its HCI socket and its exit and interrupt listeners for the life of the process, so without this stop the command line never exits after a link was used.
+      if (loadedNoble !== undefined) loadedNoble.stop();
     },
   };
 }
