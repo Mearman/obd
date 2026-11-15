@@ -35,6 +35,7 @@ import { KLineElm } from "../core/kline.js";
 import {
   compareReport,
   describeCode,
+  describeObdScan,
   describeRequests,
   describeScan,
   importNames,
@@ -45,7 +46,8 @@ import {
 } from "../core/offline.js";
 import { discoverCommand } from "../core/discovery.js";
 import { clearCodesCommand } from "../core/obd-clear.js";
-import { obdCommand } from "../core/obd-report.js";
+import { obdCommand, obdScanCommand } from "../core/obd-report.js";
+import { obdReportDocument } from "../core/share.js";
 import { OptionError } from "../core/options.js";
 import {
   PASSWORD_VARIABLE,
@@ -665,15 +667,30 @@ async function carCommand(io: CliIo, args: ParsedArgs, name: string): Promise<nu
         const scheme = KLINE_SCHEME_NAMES.find(
           (candidate) => candidate === args.optionalText("kline"),
         );
-        return obdCommand(
-          elm,
-          {
-            idBits: identifierBits(args),
-            bitrate: args.number("bitrate"),
-            ...(scheme === undefined ? {} : { kline: scheme }),
-          },
-          io.out,
+        const options = {
+          idBits: identifierBits(args),
+          bitrate: args.number("bitrate"),
+          ...(scheme === undefined ? {} : { kline: scheme }),
+        };
+        const output = args.optionalText("output");
+        if (output === undefined) return obdCommand(elm, options, io.out);
+        const scan = await obdScanCommand(elm, options);
+        for (const line of describeObdScan(
+          scan,
+          new CodeNames(loadGenericTitles(), new Map(), []),
+        )) {
+          io.out(line);
+        }
+        const document = obdReportDocument(scan, {
+          takenAt: Date.now(),
+          adapterLabel: adapter.identity,
+        });
+        await new FileOutputFiles(io.directory).write(
+          output,
+          `${JSON.stringify(document, null, 2)}\n`,
         );
+        io.out(`wrote ${output}; share it with: obd-read share ${output} --redact-vin`);
+        return 0;
       }
       default: {
         if (profile === undefined) throw new Error(`${name} needs a profile`);
