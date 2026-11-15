@@ -22,12 +22,7 @@ import {
 import { builtinProfileData, builtinProfiles, loadBuiltinProfile } from "../src/profiles/index.js";
 import { fakeTransport } from "./helpers/fake-elm.js";
 
-const PROFILES = [
-  "nissan-leaf",
-  "nissan-infiniti-can",
-  "nissan-infiniti-can-29bit",
-  "mitsubishi-phev-imiev",
-] as const;
+const PROFILES = ["nissan-leaf", "nissan-infiniti-can", "mitsubishi-phev-imiev"] as const;
 
 function unitOf(profile: Profile, name: string): Unit {
   const unit = profile.units.get(name);
@@ -90,17 +85,23 @@ describe("the shipped Nissan and Mitsubishi profiles", () => {
       engine: [0x7e0, 0x7e8],
       "unit-723": [0x723, 0x735],
     });
-    const offsets = new Set([...profile.units.values()].map((u) => u.responseId - u.requestId));
+    const offsets = new Set(
+      [...profile.units.values()]
+        .filter((unit) => unit.idBits === 11)
+        .map((unit) => unit.responseId - unit.requestId),
+    );
     expect(offsets).toEqual(new Set([0x8, 0x12, 0x20]));
   });
 
-  it("the 29-bit Nissan profile addresses units by ISO 15765-4 fixed addressing", () => {
-    const profile = loadBuiltinProfile("nissan-infiniti-can-29bit");
-    expect(profile.bus).toEqual({ kind: "can", idBits: 29, bitrate: 500_000 });
+  it("the Nissan CAN profile's 29-bit units use ISO 15765-4 fixed addressing beside 11-bit ones", () => {
+    const profile = loadBuiltinProfile("nissan-infiniti-can");
+    expect(profile.bus).toEqual({ kind: "can", idBits: 11, bitrate: 500_000 });
     expect(pairs(profile)).toMatchObject({
       gateway: [0x18dad0f1, 0x18daf1d0],
       "unit-15": [0x18da15f1, 0x18daf115],
     });
+    expect(unitOf(profile, "gateway").idBits).toBe(29);
+    expect(unitOf(profile, "engine").idBits).toBe(11);
   });
 
   it("the Mitsubishi profile has the battery and charger the i-MiEV and Outlander share", () => {
