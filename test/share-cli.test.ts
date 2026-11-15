@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -222,5 +223,76 @@ describe("a generic OBD-II read from the recorded car", () => {
     const { status, lines } = await share(["share", "bad.json"], undefined, directory);
     expect(status).toBe(1);
     expect(lines[0]).toMatch(/^error: bad\.json: not a saved OBD-II read/);
+  });
+});
+
+describe("a capture from the recorded car", () => {
+  const CALIBRATION = "0034466040150284";
+
+  async function imported(compress: boolean) {
+    const directory = await workspace();
+    const transcript = RECORDED.map((name) =>
+      readFileSync(new URL(`fixtures/${name}`, import.meta.url), "utf8"),
+    ).join("\n");
+    await writeFile(join(directory, "a150.log"), transcript);
+    const output = compress ? "a150.obdcap.json.gz" : "a150.obdcap.json";
+    const made = await share(
+      ["import-capture", "a150.log", "--output", output, ...(compress ? ["--compress"] : [])],
+      undefined,
+      directory,
+    );
+    expect(made.status).toBe(0);
+    return { directory, output };
+  }
+
+  it("is shared raw from a plain or compressed file, with the calibration identifier kept", async () => {
+    for (const compress of [false, true]) {
+      const { directory, output } = await imported(compress);
+      const link = await share(["share", output], undefined, directory);
+      expect(link.status, output).toBe(0);
+      const envelope = await decoded(link.lines[0]);
+      expect(envelope.kind).toBe("capture");
+      if (envelope.kind !== "capture") continue;
+      expect(envelope.data.redacted).toBe(false);
+      expect(envelope.data.capture.exchanges.length).toBeGreaterThan(0);
+      expect(envelope.data.capture.sessions.every((session) => session.adapter.url === null)).toBe(
+        true,
+      );
+      expect(JSON.stringify(envelope)).toContain(
+        Array.from(CALIBRATION, (digit) => `3${digit}`).join(""),
+      );
+    }
+  });
+
+  it("is opened and decoded with no profile, or with the one --profile names", async () => {
+    const { directory, output } = await imported(false);
+    const link = await share(["share", output, "--redact-vin"], undefined, directory);
+    const opened = await share(["share", "--open", link.lines[0] ?? ""], undefined, directory);
+    expect(opened.status).toBe(0);
+    expect(opened.lines[0]).toMatch(/^shared data, not read from an adapter; link made 20/);
+    expect(opened.lines[1]).toMatch(/^shared capture import-/);
+    expect(opened.lines).toContain(
+      "the VIN, calibration identifiers and serial numbers were overwritten with * before sharing",
+    );
+    expect(opened.lines).toContain("decoded with no profile: the legislated OBD-II reads only");
+    expect(opened.lines.join("\n")).not.toContain(CALIBRATION);
+    const withProfile = await share(
+      ["share", "--open", link.lines[0] ?? "", "--profile", "mercedes-w211"],
+      undefined,
+      directory,
+    );
+    expect(withProfile.status).toBe(0);
+    expect(withProfile.lines).toContain("decoded with profile mercedes-w211");
+  });
+
+  it("refuses --profile when making a link", async () => {
+    const { directory, output } = await imported(false);
+    const { status, lines } = await share(
+      ["share", output, "--profile", "mercedes-w211"],
+      undefined,
+      directory,
+    );
+    expect(status).toBe(1);
+    expect(lines[0]).toBe("error: --profile decodes a capture link opened with --open");
   });
 });

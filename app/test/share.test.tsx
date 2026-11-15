@@ -16,6 +16,7 @@ import type { BrowserSupport } from "../src/connect/support";
 import type { DatabaseSession } from "../src/database/session";
 import { fakeControl } from "./fake-database";
 import { createTestService, renderApp } from "./render";
+import { captureFragment, simulatedCapture } from "./simulated-capture";
 
 const CHROME: BrowserSupport = {
   family: "chromium",
@@ -144,7 +145,7 @@ describe("the Share dialog on a generic OBD-II scan", () => {
     expect(JSON.stringify(redacted)).not.toContain(SIMULATED_VIN);
 
     await userEvent.click(
-      within(dialog).getByRole("switch", { name: /remove the vin and serial numbers/i }),
+      within(dialog).getByRole("switch", { name: /remove the vin and calibration identifiers/i }),
     );
     await waitFor(() => {
       expect(linkIn(dialog)).not.toBe(link);
@@ -399,5 +400,17 @@ describe("a shared link", () => {
     expect(table).toHaveTextContent("engine speed (rpm)");
     expect(within(table).getByRole("img", { name: "Trend of engine speed" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save this scan" })).not.toBeInTheDocument();
+  });
+
+  it("shows a shared capture's raw exchanges read-only and writes nothing", async () => {
+    window.location.hash = await captureFragment(await simulatedCapture());
+    const storage = new MemoryStorage();
+    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    const table = await screen.findByRole("table", { name: "Shared exchanges" });
+    expect(table).toHaveTextContent("0902");
+    expect(
+      screen.getByText(/The VIN, calibration identifiers and serial numbers are included/),
+    ).toBeInTheDocument();
+    expect(await storage.listCaptures({})).toEqual([]);
   });
 });

@@ -1,5 +1,5 @@
 /**
- * Sharing results as a link: a scan, a generic OBD-II report or a run summary packed into the URL fragment.
+ * Sharing results as a link: a scan, a generic OBD-II report, a run summary or a raw capture packed into the URL fragment.
  *
  * A link is `<app address>#share=1.<payload>`. The payload is a versioned envelope `{v, kind, createdAt, data}` written as canonical JSON (keys sorted, ASCII only), compressed with raw deflate and written as unpadded base64url. The data sits in the fragment, which a browser never sends to a server, so only whoever holds the link can read it.
  *
@@ -9,10 +9,28 @@
  */
 
 import { z } from "zod";
+import type { Capture } from "./capture.js";
+import {
+  captureIdentifyingValues,
+  captureShareSchema,
+  redactCaptureShare,
+  type CaptureShareData,
+} from "./capture-share.js";
+import { addressKey } from "./exchange.js";
 import type { ObdScan } from "./obd-scan.js";
 import { runExportSchema } from "./run-export.js";
 import type { UnitReportData } from "./service.js";
 import type { Json, Run, Sample, SignalAggregate } from "./storage.js";
+import { asciiOfHex, isIdentifyingLabel, scrub, secretSpellings, vinsIn } from "./identifying.js";
+
+export { isIdentifyingLabel, redactVinShapes } from "./identifying.js";
+export {
+  REDACTED_BYTE,
+  captureIdentifyingValues,
+  captureShareSchema,
+  redactCaptureShare,
+  type CaptureShareData,
+} from "./capture-share.js";
 
 /** The envelope version this module writes and reads. */
 export const SHARE_VERSION = 1;
@@ -271,7 +289,7 @@ export const obdReportShareSchema = z.strictObject({
 export type ObdReportShareData = z.output<typeof obdReportShareSchema>;
 
 /** The kinds of result a link carries. */
-export const SHARE_KINDS = ["scan", "obd-report", "run-summary"] as const;
+export const SHARE_KINDS = ["scan", "obd-report", "run-summary", "capture"] as const;
 
 /** A link's content: the version, what kind of result it is, when it was made and the result. */
 export const shareEnvelopeSchema = z.discriminatedUnion("kind", [
@@ -293,59 +311,16 @@ export const shareEnvelopeSchema = z.discriminatedUnion("kind", [
     createdAt: timeSchema,
     data: runSummaryShareSchema,
   }),
+  z.strictObject({
+    v: z.literal(SHARE_VERSION),
+    kind: z.literal("capture"),
+    createdAt: timeSchema,
+    data: captureShareSchema,
+  }),
 ]);
 
 /** A link's content. */
 export type ShareEnvelope = z.output<typeof shareEnvelopeSchema>;
-
-/** The labels of identification values that identify one car or one unit: the VIN and any serial number. */
-const IDENTIFYING_LABEL = /\bvin\b|vehicle identification|serial/i;
-
-/** Whether an identification value with this label identifies the car or the unit, so redaction blanks it. */
-export function isIdentifyingLabel(label: string): boolean {
-  return IDENTIFYING_LABEL.test(label);
-}
-
-const REDACTED = "[redacted]";
-
-/** Seventeen letters and digits without I, O or Q, bounded so a longer run is not cut: the shape of a VIN. */
-const VIN_SHAPE = /(?<![A-Z0-9])[A-HJ-NPR-Z0-9]{17}(?![A-Z0-9])/g;
-
-/** Seventeen letters and digits with no restriction on which, bounded so a longer run is not cut. */
-const VIN_LENGTH_WORD = /(?<![A-Z0-9])[A-Z0-9]{17}(?![A-Z0-9])/gi;
-
-/**
- * `text` with every word that could be a VIN replaced by `replacement`: seventeen letters and digits, with at least one of each, in either case. A real VIN has no I, O or Q, but text that mentions one may have misread it or come from a simulator, so unlike {@link redactScan}'s own rule this takes those letters too. For text that is not a scan (error messages, logs) that could name a car.
- */
-export function redactVinShapes(text: string, replacement: string = REDACTED): string {
-  return text.replace(VIN_LENGTH_WORD, (word) =>
-    /[A-Za-z]/.test(word) && /[0-9]/.test(word) ? replacement : word,
-  );
-}
-
-/** The printable ASCII of hexadecimal bytes, or "" when the text is not whole hexadecimal bytes. */
-function asciiOfHex(hex: string): string {
-  if (hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex)) return "";
-  let text = "";
-  for (let index = 0; index < hex.length; index += 2) {
-    const byte = Number.parseInt(hex.slice(index, index + 2), 16);
-    text += byte >= 0x20 && byte <= 0x7e ? String.fromCharCode(byte) : "\u0000";
-  }
-  return text;
-}
-
-function hexOfAscii(text: string): string {
-  return Array.from(text, (character) =>
-    character.charCodeAt(0).toString(16).padStart(2, "0"),
-  ).join("");
-}
-
-/** VIN-shaped words in `text` that have both a letter and a digit, as a real VIN does. */
-function vinsIn(text: string): string[] {
-  return Array.from(text.matchAll(VIN_SHAPE), (match) => match[0]).filter(
-    (word) => /[A-Z]/.test(word) && /[0-9]/.test(word),
-  );
-}
 
 /**
  * Every value in a scan that identifies the car or a unit: the values of identification entries {@link isIdentifyingLabel} names, and any VIN-shaped word in another identification value (as text or as the ASCII of its hexadecimal bytes) or in a note. A unit that gives its VIN inside an unlabelled identification block is caught by the second.
@@ -362,19 +337,6 @@ function identifyingValues(data: ScanShareData): string[] {
     for (const note of unit.notes) for (const word of vinsIn(note)) found.add(word);
   }
   return [...found];
-}
-
-/** The texts to remove: each identifying value, and the hexadecimal spelling of each in both cases. */
-function secretSpellings(values: readonly string[]): string[] {
-  return values.flatMap((value) => [
-    value,
-    hexOfAscii(value).toUpperCase(),
-    hexOfAscii(value).toLowerCase(),
-  ]);
-}
-
-function scrub(text: string, secrets: readonly string[]): string {
-  return secrets.reduce((current, secret) => current.replaceAll(secret, REDACTED), text);
 }
 
 /**
@@ -457,13 +419,15 @@ export function redactObdReport(data: ObdReportShareData): ObdReportShareData {
   };
 }
 
-/** The envelope with its identifying values removed: a scan and a generic OBD-II report are redacted, a run summary has none and is returned as it is. */
+/** The envelope with its identifying values removed: a scan, a generic OBD-II report and a capture are redacted, a run summary has none and is returned as it is. */
 export function redactEnvelope(envelope: ShareEnvelope): ShareEnvelope {
   switch (envelope.kind) {
     case "scan":
       return { ...envelope, data: redactScan(envelope.data) };
     case "obd-report":
       return { ...envelope, data: redactObdReport(envelope.data) };
+    case "capture":
+      return { ...envelope, data: redactCaptureShare(envelope.data) };
     case "run-summary":
       return envelope;
   }
@@ -540,14 +504,14 @@ export interface EncodedShare {
 
 /** Options of {@link encodeShare}. */
 export interface EncodeOptions {
-  /** Blank the VIN and serial numbers of a scan, or the VIN and calibration identifiers of a generic OBD-II report, first. */
+  /** Blank the VIN and serial numbers of a scan, the VIN and calibration identifiers of a generic OBD-II report, or all three in a capture's raw bytes, first. */
   readonly redactVin?: boolean;
 }
 
 /**
  * Writes an envelope as a link fragment.
  *
- * With `redactVin` a scan's or generic OBD-II report's identifying values are blanked first ({@link redactEnvelope}). Fails with `invalid` when the envelope does not match its kind's schema and with `too-large` when its canonical JSON passes {@link MAX_DECODED_BYTES} or the fragment passes {@link MAX_ENCODED_LENGTH}.
+ * With `redactVin` a scan's, generic OBD-II report's or capture's identifying values are blanked first ({@link redactEnvelope}). Fails with `invalid` when the envelope does not match its kind's schema and with `too-large` when its canonical JSON passes {@link MAX_DECODED_BYTES} or the fragment passes {@link MAX_ENCODED_LENGTH}.
  */
 export async function encodeShare(
   envelope: ShareEnvelope,
@@ -794,6 +758,38 @@ export function obdReportDocumentShareData(document: unknown): ShareResult<ObdRe
   });
 }
 
+/**
+ * What a capture shares: the capture document with every session's adapter address removed, so the receiver decodes the raw exchanges with any profile. Fails with `invalid` when the capture holds a key or a size the schema refuses.
+ */
+export function captureShareData(capture: Capture): ShareResult<CaptureShareData> {
+  const candidate = {
+    redacted: false,
+    capture: {
+      ...capture,
+      sessions: capture.sessions.map((session) => ({
+        ...session,
+        adapter: { ...session.adapter, url: null },
+      })),
+    },
+  };
+  const forbidden = forbiddenKey(candidate);
+  if (forbidden !== undefined) return failure("invalid", `the key ${forbidden} is not allowed`);
+  const parsed = captureShareSchema.safeParse(candidate);
+  if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
+  return { ok: true, value: parsed.data };
+}
+
+/** The lines that introduce a shared capture: where it came from, what it holds and whether its identifying bytes were overwritten. */
+export function describeSharedCapture(data: CaptureShareData): string[] {
+  const { capture } = data;
+  return [
+    `shared capture ${capture.id} (started ${new Date(capture.startedAt).toISOString()}, ${plural(capture.exchanges.length, "exchange")} in ${plural(capture.sessions.length, "adapter session")}, ${capture.origin.description}${capture.origin.complete ? "" : ", incomplete"})`,
+    data.redacted
+      ? "the VIN, calibration identifiers and serial numbers were overwritten with * before sharing"
+      : "the VIN, calibration identifiers and serial numbers are included",
+  ];
+}
+
 /** A shared scan as a saved scan report, for the app to store when the user chooses to keep it. It reads in `compare` and `describe` like any report; `origin` marks it as shared and its transcript is empty. */
 export function sharedScanReport(data: ScanShareData): Record<string, Json> {
   return {
@@ -1010,8 +1006,8 @@ export function unitReportOf(unit: ScanShareData["units"][number]): UnitReportDa
   };
 }
 
-function plural(count: number, noun: string): string {
-  return `${String(count)} ${noun}${count === 1 ? "" : "s"}`;
+function plural(count: number, noun: string, nouns = `${noun}s`): string {
+  return `${String(count)} ${count === 1 ? noun : nouns}`;
 }
 
 /**
@@ -1024,6 +1020,22 @@ export function shareContents(envelope: ShareEnvelope): string[] {
       `Run details: profile ${run.profile}, adapter ${run.adapter}, start and stop times${run.notes === "" ? "" : " and your notes"}.`,
       `${plural(signals.length, "signal")} with count, minimum, maximum and mean, and at most ${String(MAX_SERIES_POINTS)} readings of each over time.`,
       "Not included: the other readings of the run.",
+    ];
+  }
+  if (envelope.kind === "capture") {
+    const { capture, redacted } = envelope.data;
+    const present = captureIdentifyingValues(capture).length;
+    const addresses = new Set(capture.exchanges.map((exchange) => addressKey(exchange.address)));
+    return [
+      `${plural(capture.exchanges.length, "raw exchange")} (each request and every reply's bytes, with the bus and addressing) to ${plural(addresses.size, "address", "addresses")}, from ${plural(capture.sessions.length, "adapter session")}.`,
+      "No decoded values: whoever opens the link chooses the profile it is decoded with.",
+      present > 0
+        ? `VIN, calibration identifiers and serial numbers: included (${plural(present, "value")}).`
+        : redacted
+          ? "VIN, calibration identifiers and serial numbers: overwritten with *."
+          : "No VIN, calibration identifier or serial number was found in this capture.",
+      "When it was captured, how it was made, its notes, and each adapter's own name for itself and the program that drove it.",
+      "Not included: the adapter's address.",
     ];
   }
   if (envelope.kind === "obd-report") {

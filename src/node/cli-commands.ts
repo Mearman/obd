@@ -412,18 +412,27 @@ export const COMMANDS: readonly CommandSpec[] = [
   {
     name: "share",
     summary:
-      "make a link that shares a saved scan, OBD-II read or run, or read one (TypeScript only)",
+      "make a link that shares a saved scan, OBD-II read, run or capture, or read one (TypeScript only)",
     description:
       "Print a link whose #share= fragment carries a saved scan (scan --output), a generic OBD-II " +
-      "read (obd --output) or a run's JSON export, compressed. The fragment is never sent to a server, but anyone holding the link can " +
+      "read (obd --output), a run's JSON export or a raw capture (.obdcap.json or .obdcap.json.gz), compressed. The fragment is never sent to a server, but anyone holding the link can " +
       "read the fault history in it. With --open, print what a link carries in the format describe " +
-      "uses. This command has no Python equivalent.",
+      "uses; a capture is decoded as decode prints it. This command has no Python equivalent.",
     args: [
-      positional("report", "the saved scan, OBD-II read or run export to share", "optional"),
+      positional(
+        "report",
+        "the saved scan, OBD-II read, run export or capture to share",
+        "optional",
+      ),
       option(
         "--redact-vin",
         "flag",
-        "blank the VIN, serial numbers and calibration identifiers before sharing",
+        "blank the VIN, serial numbers and calibration identifiers before sharing, in a capture's raw bytes too",
+      ),
+      option(
+        "--profile",
+        "string",
+        "with --open, the profile to decode a capture link with: a name or a .json file; omitted, the profile the capture names when it is shipped, else none",
       ),
       option("--base", "string", "the app's address", {
         default: "https://mearman.github.io/obd/",
