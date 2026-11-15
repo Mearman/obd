@@ -33,6 +33,7 @@
     "@eslint/js": "10.0.1",
     "@types/node": "26.6.6",
     "@types/w3c-web-serial": "1.0.9",
+    "@types/w3c-web-usb": "1.0.14",
     "@types/web-bluetooth": "0.0.22",
     "drizzle-kit": "1.0.0-rc.5",
     "eslint": "10.15.0",
@@ -54,5 +55,8 @@
     "mqtt": "5.16.1",
     "serialport": "13.0.0",
     "zod": "4.6.7"
+  },
+  "optionalDependencies": {
+    "socketcan": "4.3.2"
   }
 }

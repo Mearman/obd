@@ -3,3 +3,4 @@ allowBuilds:
   "@stoprocent/bluetooth-hci-socket": false
   "@stoprocent/noble": false
   usb: false
+  socketcan: false

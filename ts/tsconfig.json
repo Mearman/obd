@@ -2,7 +2,7 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2023", "DOM"],
-    "types": ["node", "w3c-web-serial", "web-bluetooth"],
+    "types": ["node", "w3c-web-serial", "web-bluetooth", "w3c-web-usb"],
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
