@@ -16,6 +16,10 @@
       "types": "./dist/web/index.d.ts",
       "default": "./dist/web/index.js"
     },
+    "./profiles": {
+      "types": "./dist/profiles/index.d.ts",
+      "default": "./dist/profiles/index.js"
+    },
     "./node": {
       "types": "./dist/node/index.d.ts",
       "default": "./dist/node/index.js"
