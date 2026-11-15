@@ -1,6 +1,6 @@
 # Mercedes-Benz compact cars: A-Class, B-Class, CLA, GLA and Citan
 
-The compact cars group by diagnostic layout, not by badge. The MFA platform (W176 A-Class, W246 B-Class, C117 CLA, X156 GLA) shares one UDS address table and has the `mercedes-mfa` profile. The W168 A-Class has no open source and no profile ([issue 89](https://github.com/Mearman/obd/issues/89)). The Citan W415 uses the Renault Alliance address plan and belongs with `renault-dacia-core` ([issue 90](https://github.com/Mearman/obd/issues/90), sources in [europe-other.md](europe-other.md)). This note extends [mercedes-benz.md](mercedes-benz.md), which covers the gateway, CAN-B and the KWP2000 conventions, and does not repeat it.
+The compact cars group by diagnostic layout, not by badge. The MFA platform (W176 A-Class, W246 B-Class, C117 CLA, X156 GLA) shares one UDS address table and has the `mercedes-mfa` profile. The W169 A-Class and W245 B-Class have only an engine address in the open sources and the engine-only `mercedes-w169-w245` profile. The W168 A-Class has no open source and no profile ([issue 89](https://github.com/Mearman/obd/issues/89)). The Citan W415 uses the Renault Alliance address plan and belongs with `renault-dacia-core` ([issue 90](https://github.com/Mearman/obd/issues/90), sources in [europe-other.md](europe-other.md)). This note extends [mercedes-benz.md](mercedes-benz.md), which covers the gateway, CAN-B and the KWP2000 conventions, and does not repeat it.
 
 ## MFA: W176, W246, C117 and X156
 
@@ -16,6 +16,14 @@ The compact cars group by diagnostic layout, not by badge. The MFA platform (W17
 
 **Live values.** w246-b180cdi-obd lists engine data identifiers for the OM607 diesel (MIT licence). They belong to one engine, not the platform, so they are not in the profile; live values are [issue 6](https://github.com/Mearman/obd/issues/6).
 
+## W169 A-Class and W245 B-Class
+
+**Engine.** OBDb's 2011 A 180 capture has 0x7E0 answering service 22 for identifiers 0163, 0168 and 016F with multi-frame replies on 0x7E8, the reply starting `62 01 63` ([7E0.7E8.220163.yaml](https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/commands/7E0.7E8.220163.yaml), [A-180 2011](https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/command_support.yaml)). OBDb names those identifiers boost, exhaust back pressure and particulate filter pressure, and fuel temperature, so that car is a diesel. Its 2009 capture has 0x7E0 answering OBD mode 01 only ([A-180 2009](https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2009/command_support.yaml)). OBDb's own generations file places 2004 to 2012 cars in the W169 ([A-180 generations](https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/generations.yaml)). A petrol engine such as the M266 has a different controller, so the engine row is a lead for it, not a fact.
+
+**Protocol.** Xplatforms/mercedes-hacking-docs chapter 3 lists the wake-up frame ID 0x001C carrying `02 10 92 00 00 00 00 00` for the W169 and the W245, the same as for the W211 ([chapter 3](https://github.com/Xplatforms/mercedes-hacking-docs/blob/master/Chapter%203%20Connecting%20to%20the%20Vehicle.md)). `10 92` is the KWP2000 session start the W211 profile uses, so the profile is KWP2000 with session 0x92. The frame is a broadcast that wakes interior units, not a request to the engine, the table is crowd-sourced, and the chapter's text is unfinished in places (its software and sending sections are placeholders), so the session on the engine is unverified. KWP2000 also defines service 22, which is consistent with the OBDb capture. The bit rate is the 500 kbit/s that [mercedes-benz.md](mercedes-benz.md) gives for CAN-C; OBDb's captures show 11-bit identifiers but not the rate.
+
+**Left out.** No open source gives a W169 or W245 address for the transmission, ESP, airbags, cluster or any interior unit. OBDb's 2011 capture lists 0x7E1, 0x7E2 and 0x7E5 requests as unsupported on that car. [Issue 88](https://github.com/Mearman/obd/issues/88) holds the revisit trigger.
+
 ## W168 A-Class
 
 No source opened gives the W168's diagnostic socket line assignments, its unit addresses or initialisation, or a captured exchange. The youcanic list of 38-pin socket models does not include the A-Class ([youcanic](https://www.youcanic.com/mercedes-benz-models-with-38-pin-port/)), and OBDb's A-Class captures start with the W169. There is no profile; [issue 89](https://github.com/Mearman/obd/issues/89) holds the revisit trigger.
@@ -23,7 +31,8 @@ No source opened gives the W168's diagnostic socket line assignments, its unit a
 ## Sources and limits
 
 - Memostats-V2 `W176-ECUS.md` and `PROTOCOL.md` (no licence stated; addresses and protocol facts only): the generated tables were read in full. The underlying JSON catalogue (`memostats-w176-ecu-db-2026-09-29.json`) and the raw capture evidence file were not opened. The catalogue was exported from a commercial app's database; the on-car rows are the author's reports, and only three units have raw frames.
-- OBDb A-180, GLA-Class, CLA-Class and CLA-200 test captures (CC-BY-SA-4.0): `command_support.yaml` for each year was read in full; the 2011 A-180 `7E0.7E8.220163.yaml` capture was read in full but could not be archived.
+- OBDb A-180, GLA-Class, CLA-Class and CLA-200 test captures (CC-BY-SA-4.0): `command_support.yaml` for each year was read in full; the 2011 A-180 `7E0.7E8.220163.yaml` capture was read in full; its blob page could not be archived (the save returned an error on every attempt), so the raw file's snapshot is cited.
+- Xplatforms/mercedes-hacking-docs chapter 3: read in full; the chapter itself is incomplete, as noted above.
 - w246-b180cdi-obd (MIT): README and `docs/elm327-notes.md` read in full; the drive logs were not.
 
 ## Archived copies
@@ -38,4 +47,8 @@ No source opened gives the W168's diagnostic socket line assignments, its unit a
 - https://github.com/OBDb/Mercedes-Benz-CLA-Class/blob/main/tests/test_cases/2018/command_support.yaml (https://web.archive.org/web/20261115172106/https://github.com/OBDb/Mercedes-Benz-CLA-Class/blob/main/tests/test_cases/2018/command_support.yaml)
 - https://github.com/OBDb/Mercedes-Benz-CLA-200/blob/main/tests/test_cases/2018/command_support.yaml (https://web.archive.org/web/20261115172125/https://github.com/OBDb/Mercedes-Benz-CLA-200/blob/main/tests/test_cases/2018/command_support.yaml)
 - https://github.com/vicoMaz/w246-b180cdi-obd/blob/main/docs/elm327-notes.md (https://web.archive.org/web/20261115172613/https://github.com/vicoMaz/w246-b180cdi-obd/blob/main/docs/elm327-notes.md)
+- https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/command_support.yaml (https://web.archive.org/web/20261115171850/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/command_support.yaml)
+- https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2009/command_support.yaml (https://web.archive.org/web/20261115171908/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2009/command_support.yaml)
+- https://github.com/Xplatforms/mercedes-hacking-docs/blob/master/Chapter%203%20Connecting%20to%20the%20Vehicle.md (https://web.archive.org/web/20261115172654/https://github.com/Xplatforms/mercedes-hacking-docs/blob/master/Chapter%203%20Connecting%20to%20the%20Vehicle.md)
+- https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/commands/7E0.7E8.220163.yaml (the blob page could not be archived; the raw file is at https://web.archive.org/web/20261115173245/https://raw.githubusercontent.com/OBDb/Mercedes-Benz-A-180/main/tests/test_cases/2011/commands/7E0.7E8.220163.yaml)
 - https://www.youcanic.com/mercedes-benz-models-with-38-pin-port/ (https://web.archive.org/web/20261115172719/https://www.youcanic.com/mercedes-benz-models-with-38-pin-port/)
