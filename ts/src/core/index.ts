@@ -33,3 +33,6 @@ export * from "./rawcan.js";
 export * from "./slcan.js";
 export * from "./monitor.js";
 export * from "./live.js";
+export * from "./storage.js";
+export * from "./run-export.js";
+export * from "./testing/memory-storage.js";

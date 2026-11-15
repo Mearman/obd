@@ -1,0 +1,252 @@
+import {
+  StorageError,
+  newRunSchema,
+  newScanReportSchema,
+  sampleSchema,
+  type AggregateQuery,
+  type NewRun,
+  type NewScanReport,
+  type Run,
+  type RunQuery,
+  type Sample,
+  type SampleQuery,
+  type ScanReport,
+  type ScanReportQuery,
+  type ScanReportSummary,
+  type SignalAggregate,
+  type Storage,
+  type StoredProfile,
+} from "../storage.js";
+
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/** Runs `work` and returns its result as a promise, so a {@link StorageError} thrown inside rejects instead of throwing at the call. */
+function settle<T>(work: () => T): Promise<T> {
+  return new Promise((resolve) => {
+    resolve(work());
+  });
+}
+
+function page<T>(items: readonly T[], offset: number | undefined, limit: number | undefined): T[] {
+  const start = offset ?? 0;
+  return items.slice(start, limit === undefined ? undefined : start + limit);
+}
+
+/** The samples of one run, in the order stored, that a query's signal and time range select. */
+function inRange(samples: readonly Sample[], query: AggregateQuery): Sample[] {
+  return samples.filter(
+    (sample) =>
+      (query.signal === undefined || sample.signal === query.signal) &&
+      (query.from === undefined || sample.timestamp >= query.from) &&
+      (query.to === undefined || sample.timestamp < query.to),
+  );
+}
+
+/**
+ * An in-memory {@link Storage} for tests and for sessions that keep nothing: records live in maps and arrays and are copied on the way in and out, so a caller never holds a reference into the store.
+ *
+ * Passes the same contract suite as the SQLite implementation.
+ */
+export class MemoryStorage implements Storage {
+  private readonly runs = new Map<string, Run>();
+  private readonly samples = new Map<string, Sample[]>();
+  private readonly reports = new Map<string, ScanReport>();
+  private readonly profiles = new Map<string, StoredProfile>();
+  private readonly newId: () => string;
+
+  /**
+   * @param newId Produces each new run and report id; defaults to a counter. Ids only need to be unique within this store.
+   */
+  constructor(newId?: () => string) {
+    let next = 0;
+    this.newId = newId ?? (() => `id-${String((next += 1))}`);
+  }
+
+  createRun(input: NewRun): Promise<Run> {
+    return settle(() => {
+      const fields = newRunSchema.parse(input);
+      const run: Run = { id: this.newId(), ...fields, stoppedAt: null };
+      this.runs.set(run.id, run);
+      this.samples.set(run.id, []);
+      return { ...run };
+    });
+  }
+
+  stopRun(runId: string, stoppedAt: number): Promise<Run> {
+    return settle(() => {
+      const run = this.requireRun(runId);
+      if (run.stoppedAt !== null) {
+        throw new StorageError("conflict", `run ${runId} is already stopped`);
+      }
+      if (stoppedAt < run.startedAt) {
+        throw new StorageError("invalid", `run ${runId} cannot stop before it started`);
+      }
+      const stopped = { ...run, stoppedAt };
+      this.runs.set(runId, stopped);
+      return { ...stopped };
+    });
+  }
+
+  setRunNotes(runId: string, notes: string): Promise<Run> {
+    return settle(() => {
+      const updated = { ...this.requireRun(runId), notes };
+      this.runs.set(runId, updated);
+      return { ...updated };
+    });
+  }
+
+  getRun(runId: string): Promise<Run | undefined> {
+    return settle(() => {
+      const run = this.runs.get(runId);
+      return run === undefined ? undefined : { ...run };
+    });
+  }
+
+  listRuns(query: RunQuery = {}): Promise<Run[]> {
+    return settle(() => {
+      const matching = [...this.runs.values()]
+        .filter((run) => query.profile === undefined || run.profile === query.profile)
+        .sort((a, b) => b.startedAt - a.startedAt || compareText(b.id, a.id));
+      return page(matching, query.offset, query.limit).map((run) => ({ ...run }));
+    });
+  }
+
+  deleteRun(runId: string): Promise<void> {
+    return settle(() => {
+      this.runs.delete(runId);
+      this.samples.delete(runId);
+      return;
+    });
+  }
+
+  appendSamples(samples: readonly Sample[]): Promise<void> {
+    return settle(() => {
+      const checked = samples.map((sample) => sampleSchema.parse(sample));
+      for (const sample of checked) {
+        const run = this.requireRun(sample.runId);
+        if (run.stoppedAt !== null) {
+          throw new StorageError("conflict", `run ${run.id} is stopped and takes no more samples`);
+        }
+      }
+      for (const sample of checked) this.requireSamples(sample.runId).push({ ...sample });
+      return;
+    });
+  }
+
+  readSamples(query: SampleQuery): Promise<Sample[]> {
+    return settle(() => {
+      const selected = inRange(this.samples.get(query.runId) ?? [], query)
+        .map((sample, order) => ({ sample, order }))
+        .sort((a, b) => a.sample.timestamp - b.sample.timestamp || a.order - b.order)
+        .map(({ sample }) => ({ ...sample }));
+      return page(selected, query.offset, query.limit);
+    });
+  }
+
+  aggregate(query: AggregateQuery): Promise<SignalAggregate[]> {
+    return settle(() => {
+      const groups = new Map<string, { signal: string; unit: string; samples: Sample[] }>();
+      for (const sample of inRange(this.samples.get(query.runId) ?? [], query)) {
+        const key = JSON.stringify([sample.signal, sample.unit]);
+        const group = groups.get(key) ?? { signal: sample.signal, unit: sample.unit, samples: [] };
+        group.samples.push(sample);
+        groups.set(key, group);
+      }
+      const summaries = [...groups.values()].map(({ signal, unit, samples }): SignalAggregate => {
+        const numbers = samples.flatMap((sample) =>
+          typeof sample.value === "number" ? [sample.value] : [],
+        );
+        const times = samples.map((sample) => sample.timestamp);
+        return {
+          signal,
+          unit,
+          count: samples.length,
+          numericCount: numbers.length,
+          min: numbers.length === 0 ? null : numbers.reduce((a, b) => Math.min(a, b)),
+          max: numbers.length === 0 ? null : numbers.reduce((a, b) => Math.max(a, b)),
+          mean: numbers.length === 0 ? null : numbers.reduce((a, b) => a + b, 0) / numbers.length,
+          firstAt: times.reduce((a, b) => Math.min(a, b)),
+          lastAt: times.reduce((a, b) => Math.max(a, b)),
+        };
+      });
+      return summaries.sort(
+        (a, b) => compareText(a.signal, b.signal) || compareText(a.unit, b.unit),
+      );
+    });
+  }
+
+  saveScanReport(input: NewScanReport): Promise<ScanReport> {
+    return settle(() => {
+      const report: ScanReport = { id: this.newId(), ...newScanReportSchema.parse(input) };
+      this.reports.set(report.id, report);
+      return { ...report };
+    });
+  }
+
+  getScanReport(id: string): Promise<ScanReport | undefined> {
+    return settle(() => {
+      const report = this.reports.get(id);
+      return report === undefined ? undefined : { ...report };
+    });
+  }
+
+  listScanReports(query: ScanReportQuery = {}): Promise<ScanReportSummary[]> {
+    return settle(() => {
+      const matching = [...this.reports.values()]
+        .filter((report) => query.profile === undefined || report.profile === query.profile)
+        .sort((a, b) => b.takenAt - a.takenAt || compareText(b.id, a.id))
+        .map(({ id, profile, adapter, takenAt, label }) => ({
+          id,
+          profile,
+          adapter,
+          takenAt,
+          label,
+        }));
+      return page(matching, query.offset, query.limit);
+    });
+  }
+
+  deleteScanReport(id: string): Promise<void> {
+    return settle(() => {
+      this.reports.delete(id);
+      return;
+    });
+  }
+
+  saveProfile(profile: StoredProfile): Promise<{ readonly replaced: boolean }> {
+    return settle(() => {
+      const replaced = this.profiles.has(profile.name);
+      this.profiles.set(profile.name, { ...profile });
+      return { replaced };
+    });
+  }
+
+  getProfile(name: string): Promise<StoredProfile | undefined> {
+    return settle(() => {
+      const profile = this.profiles.get(name);
+      return profile === undefined ? undefined : { ...profile };
+    });
+  }
+
+  listProfiles(): Promise<StoredProfile[]> {
+    return settle(() => {
+      return [...this.profiles.values()]
+        .sort((a, b) => compareText(a.name, b.name))
+        .map((profile) => ({ ...profile }));
+    });
+  }
+
+  private requireRun(runId: string): Run {
+    const run = this.runs.get(runId);
+    if (run === undefined) throw new StorageError("not-found", `no run ${runId}`);
+    return run;
+  }
+
+  private requireSamples(runId: string): Sample[] {
+    const samples = this.samples.get(runId);
+    if (samples === undefined) throw new StorageError("not-found", `no run ${runId}`);
+    return samples;
+  }
+}
