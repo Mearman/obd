@@ -1,6 +1,14 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryStorage, simulatorUrl, withPlan, type PlanClock } from "obd-read";
+import {
+  MemoryStorage,
+  decodeShare,
+  fragmentOfLink,
+  simulatorUrl,
+  withPlan,
+  type PlanClock,
+} from "obd-read";
+import { streamShareCodec } from "obd-read/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GuideScreen } from "../src/screens/GuideScreen";
 import { APP_VERSION } from "../src/release/release";
@@ -203,7 +211,23 @@ describe("the Guide screen", () => {
     for (const format of ["CSV", "TSV", "JSON"]) {
       expect(within(summary).getByRole("button", { name: `Export ${format}` })).toBeVisible();
     }
-    expect(within(summary).getByRole("button", { name: "Share" })).toBeVisible();
+    await userEvent.click(within(summary).getByRole("button", { name: "Send results back" }));
+    const dialog = await screen.findByRole("dialog", { name: "Send the results back" });
+    expect(within(dialog).getByRole("switch")).toBeChecked();
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText("Link").textContent).toContain("#share=2.");
+    });
+    const fragment = fragmentOfLink(within(dialog).getByLabelText("Link").textContent);
+    if (fragment === undefined) throw new Error("no fragment");
+    const decoded = await decodeShare(fragment, streamShareCodec);
+    if (!decoded.ok || decoded.value.kind !== "plan-result") throw new Error("not a plan result");
+    expect(decoded.value.data.plan.name).toBe("screen-test");
+    expect(decoded.value.data.phases.map((pass) => pass.outcome)).toEqual([
+      "completed",
+      "completed",
+    ]);
+    expect(decoded.value.data.redacted).toBe(true);
+    await userEvent.keyboard("{Escape}");
     await userEvent.click(
       within(summary).getByRole("button", { name: "Open the run in the Library" }),
     );

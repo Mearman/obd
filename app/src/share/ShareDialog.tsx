@@ -34,6 +34,8 @@ const REDACT_LABELS: Readonly<Record<ShareEnvelope["kind"], string | undefined>>
   "obd-report": "Remove the VIN and calibration identifiers",
   capture: "Overwrite the VIN, calibration identifiers and serial numbers in the raw bytes",
   "run-summary": undefined,
+  plan: undefined,
+  "plan-result": "Remove VIN-shaped text from the notes and freeze frames",
 };
 
 type Loaded =
