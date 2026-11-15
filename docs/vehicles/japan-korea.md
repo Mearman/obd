@@ -186,7 +186,7 @@ The `hyundai-kia-genesis` profile puts the electric, hybrid and petrol or diesel
 - **Left out of the table.** 7E6/7EE (service 21 option 80, ambient temperature, OVMS Ioniq VFL and OBDb Niro and Sportage), 7E7/7EF (22 C101), 740/748 (22 01A1) and 744/74C (22 E001 to E004) are each in two or three signal sets but are body or option units whose role no source names, so they stay out until one does. The 730 row rests on opendbc and the OBDb Ioniq 5, EV6 and GV60 sets only.
 - **Session.** None of the sources sends a session request, so the profile opens the default session (0x01 for UDS, 0x81 for KWP2000). Whether a unit answers a session request at all is unconfirmed, and the KWP2000 identification read sends option 0x86 where the Kona sheet and OVMS read the VIN with 1A 80.
 - **Secure gateway.** A tool-vendor handout lists Hyundai, Kia and Genesis as fitting a secure gateway module from model year 2018 ([Hunter, Secure Gateway handout](https://globalassets.hunter.com/download/assets/AH08640-00_SecureGateway-Handout_%28RevA_07-26%29.pdf/cfce70107aeb11f1b2450a4934c9f094), opened in full; the handout is US-oriented and about the access that unlocking gives, mainly for calibration and write access). It does not say what a gateway does to a read, so whether reads pass on a given car is unconfirmed, and a unit that stays silent is reported as no response and is not treated as absent.
-- **Confirmation.** Reading each unit on a real car: https://github.com/Mearman/obd/issues/47
+- **Confirmation.** Reading each unit on a real car: https://github.com/Mearman/obd/issues/76 (units left out: https://github.com/Mearman/obd/issues/77)
 
 ## Cross-make resources
 
