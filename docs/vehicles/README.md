@@ -4,6 +4,7 @@ How to talk to vehicles through the diagnostic port with an ELM327 or STN style 
 
 - [generic-standards.md](generic-standards.md): connector, legislated protocols, ELM327 and STN commands, ISO-TP, UDS and KWP2000.
 - [mercedes-benz.md](mercedes-benz.md)
+- [mercedes-compact.md](mercedes-compact.md): A-Class, B-Class, CLA, GLA and Citan.
 - [vag-group.md](vag-group.md): Volkswagen, Audi, SEAT, Skoda, Porsche.
 - [bmw-mini.md](bmw-mini.md)
 - [ford-gm-stellantis.md](ford-gm-stellantis.md)
