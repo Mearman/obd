@@ -3,6 +3,7 @@ import { useState } from "react";
 import { LineChart, appendRolling, type RollingHistory } from "../charts";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
+import { FaultHistory } from "../faults/FaultHistory";
 import { Badge, Button, Card, DataTable, type Column } from "../ui";
 import { COLLECTION_LIMIT } from "./limits";
 import { error, muted, page } from "./screen.css";
@@ -19,7 +20,7 @@ const STATE_LABEL = {
 
 /** Live values: start a collection run on the connection, watch the readings arrive and stop it. */
 export function LiveScreen() {
-  const { connection, collection, startCollection, stopCollection } = useDiagnostics();
+  const { connection, collection, service, startCollection, stopCollection } = useDiagnostics();
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const running = collection.run !== undefined;
@@ -112,6 +113,21 @@ export function LiveScreen() {
         <p role="alert" className={error}>
           {problem}
         </p>
+      )}
+      {collection.run !== undefined && collection.latest.length > 0 && (
+        <Card
+          title="Fault codes"
+          description="Read when the run starts, every so often and when it stops."
+        >
+          <FaultHistory
+            client={service.client}
+            runId={collection.run.id}
+            refresh={collection.latest
+              .filter((sample) => sample.signal.endsWith("fault codes"))
+              .map((sample) => sample.timestamp)
+              .join()}
+          />
+        </Card>
       )}
       {collection.latest.length === 0 ? (
         <p className={muted}>
