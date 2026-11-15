@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryStorage, simulatorUrl, withPlan, type PlanClock } from "obd-read";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GuideScreen } from "../src/screens/GuideScreen";
+import { APP_VERSION } from "../src/release/release";
+import { openFakeTab, type FakeTab } from "./fake-updates";
 import { createTestService, renderApp, type TestService } from "./render";
 
 const GENERIC = simulatorUrl("generic-obd2");
@@ -74,16 +76,20 @@ const CONFIRMED = {
   end: { when: { kind: "confirm", prompt: "Is the engine off?" }, timeout: 600 },
 };
 
-async function guide(
-  options: { connect?: boolean; storage?: MemoryStorage } = {},
-): Promise<{ service: TestService; clock: ManualClock; onOpenRun: ReturnType<typeof vi.fn> }> {
+async function guide(options: { connect?: boolean; storage?: MemoryStorage } = {}): Promise<{
+  service: TestService;
+  clock: ManualClock;
+  onOpenRun: ReturnType<typeof vi.fn>;
+  tab: FakeTab;
+}> {
   const clock = new ManualClock();
   const service = createTestService(options.storage, { planClock: clock });
   if (options.connect !== false) await service.client.link.connect({ adapter: GENERIC });
   const onOpenRun = vi.fn<(runId: string) => void>();
-  renderApp(<GuideScreen onOpenRun={onOpenRun} />, service);
+  const tab = openFakeTab(APP_VERSION);
+  renderApp(<GuideScreen onOpenRun={onOpenRun} />, service, undefined, undefined, tab);
   await screen.findByRole("button", { name: "Import a plan file" });
-  return { service, clock, onOpenRun };
+  return { service, clock, onOpenRun, tab };
 }
 
 async function importAndStart(file: File): Promise<void> {
@@ -265,6 +271,25 @@ describe("the Guide screen", () => {
     const phases = screen.getByRole("table", { name: "Phases of the plan" });
     expect(within(phases).getByText("skipped")).toBeVisible();
     expect(within(phases).getByText("aborted")).toBeVisible();
+  });
+
+  it("holds a new version back while a plan records, and applies it once the plan ends", async () => {
+    const { clock, tab } = await guide();
+    await importAndStart(planFile("update.obdplan.json", [CONFIRMED]));
+    act(() => {
+      tab.updater.waiting();
+    });
+    expect(tab.updater.status().waitingFor).toContain("a recording plan");
+    expect(tab.worker.activate).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Abort the plan" }));
+    await advanceUntil(clock, () => hasText(/The plan was aborted/));
+    await waitFor(
+      () => {
+        expect(tab.worker.activate).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 5_000 },
+    );
+    expect(tab.page.reloads()).toBe(1);
   });
 
   it("says a plan left running by a reload has stopped, and keeps its run", async () => {
