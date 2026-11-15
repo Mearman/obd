@@ -2,6 +2,7 @@ import { GENERIC_PROFILE } from "obd-read";
 import { useState } from "react";
 import { adapterAvailability } from "../connect/availability";
 import type { BrowserSupport } from "../connect/support";
+import { CaptureCard } from "../captures/CaptureCard";
 import { failureMessage, type AdapterKind } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { GENERIC_SUMMARY, GENERIC_TITLE, profileTitle } from "../profiles/generic";
@@ -40,8 +41,18 @@ const OPTIONS: readonly Option[] = [
   },
 ];
 
-/** Connect: choose how to reach the car, with clear reasons when this browser cannot. */
-export function ConnectScreen({ support }: { readonly support: BrowserSupport }) {
+/**
+ * Connect: choose how to reach the car, with clear reasons when this browser cannot, and capture everything once connected.
+ *
+ * @param onCaptured Called with a capture's id once it is stored, to open it.
+ */
+export function ConnectScreen({
+  support,
+  onCaptured,
+}: {
+  readonly support: BrowserSupport;
+  readonly onCaptured?: (id: string) => void;
+}) {
   const { connection, connect, disconnect, profile, setProfile } = useDiagnostics();
   const { names } = useProfiles();
   const [showAll, setShowAll] = useState(false);
@@ -130,6 +141,10 @@ export function ConnectScreen({ support }: { readonly support: BrowserSupport })
           );
         })}
       </div>
+
+      {connection !== undefined && (
+        <CaptureCard {...(onCaptured === undefined ? {} : { onSaved: onCaptured })} />
+      )}
 
       <Card title="Options">
         <Switch

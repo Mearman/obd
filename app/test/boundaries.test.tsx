@@ -9,6 +9,7 @@ import type * as ScanScreenModule from "../src/screens/ScanScreen";
 import type * as LiveScreenModule from "../src/screens/LiveScreen";
 import type * as RunsScreenModule from "../src/screens/RunsScreen";
 import type * as SettingsScreenModule from "../src/screens/SettingsScreen";
+import type * as CapturesScreenModule from "../src/screens/CapturesScreen";
 import type { BrowserSupport } from "../src/connect/support";
 import type { DiagnosticsClient } from "../src/diagnostics/client";
 import { ErrorStore, observeClient, reportCall } from "../src/report/capture";
@@ -53,6 +54,15 @@ vi.mock("../src/screens/RunsScreen", async (original) => {
     RunsScreen: () => {
       if (failing.has("runs")) throw new Error("runs failed");
       return real.RunsScreen();
+    },
+  };
+});
+vi.mock("../src/screens/CapturesScreen", async (original) => {
+  const real = await original<typeof CapturesScreenModule>();
+  return {
+    CapturesScreen: (props: Parameters<typeof real.CapturesScreen>[0]) => {
+      if (failing.has("captures")) throw new Error("captures failed");
+      return real.CapturesScreen(props);
     },
   };
 });
@@ -101,6 +111,7 @@ const SCREENS = [
   ["scan", "Scan"],
   ["live", "Live"],
   ["runs", "Runs"],
+  ["captures", "Captures"],
   ["settings", "Settings"],
 ] as const;
 

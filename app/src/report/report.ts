@@ -90,6 +90,7 @@ const SCREEN_NAMES = {
   scan: "Scan",
   live: "Live",
   runs: "Runs",
+  captures: "Captures",
   settings: "Settings",
   shared: "shared data",
   app: "app",
