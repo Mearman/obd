@@ -1,5 +1,7 @@
 import { chooseProfile } from "./profile";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { canonicalJson, decodeShare, fragmentOfLink } from "obd-read";
+import { streamShareCodec } from "obd-read/web";
 
 /** The ASCII bytes of the simulator's invented VIN, as a capture's raw replies spell it. */
 const VIN_BYTES = Array.from("SIMULATEDCAR00001", (character) =>
@@ -35,7 +37,7 @@ async function rawCaptureLink(page: Page, redact: boolean): Promise<string> {
   if (!redact) await toggle.click();
   await expect(dialog.getByText(/characters$/)).toBeVisible();
   const link = await dialog.getByLabel("Link", { exact: true }).innerText();
-  expect(link).toContain("#share=1.");
+  expect(link).toContain("#share=2.");
   return link;
 }
 
@@ -45,6 +47,39 @@ async function turnAutoSaveOff(context: BrowserContext): Promise<void> {
     localStorage.setItem("obd-read.auto-save-shared", "off");
   });
 }
+
+/** The capture stored under `id` in the page's real database, as canonical JSON. */
+async function storedCaptureJson(page: Page, id: string): Promise<string> {
+  const capture = await page.evaluate(async (wanted) => {
+    const database = await window.obdE2e;
+    if (database === undefined) throw new Error("the end-to-end hook is missing");
+    return database.storage.getCapture(wanted);
+  }, id);
+  if (capture === undefined) throw new Error(`no capture ${id}`);
+  return canonicalJson(capture);
+}
+
+test("a packed raw capture link opens in a fresh context as exactly the capture it carries", async ({
+  browser,
+}) => {
+  const sender = await browser.newContext();
+  const link = await rawCaptureLink(await sender.newPage(), false);
+  await sender.close();
+  const fragment = fragmentOfLink(link);
+  if (fragment === undefined) throw new Error("no share fragment");
+  const carried = await decodeShare(fragment, streamShareCodec);
+  if (!carried.ok || carried.value.kind !== "capture") throw new Error("not a capture link");
+  const { capture } = carried.value.data;
+  expect(capture.exchanges.length).toBeGreaterThan(0);
+
+  const receiver = await browser.newContext();
+  const page = await receiver.newPage();
+  await page.goto(link);
+  await expect(page.getByText("Saved to this device, marked as shared.")).toBeVisible();
+  expect(await storedCaptures(page)).toEqual([capture.id]);
+  expect(await storedCaptureJson(page, capture.id)).toBe(canonicalJson(capture));
+  await receiver.close();
+});
 
 test("a raw capture link is saved once on opening by default", async ({ browser }) => {
   const sender = await browser.newContext();
@@ -97,7 +132,7 @@ test("with automatic saving off a raw capture link re-decodes under the chosen p
 
   await page.getByRole("button", { name: "Save this capture" }).click();
   await expect(page.getByText("Saved to this device, marked as shared.")).toBeVisible();
-  expect(page.url()).toContain("#share=1.");
+  expect(page.url()).toContain("#share=2.");
   await page.getByRole("button", { name: "Dismiss" }).click();
   await expect(page.getByText("Saved the shared capture", { exact: true })).toBeVisible();
   expect(page.url()).not.toContain("share=");

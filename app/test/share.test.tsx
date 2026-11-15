@@ -88,7 +88,7 @@ describe("the Share dialog on the Scan screen", () => {
     expect(toggle).toBeChecked();
 
     const link = (await within(dialog).findByLabelText("Link")).textContent;
-    expect(link).toMatch(/^http:\/\/localhost:\d+\/#share=1\./);
+    expect(link).toMatch(/^http:\/\/localhost:\d+\/#share=2\./);
     expect(within(dialog).getByText(`${String(link.length)} characters`)).toBeInTheDocument();
     const redacted = await decodeShare(fragmentOfLink(link) ?? "", streamShareCodec);
     expect(JSON.stringify(redacted)).not.toContain(SIMULATED_VIN);

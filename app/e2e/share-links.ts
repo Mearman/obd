@@ -32,6 +32,6 @@ export async function shareLinkOfSimulatorScan(page: Page, redact: boolean): Pro
   if (!redact) await toggle.click();
   await expect(dialog.getByText(/characters$/)).toBeVisible();
   const link = await dialog.getByLabel("Link", { exact: true }).innerText();
-  expect(link).toContain("#share=1.");
+  expect(link).toContain("#share=2.");
   return link;
 }
