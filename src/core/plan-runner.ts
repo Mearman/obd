@@ -3,12 +3,13 @@
  *
  * {@link PlanRunner} drives one plan over a {@link PlanLink} (a `DeviceLink` is one) into a {@link Storage}, and reports what it does as {@link PlanEvent}s, so a command line and a page show the same steps. It reads the car only through the read-only legislated OBD-II functions (`readPid`, `codes`, `freezeFrame`, `misfireCounts`), each of which passes the guard; nothing in a plan can clear, write or actuate. It reads no clock of its own: time and waiting come from an injected {@link PlanClock}, so a test runs a plan of minutes in no time.
  *
- * The run holds three kinds of sample. Each reading is a sample whose signal is the value's label, as a collection run stores it. Each fault code list is a text sample, written whenever the list changes, under the signal and in the format collection runs use (`FAULT_SIGNALS`, `faultSampleValue`), so `faultEvents` turns either kind of run into code events. Each phase is one text sample under {@link PLAN_PHASE_SIGNAL}, at the phase's start time, whose value is the JSON of its {@link PhaseRecord}: start and end times, outcome and the reads. {@link planPhases} reads them back. Because they are ordinary samples, the exports, the share link and the run screens carry them with no change to storage.
+ * The run holds four kinds of sample. The plan itself is one text sample under {@link PLAN_SIGNAL} at the run's start, which {@link planOfRun} reads back, so a run carries the exact version it followed. Each reading is a sample whose signal is the value's label, as a collection run stores it. Each fault code list is a text sample, written whenever the list changes, under the signal and in the format collection runs use (`FAULT_SIGNALS`, `faultSampleValue`), so `faultEvents` turns either kind of run into code events. Each phase is one text sample under {@link PLAN_PHASE_SIGNAL}, at the phase's start time, whose value is the JSON of its {@link PhaseRecord}: start and end times, outcome and the reads. {@link planPhases} reads them back. Because they are ordinary samples, the exports, the share link and the run screens carry them with no change to storage.
  *
  * This module is platform-free.
  */
 
 import { z } from "zod";
+import { canonicalJson } from "./canonical-json.js";
 import { isCommandError } from "./command-errors.js";
 import { FAULT_LISTS, FAULT_SIGNALS, faultSampleValue, type FaultList } from "./fault-history.js";
 import type { Elm } from "./elm.js";
@@ -29,7 +30,10 @@ import {
   conditionsIn,
   describeCondition,
   phaseValues,
+  planIdentity,
+  planSchema,
   watchesCodes,
+  type PlanIdentity,
   type Plan,
   type PlanPhase,
   type PlanRead,
@@ -57,6 +61,27 @@ export const systemClock: PlanClock = { now: clockNow, sleep: clockSleep };
 
 /** The signal a phase's record is stored under. */
 export const PLAN_PHASE_SIGNAL = "plan phase";
+
+/** The signal the plan itself is stored under, once, at the run's start, as its canonical JSON with every default filled in; {@link planOfRun} reads it back. */
+export const PLAN_SIGNAL = "plan";
+
+/** The plan a run followed and its identity, from the run's samples, or undefined for a run that recorded none (a collection run, or a plan run recorded before plans were stored with their runs). */
+export function planOfRun(
+  samples: readonly Sample[],
+): { readonly plan: Plan; readonly identity: PlanIdentity } | undefined {
+  for (const sample of samples) {
+    if (sample.signal !== PLAN_SIGNAL || typeof sample.value !== "string") continue;
+    let data: unknown;
+    try {
+      data = JSON.parse(sample.value);
+    } catch {
+      continue;
+    }
+    const parsed = planSchema.safeParse(data);
+    if (parsed.success) return { plan: parsed.data, identity: planIdentity(parsed.data) };
+  }
+  return undefined;
+}
 
 /** The one place a fault code list becomes a stored sample, in the format collection runs use (see fault-history.ts), so `faultEvents` reads either kind of run. */
 function faultListSample(
@@ -403,6 +428,13 @@ export class PlanRunner {
       notes: this.options.notes ?? planRunNotes(plan),
     });
     this.runId = run.id;
+    this.pending.push({
+      runId: run.id,
+      signal: PLAN_SIGNAL,
+      unit: "",
+      timestamp: run.startedAt,
+      value: canonicalJson(plan),
+    });
     this.emit({ type: "plan-started", at: run.startedAt, runId: run.id, plan });
     let outcome: PlanOutcome = "completed";
     let reason: string | undefined;
