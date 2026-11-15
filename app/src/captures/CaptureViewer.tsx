@@ -9,20 +9,15 @@ import {
   type DecodedCaptureData,
   type ShareEnvelope,
 } from "obd-read";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
-import { GENERIC_TITLE } from "../profiles/generic";
 import { useProfiles } from "../profiles/ProfilesProvider";
-import { ObdReport } from "../screens/ObdReport";
-import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
-import { error, list, muted, row, stack, transcript } from "../screens/screen.css";
+import { error, muted, row, stack } from "../screens/screen.css";
 import { ShareDialog } from "../share/ShareDialog";
-import { RAW_COLUMNS } from "./exchange-columns";
-import { Badge, Button, Card, DataTable, Select, download } from "../ui";
-
-/** The selector's value for decoding with no profile. */
-const GENERIC_CHOICE = "";
+import { Button, Card, Select, download } from "../ui";
+import { DecodedView } from "./DecodedView";
+import { GENERIC_CHOICE, chosenProfile, useDecodeChoices } from "./decode-choices";
 
 /** The link a decoding makes: the units under a profile, or the OBD-II report under none. Only the decoded summary travels; the raw capture has its own link. */
 function decodedEnvelope(decoded: DecodedCaptureData, capture: Capture): ShareEnvelope {
@@ -60,7 +55,8 @@ export function CaptureViewer({
 }) {
   const { service } = useDiagnostics();
   const { client } = service;
-  const { builtin, imported, importText } = useProfiles();
+  const { imported, importText } = useProfiles();
+  const options = useDecodeChoices();
   const [capture, setCapture] = useState<Capture | undefined>(undefined);
   const [choice, setChoice] = useState<string | undefined>(undefined);
   const [decoded, setDecoded] = useState<DecodedCaptureData | undefined>(undefined);
@@ -89,7 +85,7 @@ export function CaptureViewer({
   useEffect(() => {
     if (choice === undefined) return;
     const live = { active: true };
-    void client.captures.decode({ id, profile: choice === GENERIC_CHOICE ? null : choice }).then(
+    void client.captures.decode({ id, profile: chosenProfile(choice) }).then(
       (result) => {
         if (!live.active) return;
         setDecoded(result);
@@ -104,23 +100,6 @@ export function CaptureViewer({
     };
   }, [client, id, choice, imported]);
 
-  const options = useMemo(
-    () => [
-      { value: GENERIC_CHOICE, label: GENERIC_TITLE },
-      ...builtin.map((name) => ({ value: name, label: name })),
-      ...imported
-        .filter((name) => !builtin.includes(name))
-        .map((name) => ({ value: name, label: `${name} (imported)` })),
-    ],
-    [builtin, imported],
-  );
-
-  const raw = useMemo(() => {
-    if (capture === undefined || decoded === undefined) return [];
-    const left = new Set(decoded.undecoded);
-    return capture.exchanges.filter((exchange) => left.has(exchange.seq));
-  }, [capture, decoded]);
-
   async function onProfileFile(event: ChangeEvent<HTMLInputElement>): Promise<void> {
     const file = event.currentTarget.files?.[0];
     event.currentTarget.value = "";
@@ -134,7 +113,6 @@ export function CaptureViewer({
     }
   }
 
-  const decodedCount = decoded === undefined ? 0 : decoded.exchanges - decoded.undecoded.length;
   const title = capture === undefined ? "Capture" : `Capture ${capture.id}`;
 
   return (
@@ -216,69 +194,8 @@ export function CaptureViewer({
             {problem}
           </p>
         )}
-        {decoded !== undefined && (
-          <>
-            <p role="status" aria-label="Decoding summary">
-              <Badge tone="success">Decoded {String(decodedCount)}</Badge>{" "}
-              <Badge tone={raw.length > 0 ? "warning" : "neutral"}>
-                Left raw {String(raw.length)}
-              </Badge>{" "}
-              of {String(decoded.exchanges)} exchanges with{" "}
-              {decoded.profile === null ? GENERIC_TITLE : decoded.profile.name}.
-            </p>
-            {decoded.units.length > 0 && (
-              <>
-                <ScanResultsTable
-                  label={`Units decoded with ${decoded.profile?.name ?? GENERIC_TITLE}`}
-                  units={decoded.units}
-                />
-                <FaultCodesTable label="Decoded fault codes" units={decoded.units} />
-              </>
-            )}
-            {decoded.values.length > 0 && (
-              <DataTable
-                label="Decoded values"
-                columns={[
-                  { header: "Unit", render: (value) => value.unit },
-                  { header: "Value", render: (value) => value.label },
-                  {
-                    header: "Reading",
-                    render: (value) =>
-                      typeof value.value === "number"
-                        ? `${String(value.value)} ${value.measure}`.trim()
-                        : `not decoded (${value.value.error})`,
-                  },
-                ]}
-                rows={decoded.values}
-                rowKey={(value) => `${value.unit}-${value.name}`}
-              />
-            )}
-            {decoded.discovered.length > 0 && (
-              <ul className={list} aria-label="Units a sweep found">
-                {decoded.discovered.map((found) => (
-                  <li key={`${String(found.requestId)}-${String(found.responseId)}`}>
-                    {found.requestId.toString(16).toUpperCase()} answered from{" "}
-                    {found.responseId.toString(16).toUpperCase()}: {found.detail}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {decoded.obd !== null && <ObdReport scan={decoded.obd} />}
-            {raw.length > 0 ? (
-              <DataTable
-                label={`Exchanges ${decoded.profile?.name ?? GENERIC_TITLE} leaves raw`}
-                columns={RAW_COLUMNS}
-                rows={raw}
-                rowKey={(exchange) => String(exchange.seq)}
-              />
-            ) : (
-              <p className={muted}>This profile decodes every exchange in the capture.</p>
-            )}
-            <details>
-              <summary>The decoding as text</summary>
-              <pre className={transcript}>{decoded.lines.join("\n")}</pre>
-            </details>
-          </>
+        {decoded !== undefined && capture !== undefined && (
+          <DecodedView capture={capture} decoded={decoded} />
         )}
       </div>
     </Card>

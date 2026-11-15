@@ -10,12 +10,13 @@ import {
 } from "obd-read";
 import { streamShareCodec } from "obd-read/web";
 import { useEffect, useState } from "react";
-import { RAW_COLUMNS } from "../captures/exchange-columns";
 import { useDatabase } from "../database/DatabaseProvider";
 import { ObdReport } from "../screens/ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
 import { error, muted, page, row, title as headingStyle, heading } from "../screens/screen.css";
 import { Badge, Button, Card, DataTable } from "../ui";
+import { SharedCaptureView } from "./SharedCaptureView";
+import type { SavedShare } from "./saved";
 import { sparkline } from "./SharedViewer.css";
 
 /** How the viewer's decoding went. */
@@ -28,8 +29,8 @@ type Decoded =
 export interface SharedViewerProps {
   /** The `share=...` fragment of the address. */
   readonly fragment: string;
-  /** Called when the viewer is finished: `saved` is true when the user kept a scan. The caller clears the address. */
-  readonly onDone: (saved: boolean) => void;
+  /** Called when the viewer is finished, with what the user saved, or undefined when nothing was. The caller clears the address. */
+  readonly onDone: (saved: SavedShare | undefined) => void;
 }
 
 function utc(milliseconds: number): string {
@@ -114,24 +115,6 @@ function ObdView({ data }: { readonly data: ObdReportShareData }) {
   );
 }
 
-function CaptureView({ data }: { readonly data: CaptureShareData }) {
-  const { capture } = data;
-  return (
-    <>
-      <Card
-        title="The capture"
-        description={`Raw exchanges captured ${utc(capture.startedAt)} from ${capture.sessions[0]?.adapter.identity ?? "an adapter"}: ${capture.origin.description}${capture.origin.complete ? "" : " (stopped before it finished)"}. ${data.redacted ? "The sender overwrote the VIN, calibration identifiers and serial numbers with *." : "The VIN, calibration identifiers and serial numbers are included."}`}
-      />
-      <DataTable
-        label="Shared exchanges"
-        columns={RAW_COLUMNS}
-        rows={capture.exchanges}
-        rowKey={(exchange) => String(exchange.seq)}
-      />
-    </>
-  );
-}
-
 function RunView({ data }: { readonly data: RunSummaryShareData }) {
   return (
     <>
@@ -166,7 +149,7 @@ function RunView({ data }: { readonly data: RunSummaryShareData }) {
 /**
  * A read-only view of the result a link carries, labelled as shared data that did not come from the connected adapter.
  *
- * The data is decoded and validated here and shown; it is never written to storage unless the user presses Save (a scan, kept as a saved scan report marked `origin: "shared"`), and it never goes to the diagnostics service, the guard or an adapter: this component reads the database only to save.
+ * The data is decoded and validated here and shown; it is never written to storage unless the user presses Save (a scan, kept as a saved scan report marked `origin: "shared"`, or a capture, kept as a capture), and it never goes to the diagnostics service, the guard or an adapter: this component reads the database to save and, for a capture, to read an imported profile it is decoded with.
  */
 export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
   const { state } = useDatabase();
@@ -202,10 +185,28 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
         label: "Shared scan",
         report: sharedScanReport(envelope.data),
       });
-      onDone(true);
+      onDone("scan");
     } catch {
       setSaving(false);
       setProblem("The scan could not be saved.");
+    }
+  }
+
+  async function saveCapture(data: CaptureShareData): Promise<void> {
+    if (state.status !== "ready") return;
+    setSaving(true);
+    setProblem(undefined);
+    try {
+      if ((await state.storage.getCapture(data.capture.id)) !== undefined) {
+        setSaving(false);
+        setProblem(`A capture with the id ${data.capture.id} is already stored on this device.`);
+        return;
+      }
+      await state.storage.saveCapture(data.capture);
+      onDone("capture");
+    } catch {
+      setSaving(false);
+      setProblem("The capture could not be saved.");
     }
   }
 
@@ -235,7 +236,12 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
       {envelope?.kind === "scan" && <ScanView data={envelope.data} />}
       {envelope?.kind === "obd-report" && <ObdView data={envelope.data} />}
       {envelope?.kind === "run-summary" && <RunView data={envelope.data} />}
-      {envelope?.kind === "capture" && <CaptureView data={envelope.data} />}
+      {envelope?.kind === "capture" && (
+        <SharedCaptureView
+          data={envelope.data}
+          storage={state.status === "ready" ? state.storage : undefined}
+        />
+      )}
       <div className={row}>
         {envelope?.kind === "scan" && (
           <Button
@@ -246,19 +252,28 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
             Save this scan
           </Button>
         )}
+        {envelope?.kind === "capture" && (
+          <Button
+            variant="primary"
+            disabled={state.status !== "ready" || saving}
+            onClick={() => void saveCapture(envelope.data)}
+          >
+            Save this capture
+          </Button>
+        )}
         <Button
           onClick={() => {
-            onDone(false);
+            onDone(undefined);
           }}
         >
           Dismiss
         </Button>
       </div>
-      {envelope?.kind === "scan" && state.status !== "ready" && (
+      {(envelope?.kind === "scan" || envelope?.kind === "capture") && state.status !== "ready" && (
         <p className={muted}>
           {state.status === "opening"
-            ? "The database is opening, so the scan cannot be saved yet."
-            : "The database is not available, so the scan cannot be saved."}
+            ? `The database is opening, so the ${envelope.kind} cannot be saved yet.`
+            : `The database is not available, so the ${envelope.kind} cannot be saved.`}
         </p>
       )}
     </div>
