@@ -8,6 +8,7 @@
 
 import { actuateCommand, type Sleep } from "./actuate.js";
 import { hexNumber, fromHex, toUpperHex } from "./bytes.js";
+import { readThroughCapture } from "./captured-read.js";
 import { NegativeResponse } from "./diag.js";
 import { ElmError, NoResponse, type AdapterInfo, type Elm } from "./elm.js";
 import { pythonRepr } from "./format.js";
@@ -452,6 +453,9 @@ export interface ProfileCommandParams {
  * Runs a command against a profile's units: selects the bus, notes an unconfirmed address table,
  * then probes, scans, reads, sends one request, clears, writes or actuates.
  *
+ * A probe, scan or unit read reports what its own exchanges decode to (`readThroughCapture`), the
+ * same decoding a saved capture gets.
+ *
  * @returns The exit status: 0 when the command did what was asked, 1 when a unit stayed silent or
  * a clear was declined.
  * @throws ProfileError for a unit the profile does not have.
@@ -471,10 +475,10 @@ export async function profileCommand(
 
   if (command.command === "probe" || command.command === "scan") {
     const withFaults = command.command === "scan";
-    const reports = await scan(elm, profile, {
-      faults: withFaults,
-      freeze: withFaults && command.freeze,
-    });
+    const options = { faults: withFaults, freeze: withFaults && command.freeze };
+    const { result: reports } = await readThroughCapture(elm, (session) =>
+      scan(session, profile, options),
+    );
     for (const report of reports) printUnit(report, out);
     const answered = reports.filter((report) => report.answered).length;
     out(`${String(answered)} of ${String(reports.length)} units answered`);
@@ -517,10 +521,13 @@ export async function profileCommand(
     });
   }
   if (command.command === "ident" || command.command === "faults" || command.command === "freeze") {
-    const report = await readUnit(elm, profile, unit, {
+    const options = {
       faults: command.command !== "ident",
       freeze: command.command === "freeze",
-    });
+    };
+    const { result: report } = await readThroughCapture(elm, (session) =>
+      readUnit(session, profile, unit, options),
+    );
     printUnit(report, out);
     return report.answered ? 0 : 1;
   }
