@@ -62,7 +62,9 @@ for (const viewport of VIEWPORTS) {
             await page.getByRole("button", { name: "Start collecting" }).click();
             await expect(page.getByText("engine speed")).toBeVisible();
           }
-          if (name === "Scan") await expect(page.getByRole("table")).toBeVisible();
+          if (name === "Scan") {
+            await expect(page.getByRole("table", { name: /^Scan of / })).toBeVisible();
+          }
 
           expect(
             await horizontalOverflow(page),
