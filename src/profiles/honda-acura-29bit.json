@@ -1,0 +1,124 @@
+{
+  "notes": "Honda and Acura cars that use 29-bit CAN on the OBD-II socket (ELM327 protocol 7, 500 kbit/s): Civic, Jazz (Fit), CR-V, HR-V, Accord and the Acura Integra, RDX and TLX, as the two sources list them, with UDS service 22. A unit's request identifier is 18DAxxF1 (xx the unit, F1 the tester) and its reply comes from 18DAF1xx.\n\nEvery row is an address pair and nothing more: no data identifier or scaling is shipped, because the only sources are other projects' signal definitions, which this repository does not copy. OBDb writes a unit as DAxx, which this profile reads as 18DAxxF1: its schema does not say so, and it rests on opendbc using the full form for the same units. Where the two sources differ: OBDb marks 0x28 as ABS and also lists 0x2A as ABS, while opendbc has only 0x28 (as vsa); OBDb has rows opendbc does not (0x0E, 0x11, 0x1D, 0x26, 0x2A, 0x01), and opendbc has units OBDb does not (0x0B, 0x2B, 0x61, 0xEF, 0xB0, 0xB5, the forward camera and radar). opendbc's 0x10 and 0x60 are listed as extra units its query software probes, not fingerprint units. OBDb's DBEF rows have no reply identifier and one Clarity-only pair of battery units (DA15, DA16) rests on one repository, so those are left out.\n\nopendbc lists a European CR-V and a Civic diesel among its cars, but most of what both sources describe is sold in North America and Japan. A UK or European Honda may lay its units out differently, with some units absent or on another identifier, and the 29-bit scheme may not be on the OBD-II socket at all behind a gateway. opendbc's queries come from a comma.ai device wired into the car, which is not the OBD-II socket. opendbc's own comment says the forward camera does not support being queried in parallel with another unit and that the radar at 18DAB0F1 often fails to respond. Treat every row as unconfirmed until `obd-read probe` shows it answering. The default session, which every UDS unit must accept, is the one opened.",
+  "name": "honda-acura-29bit",
+  "description": "Honda and Acura cars with 29-bit CAN addressing (18DAxxF1), UDS service 22",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 29,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 1
+  },
+  "units": {
+    "engine-0e": {
+      "description": "Engine control unit at 18DA0EF1 (OBDb type engine)",
+      "request": 416943857,
+      "response": 417001742,
+      "source": "OBDb signal set, header DA0E and replies from 0E, which the OBDb repositories for the Honda Accord, CR-V, Civic, Pilot, Ridgeline and ZR-V, among others also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "engine": {
+      "description": "Engine control unit at 18DA10F1 (OBDb type engine)",
+      "request": 416944369,
+      "response": 417001744,
+      "source": "OBDb signal set, header DA10 and replies from 10, which the OBDb repositories for the Honda Accord, CR-V, Civic, Fit, Pilot, Ridgeline and ZR-V and Acura Integra, RDX and TLX also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc extra firmware query list for programmedFuelInjection at 0x18da10f1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py, archived https://web.archive.org/web/20261115135151/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py), MIT"
+    },
+    "engine-11": {
+      "description": "Second engine control unit at 18DA11F1 (OBDb type engine)",
+      "request": 416944625,
+      "response": 417001745,
+      "source": "OBDb signal set, header DA11 and replies from 11, which the OBDb repositories for the Honda Accord, CR-V, Civic, Pilot and Acura RDX also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "transmission-1d": {
+      "description": "Transmission control unit at 18DA1DF1 (OBDb type transmission)",
+      "request": 416947697,
+      "response": 417001757,
+      "source": "OBDb signal set, header DA1D and replies from 1D, which the OBDb repositories for the Honda Accord, CR-V, Civic, Pilot and Acura RDX and TLX also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "transmission": {
+      "description": "Transmission control unit at 18DA1EF1 (OBDb type transmission)",
+      "request": 416947953,
+      "response": 417001758,
+      "source": "OBDb signal set, header DA1E and replies from 1E, which the OBDb repositories for the Honda Accord, CR-V, Civic, Fit, Pilot, Ridgeline and Acura Integra and TLX also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for transmission at 0x18da1ef1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py, archived https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), MIT"
+    },
+    "tpms": {
+      "description": "Tyre-pressure monitoring unit at 18DA26F1 (OBDb type tpms)",
+      "request": 416950001,
+      "response": 417001766,
+      "source": "OBDb signal set, header DA26 and replies from 26, which the OBDb repositories for the Honda Accord, CR-V, Civic, Fit, Pilot, Ridgeline and Acura Integra, RDX and TLX also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "abs": {
+      "description": "ABS and vehicle stability assist at 18DA28F1 (OBDb type abs, opendbc name vsa)",
+      "request": 416950513,
+      "response": 417001768,
+      "source": "OBDb signal set, header DA28 and replies from 28, which the OBDb repositories for the Honda Accord, CR-V, Civic, Fit, Pilot, Ridgeline and ZR-V and Acura Integra, RDX and TLX also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for vsa at 0x18da28f1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py, archived https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), MIT"
+    },
+    "abs-2a": {
+      "description": "Second ABS-type unit at 18DA2AF1 (OBDb type abs)",
+      "request": 416951025,
+      "response": 417001770,
+      "source": "OBDb signal set, header DA2A and replies from 2A, which the OBDb repositories for the Honda Accord, CR-V, Civic, Fit, Pilot, Clarity and Acura Integra and RDX also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "steering": {
+      "description": "Electric power steering at 18DA30F1 (OBDb type steering)",
+      "request": 416952561,
+      "response": 417001776,
+      "source": "OBDb signal set, header DA30 and replies from 30, which the OBDb repositories for the Honda Accord, Civic, Fit and Pilot also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for eps at 0x18da30f1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py, archived https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), MIT"
+    },
+    "srs": {
+      "description": "Airbag (SRS) unit at 18DA53F1 (OBDb type airbag)",
+      "request": 416961521,
+      "response": 417001811,
+      "source": "OBDb signal set, header DA53 and replies from 53, which the OBDb repositories for the Honda Accord, Civic, Fit and Pilot also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for srs at 0x18da53f1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py, archived https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), MIT"
+    },
+    "cluster": {
+      "description": "Instrument cluster at 18DA60F1 (OBDb type cluster)",
+      "request": 416964849,
+      "response": 417001824,
+      "source": "OBDb signal set, header DA60 and replies from 60, which the OBDb repositories for the Honda Accord, CR-V, Civic, Fit, Pilot, Ridgeline and ZR-V and Acura Integra, RDX and TLX also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc extra firmware query list for combinationMeter at 0x18da60f1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py, archived https://web.archive.org/web/20261115135151/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py), MIT"
+    },
+    "battery": {
+      "description": "Hybrid battery unit at 18DA01F1 (OBDb type battery)",
+      "request": 416940529,
+      "response": 417001729,
+      "source": "OBDb signal set, header DA01 and replies from 01, which the OBDb repositories for the Honda Accord Hybrid, Civic, Clarity, Fit and Insight also use but only the Civic one was archived (https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "shift-by-wire": {
+      "description": "Shift-by-wire unit at 18DA0BF1 (opendbc name shiftByWire)",
+      "request": 416943089,
+      "response": 417001739,
+      "source": "opendbc firmware query list for shiftByWire at 0x18da0bf1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py, archived https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), MIT"
+    },
+    "brake-booster": {
+      "description": "Electric brake booster at 18DA2BF1 (opendbc name electricBrakeBooster)",
+      "request": 416951281,
+      "response": 417001771,
+      "source": "opendbc firmware query list for electricBrakeBooster at 0x18da2bf1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py, archived https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), MIT"
+    },
+    "hud": {
+      "description": "Head-up display at 18DA61F1 (opendbc name hud)",
+      "request": 416965105,
+      "response": 417001825,
+      "source": "opendbc firmware query list for hud at 0x18da61f1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py, archived https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), MIT"
+    },
+    "gateway": {
+      "description": "Gateway at 18DAEFF1 (opendbc name gateway)",
+      "request": 417001457,
+      "response": 417001967,
+      "source": "opendbc firmware query list for gateway at 0x18daeff1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py, archived https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), MIT"
+    },
+    "radar": {
+      "description": "Forward radar at 18DAB0F1 (opendbc name fwdRadar)",
+      "request": 416985329,
+      "response": 417001904,
+      "source": "opendbc firmware query list for fwdRadar at 0x18dab0f1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py, archived https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), MIT"
+    },
+    "camera": {
+      "description": "Forward camera at 18DAB5F1 (opendbc name fwdCamera)",
+      "request": 416986609,
+      "response": 417001909,
+      "source": "opendbc firmware query list for fwdCamera at 0x18dab5f1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py, archived https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py), MIT"
+    }
+  }
+}
