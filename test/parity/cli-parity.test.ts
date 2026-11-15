@@ -95,6 +95,7 @@ function scriptedRadio(car: (typeof cars)[string]): Pick<CliIo, "central" | "lis
   }));
   const central: BleCentral = {
     scan: () => Promise.resolve(advertisements),
+    close: () => undefined,
     peripheral: () => ({
       connect: () => Promise.resolve(),
       disconnect: () => Promise.resolve(),

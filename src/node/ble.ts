@@ -61,6 +61,11 @@ export interface BleCentral {
   ): Promise<readonly BleAdvertisement[]>;
   /** The connectable device for an advertisement returned by {@link scan}. */
   peripheral(device: BleAdvertisement): BlePeripheral;
+  /**
+   * Releases the radio's native resources (its event loop handles) so the process can exit. A
+   * central that never scanned has nothing to release. Safe to call more than once.
+   */
+  close(): void;
 }
 
 /** The smallest payload every Bluetooth LE link accepts in one write. */

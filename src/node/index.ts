@@ -7,7 +7,7 @@
 
 import { registerTransport } from "../core/transport.js";
 import { bleTransportFor } from "./ble.js";
-import { createNobleCentral } from "./noble.js";
+import { processCentral } from "./radio.js";
 import { serialTransportFor } from "./serial.js";
 import { slcanTransportFor } from "./slcan.js";
 import { socketcanTransportFor } from "./socketcan.js";
@@ -22,12 +22,11 @@ export * from "./slcan.js";
 export * from "./socketcan.js";
 export * from "./tcp.js";
 
-const bleCentral = createNobleCentral();
 
 registerTransport("serial", serialTransportFor);
 registerTransport("slcan", (address) => slcanTransportFor(address));
 registerTransport("socketcan", (address) => socketcanTransportFor(address));
 registerTransport("tcp", tcpTransportFor);
-registerTransport("ble", (address) => bleTransportFor(bleCentral, address));
+registerTransport("ble", (address) => bleTransportFor(processCentral, address));
 export * from "../service/message-port.js";
 export * from "./share-codec.js";

@@ -69,6 +69,7 @@ export class FakePeripheral implements BlePeripheral {
 /** A radio that sees a fixed set of devices. */
 export class FakeCentral implements BleCentral {
   readonly scans: number[] = [];
+  closes = 0;
 
   constructor(
     private readonly devices: readonly { device: BleAdvertisement; peripheral: FakePeripheral }[],
@@ -91,5 +92,9 @@ export class FakeCentral implements BleCentral {
     const entry = this.devices.find((candidate) => candidate.device.id === device.id);
     if (entry === undefined) throw new Error(`unknown device ${device.id}`);
     return entry.peripheral;
+  }
+
+  close(): void {
+    this.closes += 1;
   }
 }

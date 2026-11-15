@@ -11,6 +11,7 @@ import {
   type GattCharacteristic,
 } from "../src/node/ble.js";
 import { FakeCentral, FakePeripheral } from "./helpers/fake-ble.js";
+import { processIo } from "../src/node/cli.js";
 
 const GENERIC = "00001800-0000-1000-8000-00805f9b34fb";
 const DATA = "000018f0-0000-1000-8000-00805f9b34fb";
@@ -213,5 +214,16 @@ describe("BleTransport", () => {
     await transport.open();
     await expect(transport.open()).rejects.toThrow(/already open/);
     await transport.close();
+  });
+});
+
+describe("the command line's radio", () => {
+  it("is released when the command line closes, so noble's handles do not keep the process alive", () => {
+    const central = new FakeCentral([]);
+    const { io, close } = processIo(new AbortController().signal, central);
+    expect(io.central()).toBe(central);
+    expect(central.closes).toBe(0);
+    close();
+    expect(central.closes).toBe(1);
   });
 });
