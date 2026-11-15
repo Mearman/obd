@@ -15,6 +15,7 @@ import {
 } from "./service.js";
 import { ActuationError } from "./actuate.js";
 import { asciiEncode, toUpperHex } from "./bytes.js";
+import { readThroughCapture } from "./captured-read.js";
 import {
   GENERIC_PROFILE,
   PROFILE_REQUIRED_CODE,
@@ -433,7 +434,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
   /** The legislated scan of a generic connection, saved as a report under the generic profile name. */
   const scanGeneric = async (session: LinkSession, label: string) => {
     const bus = sessionBus(session.profile);
-    const obd = await readObdScan(session.elm, bus);
+    const { result: obd } = await readThroughCapture(session.elm, (elm) => readObdScan(elm, bus));
     const units = obdUnitReports(obd, FUNCTIONAL_ID[bus.idBits].toString(16).toUpperCase());
     const saved = await storage.saveScanReport({
       profile: GENERIC_PROFILE,
@@ -525,10 +526,10 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
           if (session.profile === undefined) {
             return scanGeneric(session, input.label);
           }
-          const reports = await scan(session.elm, session.profile, {
-            faults: true,
-            freeze: input.freeze,
-          });
+          const profile = session.profile;
+          const { result: reports } = await readThroughCapture(session.elm, (elm) =>
+            scan(elm, profile, { faults: true, freeze: input.freeze }),
+          );
           const document = scanDocument(
             session.profile,
             session.adapter,

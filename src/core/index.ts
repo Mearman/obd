@@ -57,3 +57,8 @@ export * from "./obd-clear.js";
 export * from "./discovery.js";
 export * from "./generic.js";
 export * from "./obd-scan.js";
+export * from "./exchange.js";
+export * from "./capture.js";
+export * from "./replay.js";
+export * from "./captured-read.js";
+export * from "./decode.js";

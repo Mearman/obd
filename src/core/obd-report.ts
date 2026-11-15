@@ -1,6 +1,7 @@
 /** The `obd` command's report: everything the legislated reads say about a car, as printed lines. */
 
 import { hexNumber } from "./bytes.js";
+import { readThroughCapture } from "./captured-read.js";
 import { ElmError, type Elm } from "./elm.js";
 import { KLineElm } from "./kline.js";
 import { report } from "./legislated.js";
@@ -117,8 +118,8 @@ export async function selectObdBus(elm: Elm, options: ObdCommandOptions): Promis
 }
 
 /**
- * The `obd` command: selects the bus, addresses every emissions unit and prints {@link obdReport}.
- * It needs no profile.
+ * The `obd` command: selects the bus, addresses every emissions unit and prints {@link obdReport}
+ * as decoded from the exchanges it captured (`readThroughCapture`). It needs no profile.
  *
  * @returns The exit status, always 0.
  * @throws ElmError when a K-line scheme is asked for on a session that is not a {@link KLineElm}.
@@ -129,15 +130,21 @@ export async function obdCommand(
   out: LineSink,
 ): Promise<number> {
   await selectObdBus(elm, options);
-  return obdReport(elm, out);
+  const { result } = await readThroughCapture(
+    elm,
+    (session, sink) => obdReport(session, sink),
+    out,
+  );
+  return result;
 }
 
 /**
- * The `obd` command's structured form: selects the bus, addresses every emissions unit and reads the legislated services as an {@link ObdScan}, which a link or a saved file carries. It needs no profile.
+ * The `obd` command's structured form: selects the bus, addresses every emissions unit and reads the legislated services as an {@link ObdScan}, decoded from the exchanges it captured, which a link or a saved file carries. It needs no profile.
  *
  * @throws ElmError when a K-line scheme is asked for on a session that is not a {@link KLineElm}, and as {@link readAddressedObdScan} does.
  */
 export async function obdScanCommand(elm: Elm, options: ObdCommandOptions): Promise<ObdScan> {
   await selectObdBus(elm, options);
-  return readAddressedObdScan(elm);
+  const { result } = await readThroughCapture(elm, readAddressedObdScan);
+  return result;
 }
