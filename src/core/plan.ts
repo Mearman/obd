@@ -7,6 +7,8 @@
  */
 
 import { z } from "zod";
+import { canonicalJson } from "./canonical-json.js";
+import { sha256Hex } from "./sha256.js";
 import { FAULT_LISTS, type FaultList } from "./fault-history.js";
 import { PIDS } from "./pids.js";
 
@@ -27,6 +29,15 @@ export const DEFAULT_CODE_WATCH_INTERVAL_S = 15;
 
 /** The most times a phase may repeat. */
 export const MAX_REPEAT = 100;
+
+/** The most phases a plan may have. */
+export const MAX_PLAN_PHASES = 100;
+
+/** The deepest a condition may nest `any` and `all` inside each other, the outermost counting as one. */
+export const MAX_CONDITION_DEPTH = 8;
+
+/** The most revisions a plan's revision number may count. */
+export const MAX_PLAN_REVISION = 1_000_000;
 
 /** The reads a phase can take at its start or end, each through a read-only legislated service. */
 export const PLAN_READS = [
@@ -215,6 +226,10 @@ const planShape = z.strictObject({
   name: z.string().regex(/^[a-z0-9][a-z0-9-]*$/, "lower case letters, digits and hyphens"),
   title: z.string().min(1),
   description: z.string().min(1),
+  /** What the person at the car must do to stay safe, kept in view while the plan runs; omitted, the description serves. */
+  safety: instruction.optional(),
+  /** Counts the edits of the plan, from 1; omitted, the plan is at revision 1. With the plan's {@link planDigest} it tells which version of a plan a run followed. */
+  revision: z.number().int().min(1).max(MAX_PLAN_REVISION).optional(),
   /** Where the procedure comes from, or why it is shaped as it is. */
   source: z.string().min(1),
   needs: z.strictObject({
@@ -223,8 +238,15 @@ const planShape = z.strictObject({
     /** The legislated values to read, or `all` for every one the car supports. */
     values: z.union([z.literal("all"), z.array(valueName).min(1)]),
   }),
-  phases: z.array(planPhaseSchema).min(1),
+  phases: z.array(planPhaseSchema).min(1).max(MAX_PLAN_PHASES),
 });
+
+/** How deeply `any` and `all` nest in a condition, the condition itself counting as one. */
+export function conditionDepth(condition: PlanCondition): number {
+  return condition.kind === "any" || condition.kind === "all"
+    ? 1 + Math.max(...condition.of.map(conditionDepth))
+    : 1;
+}
 
 /** Every condition inside `condition`, itself included. */
 export function conditionsIn(condition: PlanCondition): PlanCondition[] {
@@ -310,6 +332,12 @@ export const planSchema = planShape.superRefine((plan, context) => {
     const waits: [string, PlanWait][] = [["end", phase.end]];
     if (phase.start !== undefined) waits.push(["start", phase.start]);
     for (const [name, wait] of waits) {
+      if (conditionDepth(wait.when) > MAX_CONDITION_DEPTH) {
+        issue(
+          [...at, name, "when"],
+          `conditions nest more than ${String(MAX_CONDITION_DEPTH)} deep`,
+        );
+      }
       const tested = valuesTested(wait.when);
       unknown([...at, name, "when"], tested);
       // An unknown name is reported once, above, so only known names are checked here.
@@ -343,6 +371,41 @@ export const planSchema = planShape.superRefine((plan, context) => {
 
 /** A recording plan. */
 export type Plan = z.output<typeof planSchema>;
+
+/** Which version of a plan a run followed: its name, title, revision and the SHA-256 of its canonical JSON. */
+export interface PlanIdentity {
+  readonly name: string;
+  readonly title: string;
+  readonly revision: number;
+  /** The SHA-256 of the plan's canonical JSON with every default filled in, as lower-case hex. */
+  readonly hash: string;
+}
+
+/** The SHA-256, as lower-case hex, of a validated plan's canonical JSON. Two plans that differ in any field, a default filled in or not, have different digests; the same plan always has the same one. */
+export function planDigest(plan: Plan): string {
+  // Canonical JSON is printable ASCII, so each character is one byte.
+  return sha256Hex(Uint8Array.from(canonicalJson(plan), (character) => character.charCodeAt(0)));
+}
+
+/** The identity of a validated plan: see {@link PlanIdentity}. */
+export function planIdentity(plan: Plan): PlanIdentity {
+  return {
+    name: plan.name,
+    title: plan.title,
+    revision: plan.revision ?? 1,
+    hash: planDigest(plan),
+  };
+}
+
+/** The first characters of a plan's digest, as the screens and the CLI show a version. */
+export function shortDigest(hash: string): string {
+  return hash.slice(0, 12);
+}
+
+/** A plan's version in words, such as `revision 3, a1b2c3d4e5f6`. */
+export function describePlanVersion(identity: Pick<PlanIdentity, "revision" | "hash">): string {
+  return `revision ${String(identity.revision)}, ${shortDigest(identity.hash)}`;
+}
 
 /** A plan document that failed validation; the message lists every problem with its path. */
 export class PlanError extends Error {
