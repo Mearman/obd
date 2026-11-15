@@ -1,5 +1,6 @@
 import {
   decodeShare,
+  type Storage,
   unitReportOf,
   type ObdReportShareData,
   type RunSummaryShareData,
@@ -7,12 +8,14 @@ import {
   type ShareEnvelope,
 } from "obd-read";
 import { streamShareCodec } from "obd-read/web";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDatabase } from "../database/DatabaseProvider";
+import { useAutoSaveShared } from "../settings/auto-save-shared";
 import { ObdReport } from "../screens/ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
 import { error, muted, page, row, title as headingStyle, heading } from "../screens/screen.css";
 import { Badge, Button, Card, DataTable } from "../ui";
+import { fragmentDigest, recordAutoSaved, wasAutoSaved } from "./auto-saved";
 import { SharedCaptureView } from "./SharedCaptureView";
 import { KIND_NAMES, NotSaved, SAVE_LABELS, saveShared, type SavedShare } from "./saved";
 import { sparkline } from "./SharedViewer.css";
@@ -147,13 +150,18 @@ function RunView({ data }: { readonly data: RunSummaryShareData }) {
 /**
  * A read-only view of the result a link carries, labelled as shared data that did not come from the connected adapter.
  *
- * The data is decoded and validated here and shown; it is never written to storage unless the user presses Save, which keeps every kind marked `origin: "shared"` ({@link saveShared}), and it never goes to the diagnostics service, the guard or an adapter: this component reads the database to save and, for a capture, to read an imported profile it is decoded with.
+ * The data is decoded and validated here and shown. By default it is then saved once, automatically, and with the setting "Save received links automatically" off it is saved only when the user presses Save. Either way every kind is kept marked `origin: "shared"` ({@link saveShared}). It never goes to the diagnostics service, the guard or an adapter: this component reads the database to save and, for a capture, to read an imported profile it is decoded with.
  */
 export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
   const { state } = useDatabase();
   const [decoded, setDecoded] = useState<Decoded>({ status: "decoding" });
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+  const [autoSave] = useAutoSaveShared();
+  const [saved, setSaved] = useState(false);
+  const [alreadySaved, setAlreadySaved] = useState(false);
+  // The fragment an automatic save was started for. A ref, so the second effect run React StrictMode makes in development cannot start another.
+  const autoStarted = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const live = { active: true };
@@ -170,24 +178,59 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
     };
   }, [fragment]);
 
-  async function save(envelope: ShareEnvelope): Promise<void> {
-    if (state.status !== "ready") return;
-    setSaving(true);
-    setProblem(undefined);
+  /** Saves `envelope`; true when it was stored, with the problem shown otherwise. */
+  async function store(storage: Storage, envelope: ShareEnvelope): Promise<boolean> {
     try {
-      await saveShared(state.storage, envelope);
-      onDone(envelope.kind);
+      await saveShared(storage, envelope);
+      return true;
     } catch (caught) {
-      setSaving(false);
       setProblem(
         caught instanceof NotSaved
           ? caught.message
           : `The ${KIND_NAMES[envelope.kind]} could not be saved.`,
       );
+      return false;
     }
   }
 
-  const envelope = decoded.status === "ready" ? decoded.envelope : undefined;
+  async function save(envelope: ShareEnvelope): Promise<void> {
+    if (state.status !== "ready") return;
+    setSaving(true);
+    setProblem(undefined);
+    if (await store(state.storage, envelope)) onDone(envelope.kind);
+    else setSaving(false);
+  }
+
+  const readyEnvelope = decoded.status === "ready" ? decoded.envelope : undefined;
+  const storage = state.status === "ready" ? state.storage : undefined;
+  useEffect(() => {
+    if (!autoSave || readyEnvelope === undefined || storage === undefined) return;
+    if (autoStarted.current === fragment) return;
+    autoStarted.current = fragment;
+    void (async () => {
+      const digest = await fragmentDigest(fragment);
+      if (wasAutoSaved(digest)) {
+        setAlreadySaved(true);
+        return;
+      }
+      setSaving(true);
+      if (await store(storage, readyEnvelope)) {
+        recordAutoSaved(digest);
+        setSaved(true);
+      } else {
+        setSaving(false);
+      }
+    })();
+  }, [autoSave, fragment, readyEnvelope, storage]);
+
+  const envelope = readyEnvelope;
+  const unsavedNote = saved
+    ? "It never goes to the adapter."
+    : alreadySaved
+      ? "This link was saved to this device earlier, so it has not been saved again. It never goes to the adapter."
+      : autoSave
+        ? "It is saved to this device automatically, marked as shared, once it is ready. It never goes to the adapter."
+        : "Nothing in it has been saved. It never goes to the adapter.";
   return (
     <div className={page}>
       <div className={heading}>
@@ -197,8 +240,9 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
       </div>
       <p className={muted}>
         This is a read-only copy that someone sent you in a link. It was not read from the adapter
-        you have connected, and nothing in it has been saved. It never goes to the adapter.
+        you have connected. {unsavedNote}
       </p>
+      {saved && <p role="status">Saved to this device, marked as shared.</p>}
       {decoded.status === "decoding" && <p className={muted}>Reading the link…</p>}
       {decoded.status === "failed" && (
         <p role="alert" className={error}>
@@ -223,15 +267,15 @@ export function SharedViewer({ fragment, onDone }: SharedViewerProps) {
         {envelope !== undefined && (
           <Button
             variant="primary"
-            disabled={state.status !== "ready" || saving}
+            disabled={state.status !== "ready" || saving || saved}
             onClick={() => void save(envelope)}
           >
-            {SAVE_LABELS[envelope.kind]}
+            {saved ? "Saved" : SAVE_LABELS[envelope.kind]}
           </Button>
         )}
         <Button
           onClick={() => {
-            onDone(undefined);
+            onDone(saved && envelope !== undefined ? envelope.kind : undefined);
           }}
         >
           Dismiss
