@@ -10,7 +10,7 @@ import {
   type Origin,
   type ShareEnvelope,
 } from "obd-read";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { useProfiles } from "../profiles/ProfilesProvider";
@@ -18,7 +18,7 @@ import { error, muted, row, stack } from "../screens/screen.css";
 import { ShareDialog } from "../share/ShareDialog";
 import { Button, Card, Select, download } from "../ui";
 import { OriginBadge } from "../origin/OriginBadge";
-import { DecodedView } from "./DecodedView";
+import { PlaybackView } from "./playback/PlaybackView";
 import { GENERIC_CHOICE, chosenProfile, useDecodeChoices } from "./decode-choices";
 
 /** The link a decoding makes: the units under a profile, or the OBD-II report under none. Only the decoded summary travels; the raw capture has its own link. */
@@ -104,6 +104,18 @@ export function CaptureViewer({
       live.active = false;
     };
   }, [client, id, choice, imported]);
+
+  // `imported` is a dependency so a profile imported anywhere replays with it too.
+  const decodeAt = useCallback(
+    (count: number) =>
+      client.captures.decode({
+        id,
+        profile: chosenProfile(choice ?? GENERIC_CHOICE),
+        exchanges: count,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `imported` changes what a profile decodes to.
+    [client, id, choice, imported],
+  );
 
   async function onProfileFile(event: ChangeEvent<HTMLInputElement>): Promise<void> {
     const file = event.currentTarget.files?.[0];
@@ -205,7 +217,7 @@ export function CaptureViewer({
           </p>
         )}
         {decoded !== undefined && capture !== undefined && (
-          <DecodedView capture={capture} decoded={decoded} />
+          <PlaybackView key={capture.id} capture={capture} decoded={decoded} decodeAt={decodeAt} />
         )}
       </div>
     </Card>

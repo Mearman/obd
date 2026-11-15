@@ -7,6 +7,9 @@ import { list, muted, transcript } from "../screens/screen.css";
 import { Badge, DataTable, type Column } from "../ui";
 import { RAW_COLUMNS } from "./exchange-columns";
 
+/** The most rows either exchange table draws, so a capture of any length keeps the page responsive; the playback list above scrolls through every exchange. */
+const MAX_TABLE_ROWS = 200;
+
 /** One exchange of a capture with whether the chosen profile decoded it. */
 interface MarkedExchange {
   readonly exchange: Exchange;
@@ -88,20 +91,30 @@ export function DecodedView({
         <DataTable
           label={`Exchanges ${name} leaves raw`}
           columns={RAW_COLUMNS}
-          rows={raw}
+          rows={raw.slice(0, MAX_TABLE_ROWS)}
           rowKey={(exchange) => String(exchange.seq)}
         />
       ) : (
         <p className={muted}>This profile decodes every exchange in the capture.</p>
+      )}
+      {raw.length > MAX_TABLE_ROWS && (
+        <p className={muted}>
+          Showing the first {String(MAX_TABLE_ROWS)} of {String(raw.length)} exchanges left raw.
+        </p>
       )}
       <details>
         <summary>Every exchange, marked decoded or left raw</summary>
         <DataTable
           label={`Every exchange under ${name}`}
           columns={MARKED_COLUMNS}
-          rows={marked}
+          rows={marked.slice(0, MAX_TABLE_ROWS)}
           rowKey={({ exchange }) => String(exchange.seq)}
         />
+        {marked.length > MAX_TABLE_ROWS && (
+          <p className={muted}>
+            Showing the first {String(MAX_TABLE_ROWS)} of {String(marked.length)} exchanges.
+          </p>
+        )}
       </details>
       <details>
         <summary>The decoding as text</summary>
