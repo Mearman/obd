@@ -311,6 +311,15 @@ const REDACTED = "[redacted]";
 /** Seventeen letters and digits without I, O or Q, bounded so a longer run is not cut: the shape of a VIN. */
 const VIN_SHAPE = /(?<![A-Z0-9])[A-HJ-NPR-Z0-9]{17}(?![A-Z0-9])/g;
 
+/**
+ * `text` with every VIN-shaped word replaced by `replacement`: seventeen letters and digits without I, O or Q, with at least one of each, in either case. For text that is not a scan (error messages, logs) that could name a car.
+ */
+export function redactVinShapes(text: string, replacement: string = REDACTED): string {
+  return text.replace(new RegExp(VIN_SHAPE.source, "gi"), (word) =>
+    /[A-Za-z]/.test(word) && /[0-9]/.test(word) ? replacement : word,
+  );
+}
+
 /** The printable ASCII of hexadecimal bytes, or "" when the text is not whole hexadecimal bytes. */
 function asciiOfHex(hex: string): string {
   if (hex.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(hex)) return "";
