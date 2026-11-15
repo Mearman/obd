@@ -7,6 +7,9 @@ import { parseAdapterUrl } from "../src/core/transport.js";
 import { run, type CliIo } from "../src/node/cli.js";
 import { zlibShareCodec } from "../src/node/share-codec.js";
 import { tcpTransportFor } from "../src/node/tcp.js";
+import { FakeElmCore, fakeTransport } from "./helpers/fake-elm.js";
+import { RECORDED } from "./helpers/recorded-car.js";
+import { loadReplies, responder } from "./helpers/transcripts.js";
 
 const VIN = "TESTVIN0000000001";
 
@@ -61,23 +64,31 @@ async function workspace(): Promise<string> {
 
 async function share(
   argv: readonly string[],
-): Promise<{ readonly status: number; readonly lines: string[]; readonly errors: string[] }> {
+  open?: CliIo["open"],
+  directoryOf?: string,
+): Promise<{
+  readonly status: number;
+  readonly lines: string[];
+  readonly errors: string[];
+  readonly directory: string;
+}> {
   const lines: string[] = [];
   const errors: string[] = [];
+  const directory = directoryOf ?? (await workspace());
   const io: CliIo = {
     out: (line) => lines.push(line),
     err: (text) => errors.push(text),
     ask: () => Promise.resolve(""),
-    open: (url) => tcpTransportFor(parseAdapterUrl(url)),
+    open: open ?? ((url) => tcpTransportFor(parseAdapterUrl(url))),
     env: {},
-    directory: await workspace(),
+    directory,
     connect: () => Promise.reject(new Error("no broker in this test")),
     central: () => {
       throw new Error("no radio in this test");
     },
     listPorts: () => Promise.resolve([]),
   };
-  return { status: await run(argv, io), lines, errors };
+  return { status: await run(argv, io), lines, errors, directory };
 }
 
 async function decoded(link: string | undefined) {
@@ -164,5 +175,52 @@ describe("share", () => {
       expect(status, argv.join(" ")).toBe(1);
       expect(lines[0], argv.join(" ")).toMatch(/^error: /);
     }
+  });
+});
+
+describe("a generic OBD-II read from the recorded car", () => {
+  const recordedCar: CliIo["open"] = () =>
+    fakeTransport(new FakeElmCore({ 0x7df: responder(loadReplies(...RECORDED)) }));
+
+  it("is written by obd --output, shared with --redact-vin and opened again", async () => {
+    const read = await share(
+      ["obd", "--adapter", "tcp://car:1", "--output", "read.json"],
+      recordedCar,
+    );
+    const link = await share(["share", "read.json", "--redact-vin"], undefined, read.directory);
+    const opened = await share(["share", "--open", link.lines[0] ?? ""], undefined, read.directory);
+    expect([read.status, link.status, opened.status]).toEqual([0, 0, 0]);
+    expect(read.lines).toContain("  calibration identifiers: 0034466040150284");
+    expect(read.lines.at(-1)).toBe(
+      "wrote read.json; share it with: obd-read share read.json --redact-vin",
+    );
+    const envelope = await decoded(link.lines[0]);
+    expect(envelope.kind).toBe("obd-report");
+    expect(JSON.stringify(envelope)).not.toContain("0034466040150284");
+    expect(opened.lines[0]).toMatch(/^shared data, not read from an adapter; link made 20/);
+    expect(opened.lines).toContain("VIN and calibration identifiers were removed before sharing");
+    expect(opened.lines).toContain("  calibration identifiers: (removed)");
+    expect(opened.lines).toContain("short-term fuel trim bank 1 from 7E8: -2.344 %");
+    expect(opened.lines.join("\n")).not.toContain("0034466040150284");
+  });
+
+  it("is shared without redaction when --redact-vin is not given", async () => {
+    const read = await share(
+      ["obd", "--adapter", "tcp://car:1", "--output", "read.json"],
+      recordedCar,
+    );
+    const link = await share(["share", "read.json"], undefined, read.directory);
+    expect(JSON.stringify(await decoded(link.lines[0]))).toContain("0034466040150284");
+  });
+
+  it("is refused by share when the file is not an OBD-II read", async () => {
+    const directory = await workspace();
+    await writeFile(
+      join(directory, "bad.json"),
+      JSON.stringify({ tool: "obd-read", format: "obd-report" }),
+    );
+    const { status, lines } = await share(["share", "bad.json"], undefined, directory);
+    expect(status).toBe(1);
+    expect(lines[0]).toMatch(/^error: bad\.json: not a saved OBD-II read/);
   });
 });
