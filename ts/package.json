@@ -13,6 +13,16 @@
   "engines": {
     "node": ">=24"
   },
+  "exports": {
+    ".": {
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "default": "./dist/node/index.js"
+    }
+  },
   "scripts": {
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
@@ -33,10 +43,12 @@
   },
   "packageManager": "pnpm@12.16.1",
   "dependencies": {
+    "@stoprocent/noble": "2.8.0",
     "fast-xml-parser": "5.12.1",
     "fast-xml-validator": "1.4.3",
     "fflate": "0.8.3",
     "mqtt": "5.16.1",
+    "serialport": "13.0.0",
     "zod": "4.6.7"
   }
 }
