@@ -204,7 +204,9 @@ describe("the Guide screen", () => {
       expect(within(summary).getByRole("button", { name: `Export ${format}` })).toBeVisible();
     }
     expect(within(summary).getByRole("button", { name: "Share" })).toBeVisible();
-    await userEvent.click(within(summary).getByRole("button", { name: "Open the run in Runs" }));
+    await userEvent.click(
+      within(summary).getByRole("button", { name: "Open the run in the Library" }),
+    );
     expect(onOpenRun).toHaveBeenCalledWith(expect.any(String));
     await userEvent.click(within(summary).getByRole("button", { name: "Record another" }));
     expect(await screen.findByRole("button", { name: "Start the plan" })).toBeVisible();
@@ -303,7 +305,7 @@ describe("the Guide screen", () => {
     const { onOpenRun } = await guide({ storage });
     const notice = cardOf(await screen.findByRole("heading", { name: "Stopped by a reload" }));
     expect(within(notice).getByText(/plan idle-then-rev: Idle, hold revs/)).toBeVisible();
-    await userEvent.click(within(notice).getByRole("button", { name: "Open in Runs" }));
+    await userEvent.click(within(notice).getByRole("button", { name: "Open in the Library" }));
     expect(onOpenRun).toHaveBeenCalled();
     await waitFor(async () => {
       expect((await storage.listRuns({}))[0]?.stoppedAt).not.toBeNull();

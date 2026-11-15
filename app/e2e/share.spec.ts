@@ -80,8 +80,8 @@ test("with automatic saving off a link is stored only on Save", async ({ browser
   });
   expect(stored?.saved?.report).toMatchObject({ origin: "shared", tool: "obd-read" });
   expect(JSON.stringify(stored?.saved?.report)).not.toContain(VIN);
-  await page.getByRole("tab", { name: "Scan" }).click();
-  const saved = page.getByRole("table", { name: "Saved reports" });
+  await page.getByRole("tab", { name: "Library" }).click();
+  const saved = page.getByRole("table", { name: "Library" });
   await expect(saved.getByText("Shared", { exact: true })).toBeVisible();
   await receiver.close();
 });

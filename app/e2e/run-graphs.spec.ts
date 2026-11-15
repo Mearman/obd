@@ -41,10 +41,10 @@ async function undersizedTargets(page: Page): Promise<string[]> {
   );
 }
 
-/** The number in the Samples cell of the only run listed. */
+/** The number of samples the Details cell of the only run listed gives. */
 async function sampleCount(page: Page): Promise<number> {
-  const cell = page.getByRole("table", { name: "Collection runs" }).getByRole("cell").nth(2);
-  return Number(await cell.innerText());
+  const cell = page.getByRole("table", { name: "Library" }).getByRole("cell").nth(3);
+  return Number(/^(\d+) samples?/.exec(await cell.innerText())?.[1]);
 }
 
 /** Collects a short simulator run, stops it and opens its graphs. */
@@ -59,7 +59,7 @@ async function openCollectedRunGraphs(page: Page): Promise<void> {
   // The live values carry a trend per value while the run collects.
   await expect(page.getByRole("img", { name: "Trend of engine speed" })).toBeVisible();
 
-  await openScreen(page, "Runs");
+  await openScreen(page, "Library");
   await expect.poll(() => sampleCount(page)).toBeGreaterThan(6);
   await page.getByRole("button", { name: "Stop" }).click();
   await expect(page.getByText("Stopped", { exact: true })).toBeVisible();
@@ -104,7 +104,10 @@ for (const viewport of VIEWPORTS) {
         await expect(scrubber).not.toHaveValue("0");
         await expect(page.getByRole("table", { name: "Values at the cursor" })).toBeVisible();
 
-        expect(await horizontalOverflow(page), "Runs with graphs overflows").toBeLessThanOrEqual(0);
+        expect(
+          await horizontalOverflow(page),
+          "the Library with graphs overflows",
+        ).toBeLessThanOrEqual(0);
         expect(await undersizedTargets(page), "targets under 44 px").toEqual([]);
 
         const base = `screenshots/graphs-${viewport.name}-${scheme}`;

@@ -79,10 +79,10 @@ for (const viewport of VIEWPORTS) {
         await expect(page.getByRole("button", { name: "Start collecting" })).toBeVisible();
         await fits(page, "the stopped screen");
 
-        await page.getByRole("tab", { name: "Runs" }).click();
+        await page.getByRole("tab", { name: "Library" }).click();
         await expect(page.getByText("Stopped", { exact: true })).toBeVisible();
         await expect(page.getByText("Stopping…")).toBeHidden();
-        await fits(page, "the Runs screen");
+        await fits(page, "the Library");
       });
     });
   }

@@ -34,8 +34,12 @@ test("a generic OBD-II session connects, scans, runs and keeps unit actions disa
   await expect(page.getByText("engine speed")).toBeVisible();
   await page.getByRole("button", { name: "Stop collecting" }).click();
 
-  await openScreen(page, "Runs");
-  const table = page.getByRole("table", { name: "Collection runs" });
-  await expect(table.getByText("Generic OBD-II (no profile)")).toBeVisible();
-  await expect(table.getByText("Stopped", { exact: true })).toBeVisible();
+  await openScreen(page, "Library");
+  // The scan above kept a report too, so read the run's own row.
+  const run = page
+    .getByRole("table", { name: "Library" })
+    .getByRole("row")
+    .filter({ has: page.getByText("Run", { exact: true }) });
+  await expect(run.getByText("Generic OBD-II (no profile)")).toBeVisible();
+  await expect(run.getByText("Stopped", { exact: true })).toBeVisible();
 });

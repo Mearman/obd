@@ -5,10 +5,10 @@ async function openScreen(page: Page, name: string): Promise<void> {
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 }
 
-/** The number in the Samples cell of the only run listed. */
+/** The number of samples the Details cell of the only run listed gives. */
 async function sampleCount(page: Page): Promise<number> {
-  const cell = page.getByRole("table", { name: "Collection runs" }).getByRole("cell").nth(2);
-  return Number(await cell.innerText());
+  const cell = page.getByRole("table", { name: "Library" }).getByRole("cell").nth(3);
+  return Number(/^(\d+) samples?/.exec(await cell.innerText())?.[1]);
 }
 
 test("a simulator collection is stored, survives a reload and resumes", async ({ page }) => {
@@ -22,34 +22,30 @@ test("a simulator collection is stored, survives a reload and resumes", async ({
   await expect(page.getByText("engine speed")).toBeVisible();
   await expect(page.getByText("Collecting", { exact: true })).toBeVisible();
 
-  await openScreen(page, "Runs");
-  const table = page.getByRole("table", { name: "Collection runs" });
+  await openScreen(page, "Library");
+  const table = page.getByRole("table", { name: "Library" });
   await expect(table.getByText("Simulated")).toBeVisible();
   await expect.poll(() => sampleCount(page)).toBeGreaterThan(2);
   const before = await sampleCount(page);
 
   // The worker, the collector and the page's state are all gone after a reload; only storage stays.
   await page.reload();
-  await openScreen(page, "Runs");
-  await expect(page.getByRole("table", { name: "Collection runs" })).toBeVisible();
-  expect(await page.getByRole("table", { name: "Collection runs" }).getByRole("row").count()).toBe(
-    2,
-  );
+  await openScreen(page, "Library");
+  await expect(page.getByRole("table", { name: "Library" })).toBeVisible();
+  expect(await page.getByRole("table", { name: "Library" }).getByRole("row").count()).toBe(2);
 
   // The open simulator run is resumed on its own: it carries on storing into the same run.
-  await expect(
-    page.getByRole("table", { name: "Collection runs" }).getByText("Collecting"),
-  ).toBeVisible();
+  await expect(page.getByRole("table", { name: "Library" }).getByText("Collecting")).toBeVisible();
   await expect.poll(() => sampleCount(page)).toBeGreaterThan(before);
   await openScreen(page, "Live");
   await expect(page.getByText("engine speed")).toBeVisible();
 
   await page.getByRole("button", { name: "Stop collecting" }).click();
-  await openScreen(page, "Runs");
+  await openScreen(page, "Library");
   await expect(page.getByText("Stopped", { exact: true })).toBeVisible();
   const stopped = await sampleCount(page);
   await page.waitForTimeout(1500);
   await openScreen(page, "Live");
-  await openScreen(page, "Runs");
+  await openScreen(page, "Library");
   expect(await sampleCount(page)).toBe(stopped);
 });

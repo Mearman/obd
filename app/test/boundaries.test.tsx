@@ -8,9 +8,8 @@ import type * as ConnectScreenModule from "../src/screens/ConnectScreen";
 import type * as ScanScreenModule from "../src/screens/ScanScreen";
 import type * as LiveScreenModule from "../src/screens/LiveScreen";
 import type * as GuideScreenModule from "../src/screens/GuideScreen";
-import type * as RunsScreenModule from "../src/screens/RunsScreen";
+import type * as LibraryScreenModule from "../src/library/LibraryScreen";
 import type * as SettingsScreenModule from "../src/screens/SettingsScreen";
-import type * as CapturesScreenModule from "../src/screens/CapturesScreen";
 import type { BrowserSupport } from "../src/connect/support";
 import type { DiagnosticsClient } from "../src/diagnostics/client";
 import { ErrorStore, observeClient, reportCall } from "../src/report/capture";
@@ -49,12 +48,12 @@ vi.mock("../src/screens/LiveScreen", async (original) => {
     },
   };
 });
-vi.mock("../src/screens/RunsScreen", async (original) => {
-  const real = await original<typeof RunsScreenModule>();
+vi.mock("../src/library/LibraryScreen", async (original) => {
+  const real = await original<typeof LibraryScreenModule>();
   return {
-    RunsScreen: (props: Parameters<typeof real.RunsScreen>[0]) => {
-      if (failing.has("runs")) throw new Error("runs failed");
-      return real.RunsScreen(props);
+    LibraryScreen: (props: Parameters<typeof real.LibraryScreen>[0]) => {
+      if (failing.has("library")) throw new Error("library failed");
+      return real.LibraryScreen(props);
     },
   };
 });
@@ -64,15 +63,6 @@ vi.mock("../src/screens/GuideScreen", async (original) => {
     GuideScreen: (props: Parameters<typeof real.GuideScreen>[0]) => {
       if (failing.has("guide")) throw new Error("guide failed");
       return real.GuideScreen(props);
-    },
-  };
-});
-vi.mock("../src/screens/CapturesScreen", async (original) => {
-  const real = await original<typeof CapturesScreenModule>();
-  return {
-    CapturesScreen: (props: Parameters<typeof real.CapturesScreen>[0]) => {
-      if (failing.has("captures")) throw new Error("captures failed");
-      return real.CapturesScreen(props);
     },
   };
 });
@@ -120,9 +110,8 @@ const SCREENS = [
   ["connect", "Connect"],
   ["scan", "Scan"],
   ["live", "Live"],
+  ["library", "Library"],
   ["guide", "Guide"],
-  ["runs", "Runs"],
-  ["captures", "Captures"],
   ["settings", "Settings"],
 ] as const;
 
@@ -188,9 +177,9 @@ describe("a screen's boundary", () => {
 
   it("Go to Connect leaves the failed screen", async () => {
     const user = userEvent.setup();
-    failing.add("runs");
+    failing.add("library");
     renderApp(<App support={SUPPORT} />);
-    await user.click(screen.getByRole("tab", { name: "Runs" }));
+    await user.click(screen.getByRole("tab", { name: "Library" }));
     await user.click(await screen.findByRole("button", { name: "Go to Connect" }));
     expect(await screen.findByRole("heading", { name: "Connect", level: 1 })).toBeVisible();
   });
@@ -350,13 +339,13 @@ describe("ErrorBoundary", () => {
     const store = new ErrorStore();
     render(
       <ScreenFallback
-        screen="runs"
+        screen="library"
         reset={() => undefined}
         onGoToConnect={() => undefined}
         store={store}
       />,
     );
-    expect(screen.getByRole("heading", { name: "Runs could not be shown" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Library could not be shown" })).toBeVisible();
   });
 });
 

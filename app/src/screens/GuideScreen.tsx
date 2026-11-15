@@ -362,7 +362,7 @@ export function GuideScreen({ onOpenRun }: { readonly onOpenRun: (runId: string)
                     onOpenRun(run.id);
                   }}
                 >
-                  Open in Runs
+                  Open in the Library
                 </Button>
               </li>
             ))}

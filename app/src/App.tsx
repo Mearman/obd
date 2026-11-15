@@ -3,11 +3,11 @@ import { detectBrowserSupport, type BrowserSupport } from "./connect/support";
 import { DatabaseNotice } from "./database/DatabaseNotice";
 import { useDiagnostics } from "./diagnostics/DiagnosticsProvider";
 import { app, brand, header, identity, main, nav, status } from "./App.css";
-import { CapturesScreen } from "./screens/CapturesScreen";
 import { ConnectScreen } from "./screens/ConnectScreen";
 import { GuideScreen } from "./screens/GuideScreen";
 import { LiveScreen } from "./screens/LiveScreen";
-import { RunsScreen } from "./screens/RunsScreen";
+import type { LibraryOpen } from "./library/items";
+import { LibraryScreen } from "./library/LibraryScreen";
 import { ScanScreen } from "./screens/ScanScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { VersionLink } from "./release/VersionLink";
@@ -19,16 +19,15 @@ import { THEME_PREFERENCES } from "./theme/preference";
 import { useTheme } from "./theme/ThemeProvider";
 import { Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger, Toast, Tooltip } from "./ui";
 
-const SCREENS = ["connect", "scan", "live", "guide", "runs", "captures", "settings"] as const;
+const SCREENS = ["connect", "scan", "live", "library", "guide", "settings"] as const;
 type ScreenName = (typeof SCREENS)[number];
 
 const TITLES: Readonly<Record<ScreenName, string>> = {
   connect: "Connect",
   scan: "Scan",
   live: "Live",
+  library: "Library",
   guide: "Guide",
-  runs: "Runs",
-  captures: "Captures",
   settings: "Settings",
 };
 
@@ -64,16 +63,15 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
   const goConnect = () => {
     setScreen("connect");
   };
-  // Held here, so the viewer stays open when the user looks at another screen and comes back.
-  const [openCapture, setOpenCapture] = useState<string | undefined>(undefined);
+  // Held here, so the Library's viewer stays open when the user looks at another screen and comes back.
+  const [opened, setOpened] = useState<LibraryOpen | undefined>(undefined);
   const viewCapture = (id: string): void => {
-    setOpenCapture(id);
-    setScreen("captures");
+    setOpened({ kind: "capture", id });
+    setScreen("library");
   };
-  const [openRun, setOpenRun] = useState<string | undefined>(undefined);
   const viewRun = (id: string): void => {
-    setOpenRun(id);
-    setScreen("runs");
+    setOpened({ kind: "run", id });
+    setScreen("library");
   };
 
   return (
@@ -161,19 +159,14 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
                 <LiveScreen />
               </ScreenBoundary>
             </TabsContent>
+            <TabsContent value="library">
+              <ScreenBoundary screen="library" onGoToConnect={goConnect}>
+                <LibraryScreen open={opened} onOpen={setOpened} />
+              </ScreenBoundary>
+            </TabsContent>
             <TabsContent value="guide">
               <ScreenBoundary screen="guide" onGoToConnect={goConnect}>
                 <GuideScreen onOpenRun={viewRun} />
-              </ScreenBoundary>
-            </TabsContent>
-            <TabsContent value="runs">
-              <ScreenBoundary screen="runs" onGoToConnect={goConnect}>
-                <RunsScreen open={openRun} />
-              </ScreenBoundary>
-            </TabsContent>
-            <TabsContent value="captures">
-              <ScreenBoundary screen="captures" onGoToConnect={goConnect}>
-                <CapturesScreen open={openCapture} onOpen={setOpenCapture} />
               </ScreenBoundary>
             </TabsContent>
             <TabsContent value="settings">

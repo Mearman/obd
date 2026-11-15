@@ -25,7 +25,7 @@ test("a simulator capture decodes differently under another profile and reopens 
 
   await openScreen(page, "Scan");
   await page.getByRole("button", { name: "Capture everything" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Captures" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Library" })).toBeVisible();
   await expectSummary(page, /Decoded \d+ Left raw 0 of \d+ exchanges with mercedes-w211/);
   await expect(page.getByRole("table", { name: "Units decoded with mercedes-w211" })).toBeVisible();
 
@@ -43,8 +43,8 @@ test("a simulator capture decodes differently under another profile and reopens 
     .toBe(true);
   await context.setOffline(true);
   await page.reload();
-  await openScreen(page, "Captures");
-  const listed = page.getByRole("table", { name: "Captures" });
+  await openScreen(page, "Library");
+  const listed = page.getByRole("table", { name: "Library" });
   await expect(listed.getByText("mercedes-w211")).toBeVisible();
   await listed.getByRole("button", { name: /^View capture / }).click();
   await expectSummary(page, /with mercedes-w211/);

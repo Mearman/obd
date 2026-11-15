@@ -71,12 +71,12 @@ test("links opened in several tabs at once are all saved, and the last tab keeps
   await receiver.close();
 });
 
-test("a run saved in one tab appears in another tab's Runs list without a reload", async ({
+test("a run saved in one tab appears in another tab's Library without a reload", async ({
   context,
 }) => {
   const viewer = await context.newPage();
   await viewer.goto("/");
-  await viewer.getByRole("tab", { name: "Runs" }).click();
+  await viewer.getByRole("tab", { name: "Library" }).click();
   await expect(viewer.getByText("generic-from-elsewhere")).toBeHidden();
 
   const writer = await context.newPage();
@@ -88,7 +88,7 @@ test("a run saved in one tab appears in another tab's Runs list without a reload
 test("a run another tab is collecting is not resumed here, and resumes once that tab has gone and after a reload", async ({
   context,
 }) => {
-  const runs = (page: Page) => page.getByRole("table", { name: "Collection runs" });
+  const runs = (page: Page) => page.getByRole("table", { name: "Library" });
   const collector = await context.newPage();
   await collector.goto("/");
   await collector.getByRole("button", { name: /connect with the simulator/i }).click();
@@ -100,12 +100,12 @@ test("a run another tab is collecting is not resumed here, and resumes once that
   // A second tab sees the open run but neither resumes it on load nor on request.
   const other = await context.newPage();
   await other.goto("/");
-  await other.getByRole("tab", { name: "Runs" }).click();
+  await other.getByRole("tab", { name: "Library" }).click();
   await expect(runs(other).getByText("Open", { exact: true })).toBeVisible();
   await other.getByRole("button", { name: "Resume" }).click();
   await expect(other.getByRole("alert")).toContainText("being collected in another tab");
   await expect(runs(other).getByText("Collecting", { exact: true })).toBeHidden();
-  await collector.getByRole("tab", { name: "Runs" }).click();
+  await collector.getByRole("tab", { name: "Library" }).click();
   await expect(runs(collector).getByText("Collecting", { exact: true })).toBeVisible();
 
   // Once the collecting tab has gone, the run resumes here and keeps collecting after a reload.
@@ -113,7 +113,7 @@ test("a run another tab is collecting is not resumed here, and resumes once that
   await other.getByRole("button", { name: "Resume" }).click();
   await expect(runs(other).getByText("Collecting", { exact: true })).toBeVisible();
   await other.reload();
-  await other.getByRole("tab", { name: "Runs" }).click();
+  await other.getByRole("tab", { name: "Library" }).click();
   await expect(runs(other).getByText("Collecting", { exact: true })).toBeVisible();
   await other.getByRole("button", { name: "Stop" }).click();
   await expect(runs(other).getByText("Stopped", { exact: true })).toBeVisible();

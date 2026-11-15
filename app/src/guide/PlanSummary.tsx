@@ -2,7 +2,7 @@ import { EXPORT_FORMATS } from "obd-read";
 import { useState } from "react";
 import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { error, muted, row } from "../screens/screen.css";
-import { runEnvelope } from "../screens/RunsScreen";
+import { runEnvelope } from "../library/run-envelope";
 import { ShareDialog } from "../share/ShareDialog";
 import { Badge, Button, Card, DataTable, download, type Column } from "../ui";
 import { codesAtEnds, formatDuration, type PlanView, type ViewRecord } from "./plan-view";
@@ -102,7 +102,7 @@ export function PlanSummary({
             onOpenRun(runId);
           }}
         >
-          Open the run in Runs
+          Open the run in the Library
         </Button>
         {EXPORT_FORMATS.map((format) => (
           <Button
