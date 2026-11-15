@@ -36,14 +36,23 @@ describe("the shipped mercedes-w169-w245 profile", () => {
     expect([profile.protocol, profile.session]).toEqual([DiagProtocol.KWP2000, 0x92]);
   });
 
-  it("holds only the engine, on the pair OBDb captured", () => {
+  it("holds the engine, on the pair OBDb captured, and the three units a car answered", () => {
     const profile = loadBuiltinProfile(NAME);
-    expect([...profile.units.keys()]).toEqual(["engine"]);
+    expect([...profile.units.keys()]).toEqual(["engine", "unit-784", "unit-7bc", "unit-7e2"]);
+    const pairs = [...profile.units.values()].map((unit) => [unit.requestId, unit.responseId]);
+    expect(pairs).toEqual([
+      [0x7e0, 0x7e8],
+      [0x784, 0x785],
+      [0x7bc, 0x7bd],
+      [0x7e2, 0x7ea],
+    ]);
+    for (const unit of profile.units.values()) expect(unit.session).toBe(0x81);
     const engine = profile.units.get("engine");
     expect([engine?.requestId, engine?.responseId]).toEqual([0x7e0, 0x7e8]);
     expect(engine?.source).toContain("OBDb");
     expect(engine?.source).toContain("web.archive.org/web/");
     expect(engine?.source).toContain("Not read from a car by this project.");
+    expect(engine?.source).toContain("read by this project");
   });
 
   it("says the session and bit rate are unverified and other units have no source", () => {
@@ -51,6 +60,7 @@ describe("the shipped mercedes-w169-w245 profile", () => {
     expect(text).toMatch(/so the session is unverified/);
     expect(text).toMatch(/so that is unverified too/);
     expect(text).toMatch(/no source gives W169 or W245 addresses/);
+    expect(text).toMatch(/named by their identifiers because no source says what they are/);
   });
 });
 

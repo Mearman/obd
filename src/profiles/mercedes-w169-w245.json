@@ -1,7 +1,7 @@
 {
-  "notes": "Mercedes-Benz W169 A-Class (2004 to 2012) and W245 B-Class (2005 to 2011), engine only.\n\nThe engine control unit is the one unit any open source places: OBDb's 2011 A 180 capture has 0x7E0 answering service 22 (identifiers 0163, 0168 and 016F) with multi-frame replies on 0x7E8 on 11-bit CAN, and its 2009 capture has 0x7E0 answering OBD mode 01. The 2011 capture is from a diesel car (OBDb names the identifiers boost, exhaust back pressure and diesel particulate filter pressure, and fuel temperature); a petrol engine such as the M266 has a different controller and may answer differently.\n\nProtocol and session: KWP2000 with session 0x92, as in the W211 profile. The basis is Xplatforms/mercedes-hacking-docs chapter 3, which lists the same wake-up frame for the W169 and W245 as for the W211 (ID 0x001C carrying `02 10 92`, a KWP2000 session start); that table is crowd-sourced, it is a broadcast on the interior bus rather than a request to the engine, and no source shows the engine accepting `10 92`, so the session is unverified. The bit rate is the 500 kbit/s that the sources in docs/vehicles/mercedes-benz.md give for CAN-C; OBDb's captures show 11-bit identifiers but do not state the rate, so that is unverified too.\n\nEvery other unit (transmission, ESP, airbags, cluster and the interior bus) is left out: no source gives W169 or W245 addresses for them (issue 88). Treat the engine row as unconfirmed on a given car until `obd-read probe` shows it answering. Sources and their limits are in docs/vehicles/mercedes-compact.md.",
+  "notes": "Mercedes-Benz W169 A-Class (2004 to 2012) and W245 B-Class (2005 to 2011), engine only.\n\nThe engine control unit is the one unit any open source places: OBDb's 2011 A 180 capture has 0x7E0 answering service 22 (identifiers 0163, 0168 and 016F) with multi-frame replies on 0x7E8 on 11-bit CAN, and its 2009 capture has 0x7E0 answering OBD mode 01. The 2011 capture is from a diesel car (OBDb names the identifiers boost, exhaust back pressure and diesel particulate filter pressure, and fuel temperature); a petrol engine such as the M266 has a different controller and may answer differently.\n\nProtocol and session: KWP2000 with session 0x92, as in the W211 profile. The basis is Xplatforms/mercedes-hacking-docs chapter 3, which lists the same wake-up frame for the W169 and W245 as for the W211 (ID 0x001C carrying `02 10 92`, a KWP2000 session start); that table is crowd-sourced, it is a broadcast on the interior bus rather than a request to the engine, and no source shows the engine accepting `10 92`, so the session is unverified. The bit rate is the 500 kbit/s that the sources in docs/vehicles/mercedes-benz.md give for CAN-C; OBDb's captures show 11-bit identifiers but do not state the rate, so that is unverified too.\n\nThree further units are included from a read of one A 150 by this project, each at the identifier pair that answered an identifier sweep: 0x784/0x785, 0x7BC/0x7BD and 0x7E2/0x7EA. They are named by their identifiers because no source says what they are; the 0x784 pair may be the ESP unit by analogy with a W203, which is an inference. The engine and these three answered a start session of 0x81, so their unit-level session is 0x81, while the profile's default of 0x92 stays untested. The status byte on a fault code is shown as the unit reports it: sources disagree on its bits and none is from Mercedes. Every other unit (transmission, airbags, cluster and the interior bus) is left out: no source gives W169 or W245 addresses for them (issue 88). Treat the engine row as unconfirmed on a given car until `obd-read probe` shows it answering. Sources and their limits are in docs/vehicles/mercedes-compact.md.",
   "name": "mercedes-w169-w245",
-  "description": "Mercedes-Benz W169 A-Class and W245 B-Class, engine only, KWP2000 over 11-bit CAN",
+  "description": "Mercedes-Benz W169 A-Class and W245 B-Class, the engine and the three further units an A 150 answered, KWP2000 over 11-bit CAN",
   "status": "unconfirmed",
   "bus": {
     "id_bits": 11,
@@ -16,7 +16,41 @@
       "description": "Engine control unit",
       "request": 2016,
       "response": 2024,
-      "source": "OBDb: 0x7E0 answering service 22 with replies on 0x7E8 on a 2011 A 180 (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/commands/7E0.7E8.220163.yaml (archived as the raw file https://web.archive.org/web/20261115173245/https://raw.githubusercontent.com/OBDb/Mercedes-Benz-A-180/main/tests/test_cases/2011/commands/7E0.7E8.220163.yaml); https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/command_support.yaml (archived https://web.archive.org/web/20261115171850/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/command_support.yaml)) and answering OBD mode 01 on a 2009 A 180 (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2009/command_support.yaml (archived https://web.archive.org/web/20261115171908/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2009/command_support.yaml)). The 2011 car is a diesel; one source. Not read from a car by this project."
+      "source": "OBDb: 0x7E0 answering service 22 with replies on 0x7E8 on a 2011 A 180 (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/commands/7E0.7E8.220163.yaml (archived as the raw file https://web.archive.org/web/20261115173245/https://raw.githubusercontent.com/OBDb/Mercedes-Benz-A-180/main/tests/test_cases/2011/commands/7E0.7E8.220163.yaml); https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/command_support.yaml (archived https://web.archive.org/web/20261115171850/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2011/command_support.yaml)) and answering OBD mode 01 on a 2009 A 180 (https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2009/command_support.yaml (archived https://web.archive.org/web/20261115171908/https://github.com/OBDb/Mercedes-Benz-A-180/blob/main/tests/test_cases/2009/command_support.yaml)). The 2011 car is a diesel; one source. Not read from a car by this project. The same pair also answered 10 81 positively, service 1A 86 with an identification record and service 18 02 FF 00 with two stored manufacturer codes (00 7C status E0 and 00 7D status 20) on a petrol A 150 (W169, M266) read by this project over a vLinker FD+ on 15 November 2026; the session 0x81 here is that observation, the 0x92 default is still untested on this engine.",
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      }
+    },
+    "unit-784": {
+      "description": "Unit answering on 0x784 with replies on 0x785; identity unconfirmed (ESP/ABS is the likelier reading, from a different car family: a W203 in the OpenVehicleDiag thesis has the ESP unit at this pair)",
+      "request": 1924,
+      "response": 1925,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "Read from a car by this project: an identifier sweep (requests 0x700 to 0x7FF, service 10 81) of a petrol A 150 (W169, M266) over a vLinker FD+ on 15 November 2026 found this pair answering a start-diagnostic-session 81 with a positive reply, and service 18 02 FF 00 (readDTCByStatus) answered 58 00 (no stored codes). One car, so unconfirmed for other cars. It also answered service 1A 86 with an identification record beginning 16 95 45 60 32, which reads as the part number A 169 545 60 32 if it uses the same layout as the engine's record (unverified)."
+    },
+    "unit-7bc": {
+      "description": "Unit answering on 0x7BC with replies on 0x7BD; identity unconfirmed (no source places a unit at this pair)",
+      "request": 1980,
+      "response": 1981,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "Read from a car by this project: an identifier sweep (requests 0x700 to 0x7FF, service 10 81) of a petrol A 150 (W169, M266) over a vLinker FD+ on 15 November 2026 found this pair answering a start-diagnostic-session 81 with a positive reply, and service 18 02 FF 00 (readDTCByStatus) answered 58 00 (no stored codes). One car, so unconfirmed for other cars. It refused service 1A 86 with a negative response, so it was not identified."
+    },
+    "unit-7e2": {
+      "description": "Unit answering on 0x7E2 with replies on 0x7EA; identity unconfirmed (no source places a unit at this pair)",
+      "request": 2018,
+      "response": 2026,
+      "diagnostics": {
+        "protocol": "kwp2000",
+        "session": 129
+      },
+      "source": "Read from a car by this project: an identifier sweep (requests 0x700 to 0x7FF, service 10 81) of a petrol A 150 (W169, M266) over a vLinker FD+ on 15 November 2026 found this pair answering a start-diagnostic-session 81 with a positive reply, and service 18 02 FF 00 (readDTCByStatus) answered 58 00 (no stored codes). One car, so unconfirmed for other cars. It refused service 1A 86 with a negative response, so it was not identified."
     }
   }
 }
