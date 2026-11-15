@@ -1,5 +1,5 @@
 import { chooseProfile } from "./profile";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 const VIN = "SIMULATEDCAR00001";
 
@@ -38,7 +38,14 @@ async function shareLinkOfSimulatorScan(page: Page, redact: boolean): Promise<st
   return link;
 }
 
-test("a link from a simulator scan opens as read-only shared data in a fresh context, and is stored only on Save", async ({
+/** Turns the setting "Save received links automatically" off in every page of `context`, as the Settings screen stores it. */
+async function turnAutoSaveOff(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    localStorage.setItem("obd-read.auto-save-shared", "off");
+  });
+}
+
+test("a link from a simulator scan opens as read-only shared data in a fresh context and is saved once by default", async ({
   browser,
 }) => {
   const sender = await browser.newContext();
@@ -46,6 +53,34 @@ test("a link from a simulator scan opens as read-only shared data in a fresh con
   await sender.close();
 
   const receiver = await browser.newContext();
+  const page = await receiver.newPage();
+  await page.goto(link);
+  await expect(page.getByRole("heading", { name: "Shared data" })).toBeVisible();
+  await expect(page.getByText("Saved to this device, marked as shared.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Saved" })).toBeDisabled();
+  expect(page.url()).toContain("#share=1.");
+  const [stored, ...others] = await savedReports(page);
+  expect(others).toEqual([]);
+  expect(stored?.summary).toMatchObject({ adapter: "shared://link", origin: "shared" });
+
+  // Opening the same link again in this browser saves nothing more.
+  await page.reload();
+  await expect(page.getByText(/saved to this device earlier/)).toBeVisible();
+  expect(await savedReports(page)).toHaveLength(1);
+
+  await page.getByRole("button", { name: "Dismiss" }).click();
+  expect(page.url()).not.toContain("share=");
+  await expect(page.getByRole("tablist")).toBeVisible();
+  await receiver.close();
+});
+
+test("with automatic saving off a link is stored only on Save", async ({ browser }) => {
+  const sender = await browser.newContext();
+  const link = await shareLinkOfSimulatorScan(await sender.newPage(), true);
+  await sender.close();
+
+  const receiver = await browser.newContext();
+  await turnAutoSaveOff(receiver);
   const page = await receiver.newPage();
   await page.goto(link);
   await page.evaluate(async () => {
@@ -112,12 +147,15 @@ test("a link from a generic OBD-II scan opens as a read-only report without the 
   await receiver.close();
 });
 
-test("Dismiss writes nothing and clears the address", async ({ browser }) => {
+test("with automatic saving off, Dismiss writes nothing and clears the address", async ({
+  browser,
+}) => {
   const sender = await browser.newContext();
   const link = await shareLinkOfSimulatorScan(await sender.newPage(), false);
   await sender.close();
 
   const receiver = await browser.newContext();
+  await turnAutoSaveOff(receiver);
   const page = await receiver.newPage();
   await page.goto(link);
   await page.evaluate(async () => {

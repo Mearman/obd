@@ -1,5 +1,5 @@
 import { pickProfile } from "./ui-helpers";
-import { screen, waitFor, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   MemoryStorage,
@@ -13,8 +13,9 @@ import {
 } from "obd-read";
 import { builtinProfileData } from "obd-read/profiles";
 import { streamShareCodec } from "obd-read/web";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
+import { AUTO_SAVED_LIMIT } from "../src/share/auto-saved";
 import type { BrowserSupport } from "../src/connect/support";
 import type { DatabaseSession } from "../src/database/session";
 import { fakeControl } from "./fake-database";
@@ -36,6 +37,8 @@ const CHROME: BrowserSupport = {
 const SIMULATED_VIN = "SIMULATEDCAR00001";
 
 afterEach(() => {
+  localStorage.clear();
+  vi.restoreAllMocks();
   window.history.replaceState(null, "", "/");
   Reflect.deleteProperty(navigator, "clipboard");
   Reflect.deleteProperty(navigator, "share");
@@ -227,7 +230,11 @@ async function sharedFragment(data: ScanShareData = SHARED): Promise<string> {
   return result.value.fragment;
 }
 
-describe("a shared link", () => {
+describe("a shared link with automatic saving off", () => {
+  beforeEach(() => {
+    localStorage.setItem("obd-read.auto-save-shared", "off");
+  });
+
   it("opens a read-only viewer labelled as shared data, and writes nothing until Save", async () => {
     window.location.hash = await sharedFragment();
     const storage = new MemoryStorage();
@@ -535,5 +542,175 @@ describe("a shared link", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Save this capture" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/already stored on this device/);
     expect(await storage.listCaptures({})).toHaveLength(1);
+  });
+});
+
+const AUTO_RUN: ShareEnvelope = {
+  v: 1,
+  kind: "run-summary",
+  createdAt: 1_790_000_000_000,
+  data: {
+    run: {
+      profile: "mercedes-w211",
+      adapter: "ble://vLinker",
+      startedAt: 1_790_000_000_000,
+      stoppedAt: null,
+      notes: "",
+    },
+    signals: [
+      {
+        signal: "engine speed",
+        unit: "rpm",
+        count: 2,
+        numericCount: 2,
+        min: 700,
+        max: 900,
+        mean: 800,
+        firstAt: 1_790_000_000_000,
+        lastAt: 1_790_000_001_000,
+        series: [
+          [0, 700],
+          [1000, 900],
+        ],
+      },
+    ],
+  },
+};
+
+async function fragmentOf(envelope: ShareEnvelope): Promise<string> {
+  const result = await encodeShare(envelope, streamShareCodec);
+  if (!result.ok) throw new Error(result.error.message);
+  return result.value.fragment;
+}
+
+function openLink(fragment: string, storage: MemoryStorage): void {
+  window.location.hash = fragment;
+  renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+}
+
+describe("a shared link with the default setting", () => {
+  it("saves a scan once, marked shared, and keeps the viewer open with a status", async () => {
+    const storage = new MemoryStorage();
+    openLink(await sharedFragment(), storage);
+    expect(await screen.findByText("Saved to this device, marked as shared.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Shared data" })).toBeInTheDocument();
+    expect(screen.queryByText(/nothing in it has been saved/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Saved" })).toBeDisabled();
+    const [summary, ...others] = await storage.listScanReports({});
+    expect(others).toEqual([]);
+    expect(summary).toMatchObject({ adapter: "shared://link", origin: "shared" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(await screen.findByText("Saved the shared scan")).toBeInTheDocument();
+    expect(window.location.hash).toBe("");
+    expect(await storage.listScanReports({})).toHaveLength(1);
+  });
+
+  it("saves an OBD-II read, a run and a capture once each, marked shared", async () => {
+    const obd: ShareEnvelope = {
+      v: 1,
+      kind: "obd-report",
+      createdAt: Date.UTC(2026, 10, 15, 11, 0, 0),
+      data: {
+        taken: "2026-11-15T10:00:00+00:00",
+        adapter: { label: "ELM327 v1.5" },
+        redacted: true,
+        obd: { vin: "", units: [], values: [], monitorResults: [], notes: [] },
+      },
+    };
+    const obdStorage = new MemoryStorage();
+    openLink(await fragmentOf(obd), obdStorage);
+    await screen.findByText("Saved to this device, marked as shared.");
+    expect(await obdStorage.listScanReports({})).toMatchObject([
+      { label: "Shared OBD-II read", origin: "shared" },
+    ]);
+    cleanup();
+
+    const runStorage = new MemoryStorage();
+    openLink(await fragmentOf(AUTO_RUN), runStorage);
+    await screen.findByText("Saved to this device, marked as shared.");
+    expect(await runStorage.listRuns({})).toMatchObject([{ origin: "shared" }]);
+    cleanup();
+
+    const capture = await simulatedCapture();
+    const captureStorage = new MemoryStorage();
+    openLink(await captureFragment(capture), captureStorage);
+    await screen.findByText("Saved to this device, marked as shared.");
+    expect(await captureStorage.listCaptures({})).toMatchObject([
+      { id: capture.id, origin: "shared" },
+    ]);
+  });
+
+  it("does not save the same link again when it is opened again", async () => {
+    const fragment = await fragmentOf(AUTO_RUN);
+    const storage = new MemoryStorage();
+    openLink(fragment, storage);
+    await screen.findByText("Saved to this device, marked as shared.");
+    cleanup();
+
+    window.location.hash = "";
+    openLink(fragment, storage);
+    expect(await screen.findByText(/saved to this device earlier/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save this run" })).toBeEnabled();
+    expect(await storage.listRuns({})).toHaveLength(1);
+  });
+
+  it("keeps only the newest digests", async () => {
+    const storage = new MemoryStorage();
+    localStorage.setItem(
+      "obd-read.auto-saved-links",
+      JSON.stringify(
+        Array.from({ length: AUTO_SAVED_LIMIT }, (_, index) => `old-${String(index)}`),
+      ),
+    );
+    openLink(await fragmentOf(AUTO_RUN), storage);
+    await screen.findByText("Saved to this device, marked as shared.");
+    const kept: unknown = JSON.parse(localStorage.getItem("obd-read.auto-saved-links") ?? "[]");
+    expect(Array.isArray(kept) && kept.length).toBe(AUTO_SAVED_LIMIT);
+    expect(Array.isArray(kept) && kept[0]).toBe("old-1");
+  });
+
+  it("shows the manual path's problem and does not retry when the save fails", async () => {
+    const capture = await simulatedCapture();
+    const storage = new MemoryStorage();
+    await storage.saveCapture(capture, "shared");
+    openLink(await captureFragment(capture), storage);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/already stored on this device/);
+    expect(screen.getByRole("button", { name: "Save this capture" })).toBeEnabled();
+    expect(await storage.listCaptures({})).toHaveLength(1);
+  });
+
+  it("still opens and saves when browser storage throws", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const storage = new MemoryStorage();
+    openLink(await fragmentOf(AUTO_RUN), storage);
+    expect(await screen.findByText("Saved to this device, marked as shared.")).toBeInTheDocument();
+    expect(await storage.listRuns({})).toHaveLength(1);
+  });
+});
+
+describe("the setting Save received links automatically", () => {
+  it("is on by default, is stored when turned off, and then a link waits for Save", async () => {
+    const view = renderApp(<App support={CHROME} />);
+    await openTab("Settings");
+    const toggle = screen.getByRole("switch", { name: "Save received links automatically" });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    expect(toggle).not.toBeChecked();
+    expect(localStorage.getItem("obd-read.auto-save-shared")).toBe("off");
+    view.unmount();
+
+    const storage = new MemoryStorage();
+    openLink(await fragmentOf(AUTO_RUN), storage);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Save this run" })).toBeEnabled();
+    });
+    expect(screen.getByText(/Nothing in it has been saved/)).toBeInTheDocument();
+    expect(await storage.listRuns({})).toEqual([]);
   });
 });

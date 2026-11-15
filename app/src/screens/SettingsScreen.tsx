@@ -1,9 +1,10 @@
 import { useId, useRef, useState, type ChangeEvent } from "react";
 import { DatabaseCard } from "../database/DatabaseCard";
 import { useProfiles, type ImportResult } from "../profiles/ProfilesProvider";
+import { useAutoSaveShared } from "../settings/auto-save-shared";
 import { isThemePreference } from "../theme/preference";
 import { useTheme } from "../theme/ThemeProvider";
-import { Button, Card, Select } from "../ui";
+import { Button, Card, Select, Switch } from "../ui";
 import { COLLECTION_LIMIT } from "./limits";
 import { error, list, muted, page } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
@@ -17,6 +18,7 @@ const THEME_OPTIONS = [
 /** Settings: colour scheme and profile import from a local JSON file. */
 export function SettingsScreen() {
   const { preference, setPreference } = useTheme();
+  const [autoSaveShared, setAutoSaveShared] = useAutoSaveShared();
   const { builtin, imported, importText } = useProfiles();
   const [result, setResult] = useState<ImportResult | undefined>(undefined);
   const input = useRef<HTMLInputElement>(null);
@@ -40,6 +42,16 @@ export function SettingsScreen() {
           onValueChange={(value) => {
             if (isThemePreference(value)) setPreference(value);
           }}
+        />
+      </Card>
+      <Card
+        title="Shared links"
+        description="A link that someone sends you opens as a read-only copy. By default it is also saved to this device as soon as it has opened, marked as shared. This choice is kept in this browser only."
+      >
+        <Switch
+          label="Save received links automatically"
+          checked={autoSaveShared}
+          onCheckedChange={setAutoSaveShared}
         />
       </Card>
       <Card

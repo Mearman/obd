@@ -1,5 +1,5 @@
 import { chooseProfile } from "./profile";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 /** The ASCII bytes of the simulator's invented VIN, as a capture's raw replies spell it. */
 const VIN_BYTES = Array.from("SIMULATEDCAR00001", (character) =>
@@ -39,7 +39,30 @@ async function rawCaptureLink(page: Page, redact: boolean): Promise<string> {
   return link;
 }
 
-test("a raw capture link re-decodes under the chosen profile in a fresh context and is stored only on Save", async ({
+/** Turns the setting "Save received links automatically" off in every page of `context`, as the Settings screen stores it. */
+async function turnAutoSaveOff(context: BrowserContext): Promise<void> {
+  await context.addInitScript(() => {
+    localStorage.setItem("obd-read.auto-save-shared", "off");
+  });
+}
+
+test("a raw capture link is saved once on opening by default", async ({ browser }) => {
+  const sender = await browser.newContext();
+  const link = await rawCaptureLink(await sender.newPage(), true);
+  await sender.close();
+
+  const receiver = await browser.newContext();
+  const page = await receiver.newPage();
+  await page.goto(link);
+  await expect(page.getByText("Saved to this device, marked as shared.")).toBeVisible();
+  expect(await storedCaptures(page)).toHaveLength(1);
+  await page.reload();
+  await expect(page.getByText(/saved to this device earlier/)).toBeVisible();
+  expect(await storedCaptures(page)).toHaveLength(1);
+  await receiver.close();
+});
+
+test("with automatic saving off a raw capture link re-decodes under the chosen profile in a fresh context and is stored only on Save", async ({
   browser,
 }) => {
   const sender = await browser.newContext();
@@ -47,6 +70,7 @@ test("a raw capture link re-decodes under the chosen profile in a fresh context 
   await sender.close();
 
   const receiver = await browser.newContext();
+  await turnAutoSaveOff(receiver);
   const page = await receiver.newPage();
   await page.goto(link);
   await page.evaluate(async () => {
@@ -84,12 +108,15 @@ test("a raw capture link re-decodes under the chosen profile in a fresh context 
   await receiver.close();
 });
 
-test("Dismiss on a raw capture link writes nothing", async ({ browser }) => {
+test("with automatic saving off, Dismiss on a raw capture link writes nothing", async ({
+  browser,
+}) => {
   const sender = await browser.newContext();
   const link = await rawCaptureLink(await sender.newPage(), false);
   await sender.close();
 
   const receiver = await browser.newContext();
+  await turnAutoSaveOff(receiver);
   const page = await receiver.newPage();
   await page.goto(link);
   await page.evaluate(async () => {
