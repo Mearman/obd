@@ -311,11 +311,14 @@ const REDACTED = "[redacted]";
 /** Seventeen letters and digits without I, O or Q, bounded so a longer run is not cut: the shape of a VIN. */
 const VIN_SHAPE = /(?<![A-Z0-9])[A-HJ-NPR-Z0-9]{17}(?![A-Z0-9])/g;
 
+/** Seventeen letters and digits with no restriction on which, bounded so a longer run is not cut. */
+const VIN_LENGTH_WORD = /(?<![A-Z0-9])[A-Z0-9]{17}(?![A-Z0-9])/gi;
+
 /**
- * `text` with every VIN-shaped word replaced by `replacement`: seventeen letters and digits without I, O or Q, with at least one of each, in either case. For text that is not a scan (error messages, logs) that could name a car.
+ * `text` with every word that could be a VIN replaced by `replacement`: seventeen letters and digits, with at least one of each, in either case. A real VIN has no I, O or Q, but text that mentions one may have misread it or come from a simulator, so unlike {@link redactScan}'s own rule this takes those letters too. For text that is not a scan (error messages, logs) that could name a car.
  */
 export function redactVinShapes(text: string, replacement: string = REDACTED): string {
-  return text.replace(new RegExp(VIN_SHAPE.source, "gi"), (word) =>
+  return text.replace(VIN_LENGTH_WORD, (word) =>
     /[A-Za-z]/.test(word) && /[0-9]/.test(word) ? replacement : word,
   );
 }

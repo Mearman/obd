@@ -942,6 +942,10 @@ describe("redactVinShapes", () => {
     expect(redactVinShapes("car wdb2110202b121724 failed", "[vin]")).toBe("car [vin] failed");
   });
 
+  it("also takes a word with I, O or Q, which a simulator or a misreading can produce", () => {
+    expect(redactVinShapes("car SIMULATEDCAR00001 failed")).toBe("car [redacted] failed");
+  });
+
   it("leaves seventeen-letter words, seventeen digits and longer runs alone", () => {
     expect(redactVinShapes("ABCDEFGHJKLMNPRST")).toBe("ABCDEFGHJKLMNPRST");
     expect(redactVinShapes("12345678901234567")).toBe("12345678901234567");
