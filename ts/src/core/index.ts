@@ -6,3 +6,6 @@ export * from "./guard.js";
 export * from "./elm.js";
 export * from "./can.js";
 export * from "./isotp.js";
+export * from "./diag.js";
+export * from "./kwp2000.js";
+export * from "./uds.js";
