@@ -1,0 +1,70 @@
+{
+  "notes": "Ford Focus on HS-CAN: the OBD socket's ISO 15765-4 CAN on pins 6 and 14, 11-bit identifiers at 500 kbit/s.\n\nThe six first units come from a US-market Ford Focus service manual transcription (ffguide.net) that does not state the model year or generation; the last three are fingerprinted by the opendbc project on the Focus Mk4 only. The manual's other module addresses (audio front control 727, front controls interface 7A7, front display interface 7A6, HVAC 733 and the smart junction box 726, which the manual also names the generic electronic module) sit on MS-CAN and are not in this profile: MS-CAN is on pins 3 and 11 and needs an STN adapter (docs/vehicles/ford-gm-stellantis.md). Address 726 is named the body control module, smart junction box or generic electronic module depending on the car.\n\nNo source opened states the diagnostic protocol or session. opendbc reads these addresses with UDS service 0x22 and tester present 0x3E, so the profile names UDS, and the default session, which every UDS unit must accept, is the one opened before reading. Treat every row as unconfirmed on a given car until `obd-read probe` shows the unit answering. No source opened covers the Fiesta Mk7, so it is not claimed.",
+  "name": "ford-focus",
+  "description": "Ford Focus (HS-CAN units), UDS over ISO-TP",
+  "status": "unconfirmed",
+  "bus": {
+    "id_bits": 11,
+    "bitrate": 500000
+  },
+  "diagnostics": {
+    "protocol": "uds",
+    "session": 1
+  },
+  "units": {
+    "pcm": {
+      "description": "Powertrain control module",
+      "request": 2016,
+      "response": 2024,
+      "source": "Ford Focus service manual (US) 'Module Configuration - Diagnosis and Testing' lists module address 7E0: https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html (snapshot https://web.archive.org/web/20261115132428/https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html). Bus (HS-CAN) from 'Data and Communication Network': https://www.ffguide.net/data_and_communication_network-702.html (snapshot https://web.archive.org/web/20261115133455/https://www.ffguide.net/data_and_communication_network-702.html). The response identifier is the request plus 8, the ISO 15765-4 pairing, which https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py (snapshot https://web.archive.org/web/20261115133802/https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py) uses as its default offset for Ford; the manuals give only the request address. Unconfirmed on any car. https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py (snapshot https://web.archive.org/web/20261115133802/https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py) also queries 0x7E0 as the engine ECU and notes a response is unlikely from behind a gateway on newer cars."
+    },
+    "abs": {
+      "description": "ABS module",
+      "request": 1888,
+      "response": 1896,
+      "source": "Ford Focus service manual (US) 'Module Configuration - Diagnosis and Testing' lists module address 760: https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html (snapshot https://web.archive.org/web/20261115132428/https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html). Bus (HS-CAN) from 'Data and Communication Network': https://www.ffguide.net/data_and_communication_network-702.html (snapshot https://web.archive.org/web/20261115133455/https://www.ffguide.net/data_and_communication_network-702.html). The response identifier is the request plus 8, the ISO 15765-4 pairing, which https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py (snapshot https://web.archive.org/web/20261115133802/https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py) uses as its default offset for Ford; the manuals give only the request address. Unconfirmed on any car. Also fingerprinted on the Focus Mk4 at 0x760: https://github.com/commaai/opendbc/blob/master/opendbc/car/ford/fingerprints.py (snapshot https://web.archive.org/web/20261115132344/https://github.com/commaai/opendbc/blob/master/opendbc/car/ford/fingerprints.py)."
+    },
+    "instrument-cluster": {
+      "description": "Instrument cluster (the gateway between HS-CAN and MS-CAN)",
+      "request": 1824,
+      "response": 1832,
+      "source": "Ford Focus service manual (US) 'Module Configuration - Diagnosis and Testing' lists module address 720: https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html (snapshot https://web.archive.org/web/20261115132428/https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html). Bus (HS-CAN and MS-CAN, gateway) from 'Data and Communication Network': https://www.ffguide.net/data_and_communication_network-702.html (snapshot https://web.archive.org/web/20261115133455/https://www.ffguide.net/data_and_communication_network-702.html). The response identifier is the request plus 8, the ISO 15765-4 pairing, which https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py (snapshot https://web.archive.org/web/20261115133802/https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py) uses as its default offset for Ford; the manuals give only the request address. Unconfirmed on any car."
+    },
+    "restraints": {
+      "description": "Restraints control module",
+      "request": 1847,
+      "response": 1855,
+      "source": "Ford Focus service manual (US) 'Module Configuration - Diagnosis and Testing' lists module address 737: https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html (snapshot https://web.archive.org/web/20261115132428/https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html). Bus (HS-CAN) from 'Data and Communication Network': https://www.ffguide.net/data_and_communication_network-702.html (snapshot https://web.archive.org/web/20261115133455/https://www.ffguide.net/data_and_communication_network-702.html). The response identifier is the request plus 8, the ISO 15765-4 pairing, which https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py (snapshot https://web.archive.org/web/20261115133802/https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py) uses as its default offset for Ford; the manuals give only the request address. Unconfirmed on any car."
+    },
+    "occupant-classification": {
+      "description": "Occupant classification system module",
+      "request": 1893,
+      "response": 1901,
+      "source": "Ford Focus service manual (US) 'Module Configuration - Diagnosis and Testing' lists module address 765: https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html (snapshot https://web.archive.org/web/20261115132428/https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html). Bus (HS-CAN) from 'Data and Communication Network': https://www.ffguide.net/data_and_communication_network-702.html (snapshot https://web.archive.org/web/20261115133455/https://www.ffguide.net/data_and_communication_network-702.html). The response identifier is the request plus 8, the ISO 15765-4 pairing, which https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py (snapshot https://web.archive.org/web/20261115133802/https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py) uses as its default offset for Ford; the manuals give only the request address. Unconfirmed on any car."
+    },
+    "apim": {
+      "description": "Accessory protocol interface module (SYNC), if fitted",
+      "request": 2000,
+      "response": 2008,
+      "source": "Ford Focus service manual (US) 'Module Configuration - Diagnosis and Testing' lists module address 7D0: https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html (snapshot https://web.archive.org/web/20261115132428/https://www.ffguide.net/module_configuration_diagnosis_and_testing-687.html). Bus (HS-CAN and MS-CAN) from 'Data and Communication Network': https://www.ffguide.net/data_and_communication_network-702.html (snapshot https://web.archive.org/web/20261115133455/https://www.ffguide.net/data_and_communication_network-702.html). The response identifier is the request plus 8, the ISO 15765-4 pairing, which https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py (snapshot https://web.archive.org/web/20261115133802/https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py) uses as its default offset for Ford; the manuals give only the request address. Unconfirmed on any car. Also named as an extra ECU at 0x7D0 by https://github.com/commaai/opendbc/blob/master/opendbc/car/ford/values.py (snapshot https://web.archive.org/web/20261115133705/https://github.com/commaai/opendbc/blob/master/opendbc/car/ford/values.py)."
+    },
+    "power-steering": {
+      "description": "Power steering control module, Focus Mk4 only",
+      "request": 1840,
+      "response": 1848,
+      "source": "Fingerprinted at 0x730 for the Focus Mk4 (C519) in https://github.com/commaai/opendbc/blob/master/opendbc/car/ford/fingerprints.py (snapshot https://web.archive.org/web/20261115132344/https://github.com/commaai/opendbc/blob/master/opendbc/car/ford/fingerprints.py); no manual opened lists it for the Focus. The response identifier is the request plus 8, the ISO 15765-4 pairing, which https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py (snapshot https://web.archive.org/web/20261115133802/https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py) uses as its default offset for Ford; the manuals give only the request address. Unconfirmed on any car."
+    },
+    "forward-radar": {
+      "description": "Forward radar (cruise control), Focus Mk4 only",
+      "request": 1892,
+      "response": 1900,
+      "source": "Fingerprinted at 0x764 for the Focus Mk4 (C519) in https://github.com/commaai/opendbc/blob/master/opendbc/car/ford/fingerprints.py (snapshot https://web.archive.org/web/20261115132344/https://github.com/commaai/opendbc/blob/master/opendbc/car/ford/fingerprints.py); no manual opened lists it for the Focus. The response identifier is the request plus 8, the ISO 15765-4 pairing, which https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py (snapshot https://web.archive.org/web/20261115133802/https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py) uses as its default offset for Ford; the manuals give only the request address. Unconfirmed on any car."
+    },
+    "forward-camera": {
+      "description": "Forward camera, Focus Mk4 only",
+      "request": 1798,
+      "response": 1806,
+      "source": "Fingerprinted at 0x706 for the Focus Mk4 (C519) in https://github.com/commaai/opendbc/blob/master/opendbc/car/ford/fingerprints.py (snapshot https://web.archive.org/web/20261115132344/https://github.com/commaai/opendbc/blob/master/opendbc/car/ford/fingerprints.py); no manual opened lists it for the Focus. The response identifier is the request plus 8, the ISO 15765-4 pairing, which https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py (snapshot https://web.archive.org/web/20261115133802/https://github.com/commaai/opendbc/blob/master/opendbc/car/fw_query_definitions.py) uses as its default offset for Ford; the manuals give only the request address. Unconfirmed on any car."
+    }
+  }
+}
