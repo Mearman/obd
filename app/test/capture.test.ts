@@ -19,11 +19,11 @@ function captured(store: ErrorStore): CapturedError | undefined {
 describe("ErrorStore", () => {
   it("keeps the latest error and queues a notice only for one nothing showed", () => {
     const store = new ErrorStore();
-    store.setScreen("runs");
+    store.setScreen("library");
     store.capture("window", new TypeError("late"), false);
     expect(captured(store)).toMatchObject({
       source: "window",
-      screen: "runs",
+      screen: "library",
       name: "TypeError",
       message: "late",
     });

@@ -44,7 +44,7 @@ async function collectedRun(): Promise<MemoryStorage> {
 
 async function openGraphs(): Promise<void> {
   renderApp(<App support={CHROME} />, createTestService(await collectedRun()));
-  await userEvent.click(screen.getByRole("tab", { name: "Runs" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Library" }));
   await userEvent.click(await screen.findByRole("button", { name: "View graphs" }));
   await screen.findByRole("group", { name: "Run playback" });
 }

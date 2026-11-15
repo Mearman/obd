@@ -81,7 +81,7 @@ describe("EventLog", () => {
 
   it("formats each kind as one line", () => {
     const events: readonly AppEvent[] = [
-      { kind: "screen", screen: "runs" },
+      { kind: "screen", screen: "library" },
       { kind: "connect", transport: "webserial" },
       { kind: "disconnect" },
       { kind: "operation", name: "scan.run", outcome: "refused" },
@@ -90,7 +90,7 @@ describe("EventLog", () => {
       { kind: "error", source: "react", screen: "scan" },
     ];
     expect(events.map((event) => formatEvent({ ...event, at: 1500, count: 2 }))).toEqual([
-      "+1.5s screen runs x2",
+      "+1.5s screen library x2",
       "+1.5s connect webserial x2",
       "+1.5s disconnect x2",
       "+1.5s operation scan.run refused x2",

@@ -163,7 +163,7 @@ describe("the Share dialog on a generic OBD-II scan", () => {
   });
 });
 
-describe("the Share dialog on the Runs screen", () => {
+describe("the Share dialog on a run in the Library", () => {
   it("shares a stored run as a summary", async () => {
     const storage = new MemoryStorage();
     const run = await storage.createRun({
@@ -182,7 +182,7 @@ describe("the Share dialog on the Runs screen", () => {
     );
     await storage.stopRun(run.id, 2000);
     renderApp(<App support={CHROME} />, createTestService(storage));
-    await openTab("Runs");
+    await openTab("Library");
     await userEvent.click(await screen.findByRole("button", { name: "Share" }));
     const dialog = await screen.findByRole("dialog", { name: "Share this run's summary" });
     const included = await within(dialog).findByRole("list", { name: "What the link contains" });
@@ -471,8 +471,8 @@ describe("a shared link with automatic saving off", () => {
     ).toEqual([700, 800, 900]);
 
     // A shared run is listed as shared and offers no Resume, since nothing more can be collected into it.
-    await userEvent.click(screen.getByRole("tab", { name: "Runs" }));
-    const runs = await screen.findByRole("table", { name: "Collection runs" });
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    const runs = await screen.findByRole("table", { name: "Library" });
     expect(within(runs).getByText("Shared")).toBeInTheDocument();
     expect(within(runs).queryByRole("button", { name: "Resume" })).not.toBeInTheDocument();
   });

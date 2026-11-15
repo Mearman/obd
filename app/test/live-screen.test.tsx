@@ -148,8 +148,8 @@ describe("collecting", () => {
     expect(button).toBeDisabled();
     expect(screen.getAllByText("Stopping…").length).toBeGreaterThan(1);
 
-    await userEvent.click(screen.getByRole("tab", { name: "Runs" }));
-    const table = await screen.findByRole("table", { name: "Collection runs" });
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    const table = await screen.findByRole("table", { name: "Library" });
     expect(within(table).getByText("Stopping…")).toBeInTheDocument();
     expect(within(table).queryByText("Collecting")).not.toBeInTheDocument();
 

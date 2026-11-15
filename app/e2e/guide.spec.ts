@@ -125,8 +125,8 @@ for (const viewport of VIEWPORTS) {
         await fits(page, "the summary");
         await page.screenshot({ path: `${base}-summary.png`, fullPage: true });
 
-        await page.getByRole("button", { name: "Open the run in Runs" }).click();
-        await expect(page.getByRole("heading", { name: "Runs", level: 1 })).toBeVisible();
+        await page.getByRole("button", { name: "Open the run in the Library" }).click();
+        await expect(page.getByRole("heading", { name: "Library", level: 1 })).toBeVisible();
         await expect(page.getByRole("group", { name: "Run playback" })).toBeVisible();
       });
     });

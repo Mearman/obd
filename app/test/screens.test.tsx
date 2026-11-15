@@ -203,8 +203,8 @@ describe("Live values and Runs", () => {
       expect(await screen.findByText("engine speed")).toBeInTheDocument();
       expect(request).toHaveBeenCalledWith("screen");
 
-      await openTab("Runs");
-      const table = await screen.findByRole("table", { name: "Collection runs" });
+      await openTab("Library");
+      const table = await screen.findByRole("table", { name: "Library" });
       expect(within(table).getByText("Collecting")).toBeInTheDocument();
       expect(within(table).getByText("Simulated")).toBeInTheDocument();
 
@@ -213,7 +213,7 @@ describe("Live values and Runs", () => {
       await waitFor(() => {
         expect(release).toHaveBeenCalled();
       });
-      await openTab("Runs");
+      await openTab("Library");
       expect(await screen.findByText("Stopped")).toBeInTheDocument();
     } finally {
       Reflect.deleteProperty(navigator, "wakeLock");
@@ -246,14 +246,17 @@ describe("Live values and Runs", () => {
       startedAt: 1_700_000_000_000,
     });
     renderApp(<App support={CHROME} />, createTestService(storage));
-    await openTab("Runs");
+    await openTab("Library");
     expect(await screen.findByRole("button", { name: "Resume" })).toBeInTheDocument();
     expect(screen.getByText("Open")).toBeInTheDocument();
   });
 
   it("says when there are no runs", async () => {
     renderApp(<App support={CHROME} />);
-    await openTab("Runs");
+    await openTab("Library");
+    expect(await screen.findByText(/^Nothing here yet\./)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("combobox", { name: "Kind" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Runs" }));
     expect(await screen.findByText("No runs yet.")).toBeInTheDocument();
   });
 });
@@ -382,8 +385,8 @@ describe("Generic OBD-II (no profile)", () => {
     expect(screen.getByText(/This connection has no profile/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Start collecting" }));
     expect(await screen.findByText("engine speed")).toBeInTheDocument();
-    await openTab("Runs");
-    const table = await screen.findByRole("table", { name: "Collection runs" });
+    await openTab("Library");
+    const table = await screen.findByRole("table", { name: "Library" });
     expect(within(table).getByText("Generic OBD-II (no profile)")).toBeInTheDocument();
     await openTab("Live");
     await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
@@ -398,7 +401,7 @@ describe("Generic OBD-II (no profile)", () => {
     expect(live).toHaveTextContent("P0420");
     expect(live).toHaveTextContent("Present when collection began");
     await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
-    await openTab("Runs");
+    await openTab("Library");
     await userEvent.click(await screen.findByRole("button", { name: /^Fault codes of run / }));
     const dialog = await screen.findByRole("dialog", { name: "Fault codes" });
     expect(

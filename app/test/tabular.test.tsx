@@ -81,7 +81,7 @@ describe("downloads of a saved report", () => {
       report: sharedScanReport(SCAN),
     });
     renderApp(<App support={CHROME} />, service);
-    await userEvent.click(screen.getByRole("tab", { name: "Scan" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await userEvent.click(await screen.findByRole("button", { name: /^View report / }));
     const opened = await screen.findByLabelText("Saved report");
 
@@ -117,7 +117,7 @@ describe("downloads of a decoded capture", () => {
       name: "capture.obdcap.json",
     });
     renderApp(<App support={CHROME} />, service);
-    await userEvent.click(screen.getByRole("tab", { name: "Captures" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await userEvent.click(
       await screen.findByRole("button", { name: `View capture ${summary.id}` }),
     );
@@ -170,7 +170,7 @@ describe("runs as CSV and TSV", () => {
       },
     ]);
     renderApp(<App support={CHROME} />, service);
-    await userEvent.click(screen.getByRole("tab", { name: "Runs" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     expect(await screen.findByRole("button", { name: "Export CSV" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Export JSON" })).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Export TSV" }));
@@ -185,8 +185,8 @@ describe("runs as CSV and TSV", () => {
   it("imports a picked CSV as an imported run and refuses a file with another header", async () => {
     const service = createTestService();
     renderApp(<App support={CHROME} />, service);
-    await userEvent.click(screen.getByRole("tab", { name: "Runs" }));
-    const input = await screen.findByLabelText("Run CSV or TSV file");
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    const input = await screen.findByLabelText("Capture, saved scan, transcript or run file");
 
     await userEvent.upload(input, new File(["when,elapsed (s)\r\n"], "bad.csv"));
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -195,7 +195,7 @@ describe("runs as CSV and TSV", () => {
     expect(await service.storage.listRuns()).toEqual([]);
 
     await userEvent.upload(input, new File([CSV], "run.csv", { type: "text/csv" }));
-    const runs = await screen.findByRole("table", { name: "Collection runs" });
+    const runs = await screen.findByRole("table", { name: "Library" });
     expect(await within(runs).findByText("Imported")).toBeVisible();
     const [stored] = await service.storage.listRuns();
     expect(stored).toMatchObject({ origin: "imported", adapter: "file run.csv" });
@@ -205,8 +205,8 @@ describe("runs as CSV and TSV", () => {
   it("imports a TSV dropped on the import area", async () => {
     const service = createTestService();
     renderApp(<App support={CHROME} />, service);
-    await userEvent.click(screen.getByRole("tab", { name: "Runs" }));
-    const area = await screen.findByLabelText("Import a run");
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    const area = await screen.findByRole("heading", { level: 1, name: "Library" });
     const file = new File([CSV.replaceAll(",", "\t").replaceAll("\r\n", "\n")], "run.tsv");
     fireEvent.drop(area, { dataTransfer: { files: [file] } });
     await waitFor(async () => {

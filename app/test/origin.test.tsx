@@ -55,23 +55,23 @@ describe("the origin of stored data", () => {
     await service.storage.saveCapture(capture, "shared");
     await service.storage.saveCapture({ ...capture, id: "capture-own" }, "local");
     renderApp(<App support={CHROME} />, service);
-    await userEvent.click(screen.getByRole("tab", { name: "Captures" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
 
-    const listed = await screen.findByRole("table", { name: "Captures" });
+    const listed = await screen.findByRole("table", { name: "Library" });
     await waitFor(() => {
       expect(within(listed).getAllByRole("row")).toHaveLength(3);
     });
     expect(within(listed).getByText("Shared")).toBeInTheDocument();
     expect(within(listed).getByText("Read here")).toBeInTheDocument();
 
-    await choose("Show captures", "Shared");
+    await choose("Origin", "Shared");
     await waitFor(() => {
       expect(
-        within(screen.getByRole("table", { name: "Captures" })).getAllByRole("row"),
+        within(screen.getByRole("table", { name: "Library" })).getAllByRole("row"),
       ).toHaveLength(2);
     });
     expect(
-      within(screen.getByRole("table", { name: "Captures" })).queryByText("Read here"),
+      within(screen.getByRole("table", { name: "Library" })).queryByText("Read here"),
     ).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: `View capture ${capture.id}` }));
@@ -82,7 +82,7 @@ describe("the origin of stored data", () => {
     });
   });
 
-  it("lists saved reports on Scan with their origin, filters them, and opens one read-only", async () => {
+  it("lists saved reports in the Library with their origin, filters them, and opens one read-only", async () => {
     const service = createTestService();
     await service.storage.saveScanReport({
       profile: "mercedes-w211",
@@ -100,23 +100,23 @@ describe("the origin of stored data", () => {
       report: sharedScanReport({ ...SHARED_SCAN, redacted: false }),
     });
     renderApp(<App support={CHROME} />, service);
-    await userEvent.click(screen.getByRole("tab", { name: "Scan" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
 
-    const reports = await screen.findByRole("table", { name: "Saved reports" });
+    const reports = await screen.findByRole("table", { name: "Library" });
     await waitFor(() => {
       expect(within(reports).getAllByRole("row")).toHaveLength(3);
     });
     expect(within(reports).getByText("Shared")).toBeInTheDocument();
     expect(within(reports).getByText("Read here")).toBeInTheDocument();
 
-    await choose("Show reports", "Read here");
+    await choose("Origin", "Read here");
     await waitFor(() => {
       expect(
-        within(screen.getByRole("table", { name: "Saved reports" })).queryByText("Shared scan"),
+        within(screen.getByRole("table", { name: "Library" })).queryByText("Shared scan"),
       ).not.toBeInTheDocument();
     });
-    await choose("Show reports", "Shared");
-    const shared = await screen.findByRole("table", { name: "Saved reports" });
+    await choose("Origin", "Shared");
+    const shared = await screen.findByRole("table", { name: "Library" });
     await waitFor(() => {
       expect(within(shared).getByText("Shared scan")).toBeInTheDocument();
     });
@@ -156,7 +156,7 @@ describe("the origin of stored data", () => {
       names.push(this.download);
     });
     renderApp(<App support={CHROME} />, service);
-    await userEvent.click(screen.getByRole("tab", { name: "Scan" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await userEvent.click(await screen.findByRole("button", { name: /^View report / }));
     const opened = await screen.findByLabelText("Saved report");
     await userEvent.click(within(opened).getByRole("button", { name: "Download JSON" }));
@@ -179,8 +179,8 @@ describe("the origin of stored data", () => {
       startedAt: 1000,
     });
     renderApp(<App support={CHROME} />, service);
-    await userEvent.click(screen.getByRole("tab", { name: "Runs" }));
-    const runs = await screen.findByRole("table", { name: "Collection runs" });
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    const runs = await screen.findByRole("table", { name: "Library" });
     const [, sharedRow, ownRow] = within(runs).getAllByRole("row");
     if (sharedRow === undefined || ownRow === undefined) throw new Error("two runs expected");
     expect(within(sharedRow).getByText("Shared")).toBeInTheDocument();
@@ -188,10 +188,10 @@ describe("the origin of stored data", () => {
     expect(within(ownRow).getByText("Read here")).toBeInTheDocument();
     expect(within(ownRow).getByRole("button", { name: "Resume" })).toBeInTheDocument();
 
-    await choose("Show runs", "Shared");
+    await choose("Origin", "Shared");
     await waitFor(() => {
       expect(
-        within(screen.getByRole("table", { name: "Collection runs" })).getAllByRole("row"),
+        within(screen.getByRole("table", { name: "Library" })).getAllByRole("row"),
       ).toHaveLength(2);
     });
   });

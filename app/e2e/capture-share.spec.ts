@@ -138,8 +138,8 @@ test("with automatic saving off a raw capture link re-decodes under the chosen p
   expect(page.url()).not.toContain("share=");
   await expect(page.getByRole("tablist")).toBeVisible();
   expect(await storedCaptures(page)).toHaveLength(1);
-  await page.getByRole("tab", { name: "Captures" }).click();
-  const listed = page.getByRole("table", { name: "Captures" });
+  await page.getByRole("tab", { name: "Library" }).click();
+  const listed = page.getByRole("table", { name: "Library" });
   await expect(listed.getByText("Shared", { exact: true })).toBeVisible();
   await receiver.close();
 });

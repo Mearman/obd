@@ -30,7 +30,7 @@ async function scanScreen(service: TestService = createTestService()): Promise<T
     adapter: simulatorUrl("mercedes-w211"),
   });
   renderApp(<App support={CHROME} />, service);
-  await userEvent.click(screen.getByRole("tab", { name: "Captures" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Library" }));
   await userEvent.click(screen.getByRole("tab", { name: "Scan" }));
   return service;
 }
@@ -48,7 +48,7 @@ describe("Captures", () => {
   it("captures on Scan, opens the viewer and decodes the same capture under another profile", async () => {
     await scanScreen();
     await userEvent.click(screen.getByRole("button", { name: "Capture everything" }));
-    await screen.findByRole("heading", { level: 1, name: "Captures" });
+    await screen.findByRole("heading", { level: 1, name: "Library" });
     await summary(/Decoded \d+.*Left raw 0.*with mercedes-w211/);
     expect(screen.getByRole("table", { name: "Units decoded with mercedes-w211" })).toBeVisible();
     expect(screen.getByText("This profile decodes every exchange in the capture.")).toBeVisible();
@@ -109,8 +109,8 @@ describe("Captures", () => {
 
   it("imports a transcript and lists what it could not recover", async () => {
     renderApp(<App support={CHROME} />);
-    await userEvent.click(screen.getByRole("tab", { name: "Captures" }));
-    expect(screen.getByText(/No captures yet/)).toBeVisible();
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    expect(screen.getByText(/Nothing here yet/)).toBeVisible();
     const log = [
       "2026-01-02T03:04:05.000+00:00 > ATSP6",
       "2026-01-02T03:04:05.000+00:00 < OK",
@@ -119,18 +119,18 @@ describe("Captures", () => {
       "stray line",
     ].join("\n");
     await userEvent.upload(
-      screen.getByLabelText("Capture, saved scan or transcript file"),
+      screen.getByLabelText("Capture, saved scan, transcript or run file"),
       new File([log], "run.log", { type: "text/plain" }),
     );
     expect(await screen.findByText("line 5: not a transcript line")).toBeVisible();
     await summary(/Decoded 1.*Left raw 0.*Generic OBD-II/);
-    expect(screen.getByRole("table", { name: "Captures" })).toHaveTextContent("Imported");
+    expect(screen.getByRole("table", { name: "Library" })).toHaveTextContent("Imported");
   });
 
   it("imports a file dropped anywhere on the screen and opens the viewer", async () => {
     renderApp(<App support={CHROME} />);
-    await userEvent.click(screen.getByRole("tab", { name: "Captures" }));
-    expect(screen.getByText(/No captures yet/)).toBeVisible();
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    expect(screen.getByText(/Nothing here yet/)).toBeVisible();
     const log = [
       "2026-01-02T03:04:05.000+00:00 > ATSP6",
       "2026-01-02T03:04:05.050+00:00 < OK",
@@ -138,11 +138,11 @@ describe("Captures", () => {
       "2026-01-02T03:04:05.150+00:00 < 7E8 06 41 00 08 18 00 00",
     ].join("\n");
     const file = new File([log], "dropped.log", { type: "text/plain" });
-    fireEvent.drop(screen.getByRole("heading", { level: 1, name: "Captures" }), {
+    fireEvent.drop(screen.getByRole("heading", { level: 1, name: "Library" }), {
       dataTransfer: { files: [file] },
     });
     await summary(/Decoded 1.*Left raw 0.*Generic OBD-II/);
-    expect(screen.getByRole("table", { name: "Captures" })).toHaveTextContent("Imported");
+    expect(screen.getByRole("table", { name: "Library" })).toHaveTextContent("Imported");
   });
 
   it("shares the raw capture, overwriting the VIN in its bytes unless asked to keep it", async () => {
