@@ -342,6 +342,23 @@ export const COMMANDS: readonly CommandSpec[] = [
       { required: true },
     ),
   ]),
+  {
+    name: "share",
+    summary: "make a link that shares a saved scan or run, or read one (TypeScript only)",
+    description:
+      "Print a link whose #share= fragment carries a saved scan (scan --output) or a run's JSON " +
+      "export, compressed. The fragment is never sent to a server, but anyone holding the link can " +
+      "read the fault history in it. With --open, print what a link carries in the format describe " +
+      "uses. This command has no Python equivalent.",
+    args: [
+      positional("report", "the saved scan or run export to share", "optional"),
+      option("--redact-vin", "flag", "blank the VIN and serial numbers before sharing"),
+      option("--base", "string", "the app's address", {
+        default: "https://mearman.github.io/obd/",
+      }),
+      option("--open", "string", "a share link to read instead of making one", { metavar: "LINK" }),
+    ],
+  },
 ];
 
 /** The program: the commands under the name the command line is run as. */

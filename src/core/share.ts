@@ -9,6 +9,7 @@
  */
 
 import { z } from "zod";
+import { runExportSchema } from "./run-export.js";
 import type { Run, Sample, SignalAggregate } from "./storage.js";
 
 /** The envelope version this module writes and reads. */
@@ -623,4 +624,64 @@ export function runSummaryShareData(
       };
     }),
   };
+}
+
+/** Per-signal summaries computed from samples, in the order each signal first appears. */
+export function aggregateSamples(samples: readonly Sample[]): SignalAggregate[] {
+  const bySignal = new Map<string, Sample[]>();
+  for (const sample of samples) {
+    const group = bySignal.get(sample.signal);
+    if (group === undefined) bySignal.set(sample.signal, [sample]);
+    else group.push(sample);
+  }
+  return Array.from(bySignal, ([signal, group]) => {
+    const numbers = group.flatMap((sample) =>
+      typeof sample.value === "number" ? [sample.value] : [],
+    );
+    const times = group.map((sample) => sample.timestamp);
+    return {
+      signal,
+      unit: group[0]?.unit ?? "",
+      count: group.length,
+      numericCount: numbers.length,
+      min: numbers.length === 0 ? null : numbers.reduce((a, b) => Math.min(a, b)),
+      max: numbers.length === 0 ? null : numbers.reduce((a, b) => Math.max(a, b)),
+      mean: numbers.length === 0 ? null : numbers.reduce((a, b) => a + b, 0) / numbers.length,
+      firstAt: times.reduce((a, b) => Math.min(a, b)),
+      lastAt: times.reduce((a, b) => Math.max(a, b)),
+    };
+  });
+}
+
+/** The run summary for a run's JSON export (`runs export` in the app, `exportRunJson` in core): aggregates are computed from the samples it holds. */
+export function runExportShareData(document: unknown): ShareResult<RunSummaryShareData> {
+  const forbidden = forbiddenKey(document);
+  if (forbidden !== undefined) return failure("invalid", `the key ${forbidden} is not allowed`);
+  const parsed = runExportSchema.safeParse(document);
+  if (!parsed.success)
+    return failure("invalid", `not a run export: ${describeIssue(parsed.error)}`);
+  const { run, samples } = parsed.data;
+  const checked = runSummaryShareSchema.safeParse(
+    runSummaryShareData(run, aggregateSamples(samples), samples),
+  );
+  if (!checked.success) return failure("invalid", describeIssue(checked.error));
+  return { ok: true, value: checked.data };
+}
+
+/** The lines of a shared run summary: where it came from, then each signal's range and series length. */
+export function describeSharedRun(data: RunSummaryShareData, createdAt: number): string[] {
+  const lines = [
+    `shared run summary (profile ${data.run.profile}, adapter ${data.run.adapter}, started ${new Date(data.run.startedAt).toISOString()}, ${data.run.stoppedAt === null ? "still open" : `stopped ${new Date(data.run.stoppedAt).toISOString()}`}, link made ${new Date(createdAt).toISOString()})`,
+  ];
+  if (data.run.notes !== "") lines.push(`notes: ${data.run.notes}`);
+  for (const signal of data.signals) {
+    const range =
+      signal.min === null || signal.max === null || signal.mean === null
+        ? "no numeric readings"
+        : `min ${String(signal.min)}, max ${String(signal.max)}, mean ${String(signal.mean)}`;
+    lines.push(
+      `${signal.signal}${signal.unit === "" ? "" : ` (${signal.unit})`}: ${String(signal.count)} readings, ${range}, ${String(signal.series.length)} series points`,
+    );
+  }
+  return lines;
 }
