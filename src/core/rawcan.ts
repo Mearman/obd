@@ -20,6 +20,7 @@ import {
 import { CanFrame, type CanLink } from "./can.js";
 import {
   CAN_PROTOCOLS,
+  EXTENDED_TESTER_ADDRESS,
   USER_PROTOCOL_BASE_RATE,
   USER_PROTOCOL_ISO15765_11_BIT,
   USER_PROTOCOL_ISO15765_29_BIT,
@@ -97,6 +98,7 @@ export class RawCanTransport implements Transport {
   private flowMode = 0;
   private timeoutMs = DEFAULT_TIMEOUT_MS;
   private userProtocol: readonly [idBits: number, bitrate: number] | undefined;
+  private extendedAddress: number | undefined;
 
   constructor(
     private readonly canLink: CanLink,
@@ -113,6 +115,7 @@ export class RawCanTransport implements Transport {
     this.flowMode = 0;
     this.timeoutMs = DEFAULT_TIMEOUT_MS;
     this.userProtocol = undefined;
+    this.extendedAddress = undefined;
   }
 
   /** The raw CAN link, for a caller that reads frames directly, such as the bus monitor. */
@@ -206,6 +209,16 @@ export class RawCanTransport implements Transport {
       this.flowData = fromHex(line.slice(6));
       return "OK";
     }
+    // CAN extended addressing as the ELM327 does it: the address goes first in every frame sent,
+    // and only replies that start with the tester address are passed on, address included.
+    if (line === "ATCEA") {
+      this.extendedAddress = undefined;
+      return "OK";
+    }
+    if (/^ATCEA[0-9A-F]{2}$/.test(line)) {
+      this.extendedAddress = Number.parseInt(line.slice(5), 16);
+      return "OK";
+    }
     if (line === "ATSTFF" || /^ATST[0-9A-F]{2}$/.test(line)) {
       this.timeoutMs = Math.max(1, Number.parseInt(line.slice(4), 16)) * 4;
       return "OK";
@@ -255,7 +268,11 @@ export class RawCanTransport implements Transport {
     const extended = this.idBits === 29;
     const requestId = (extended ? this.headerHigh << 24 : 0) | this.headerLow;
     const digits = extended ? 8 : 3;
-    const receiver = new Receiver();
+    const addressing =
+      this.extendedAddress === undefined
+        ? undefined
+        : { target: this.extendedAddress, source: EXTENDED_TESTER_ADDRESS };
+    const receiver = new Receiver(addressing?.source);
     const lines: string[] = [];
     let final = false;
     try {
@@ -267,6 +284,7 @@ export class RawCanTransport implements Transport {
         payload,
         expectedFlow,
         this.timeoutMs,
+        addressing,
       );
       const deadline = now() + this.timeoutMs;
       const pending: CanFrame[] = [...queued];
@@ -288,7 +306,7 @@ export class RawCanTransport implements Transport {
           const control =
             this.flowMode === 1 && this.flowData.length > 0
               ? pad(this.flowData)
-              : flowControlFrame();
+              : flowControlFrame(0, 0, addressing?.target);
           const target = this.flowTarget(frame.canId, requestId);
           await this.canLink.send(new CanFrame(target, control, extended));
         }

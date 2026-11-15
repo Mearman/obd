@@ -153,7 +153,7 @@ export async function writeValue(params: WriteValueParams): Promise<WriteOutcome
   if (await store.exists(save)) {
     throw new WriteRefused(`${save} already exists; choose a new file for the snapshot`);
   }
-  await elm.addressUnit(unit.requestId, unit.responseId);
+  await elm.addressUnit(unit.requestId, unit.responseId, unit.extendedAddress);
   const session = unitSession(elm, profile, unit);
   let previous: Uint8Array;
   try {

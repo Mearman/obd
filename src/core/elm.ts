@@ -17,6 +17,16 @@ export const MAX_ISOTP_MESSAGE = 4095;
 /** CAN data bytes per frame. */
 export const FRAME_BYTES = 8;
 
+/**
+ * The tester address the adapter expects first in every reply under CAN extended addressing: the
+ * datasheet's `AT TA` default, which this tool never changes. With `AT CEA hh` set the adapter
+ * "only [passes] ones that have the Tester Address in the first byte position".
+ * Source: ELM327 datasheet, "CEA hh" and "RA hh" ("CAN Extended Addressing does not use this value
+ * - it uses the one set by the AT TA command");
+ * https://www.elmelectronics.com/wp-content/uploads/2016/07/ELM327DS.pdf
+ */
+export const EXTENDED_TESTER_ADDRESS = 0xf1;
+
 /** ELM327 protocol numbers for ISO 15765-4 CAN, keyed by identifier bits and bit rate. */
 export const CAN_PROTOCOLS: readonly { idBits: number; bitrate: number; protocol: string }[] = [
   { idBits: 11, bitrate: 500_000, protocol: "6" },
@@ -209,6 +219,7 @@ export class Elm {
   private idBits = 11;
   private stn = false;
   private requestId: number | undefined;
+  private extendedAddress: number | undefined;
 
   constructor(
     private readonly link: Transport,
@@ -425,15 +436,34 @@ export class Elm {
     return hexNumber(canId, this.idBits === 11 ? 3 : 8);
   }
 
-  /** Directs requests to one control unit and accepts replies only from it. */
-  async addressUnit(requestId: number, responseId: number): Promise<void> {
+  /**
+   * Directs requests to one control unit and accepts replies only from it.
+   *
+   * @param extendedAddress The unit's ISO 15765-2 extended address, for a unit that is reached
+   * with one: the adapter puts it first in every frame it sends, flow control included, and passes
+   * only replies that start with {@link EXTENDED_TESTER_ADDRESS}. Absent, extended addressing is
+   * off.
+   */
+  async addressUnit(
+    requestId: number,
+    responseId: number,
+    extendedAddress?: number,
+  ): Promise<void> {
     await this.setHeader(requestId);
     await this.require(`ATCRA${this.formatId(responseId)}`);
     // Flow control for multi-frame replies goes back to the unit on its request identifier: send
-    // everything, no delay between frames.
+    // everything, no delay between frames. The adapter does not add the extended address to a flow
+    // control frame it builds from AT FC SD, so the data starts with it: the datasheet's extended
+    // addressing example sets `AT FC SD 04 30 FF 00` for a unit at address 04.
+    // Source: ELM327 datasheet, "Using CAN Extended Addresses".
     await this.require(`ATFCSH${this.formatId(requestId)}`);
-    await this.require("ATFCSD300000");
+    await this.require(
+      extendedAddress === undefined
+        ? "ATFCSD300000"
+        : `ATFCSD${hexNumber(extendedAddress, 2)}300000`,
+    );
     await this.require("ATFCSM1");
+    await this.setExtendedAddress(extendedAddress);
     if (this.stn) {
       // Transmit segmentation (STPX) waits for the unit's flow-control frame, which the adapter
       // recognises only for a registered (tester identifier, unit identifier) pair; the defaults
@@ -454,6 +484,25 @@ export class Elm {
     await this.setHeader(requestId);
     await this.require("ATAR");
     await this.require("ATFCSM0");
+    await this.setExtendedAddress(undefined);
+  }
+
+  /**
+   * Turns CAN extended addressing on with `address`, or off when it is absent. "Off" is sent only
+   * when it was on, as it is off after a reset.
+   * Source: ELM327 datasheet, "CEA" ("off by default, and once on, can be turned off at any time by
+   * sending AT CEA, with no address") and "CEA hh"; added in v1.4 per its version history.
+   */
+  private async setExtendedAddress(address: number | undefined): Promise<void> {
+    if (address !== undefined) {
+      await this.require(
+        `ATCEA${hexNumber(address, 2)}`,
+        "the adapter has no CAN extended addressing (ATCEA, ELM327 v1.4 and later), which this unit needs",
+      );
+    } else if (this.extendedAddress !== undefined) {
+      await this.require("ATCEA");
+    }
+    this.extendedAddress = address;
   }
 
   private longRequestCommand(payload: Uint8Array): string {
@@ -479,17 +528,23 @@ export class Elm {
     // https://www.scantool.net/scantool/downloads/682/obdlink_frpm_f.pdf
     // Unconfirmed on hardware: the longest command line an adapter accepts (the manual's `l:` mode
     // exists for messages longer than the UART buffer, and gives 2 kB or 4 kB maxima by model), and
-    // whether `h:` takes an eight-digit identifier for 29-bit CAN.
+    // whether `h:` takes an eight-digit identifier for 29-bit CAN. Under extended addressing the
+    // `x` parameter carries the address: "ISO 15765: extended address (overrides value, set by
+    // ATCEA command)" (FRPM revision F, "STPX"); unconfirmed on hardware.
     const header = this.requestId === undefined ? "" : `h:${this.formatId(this.requestId)}, `;
-    return `STPX ${header}d:${toUpperHex(payload)}`;
+    const extended =
+      this.extendedAddress === undefined ? "" : `, x:${hexNumber(this.extendedAddress, 2)}`;
+    return `STPX ${header}d:${toUpperHex(payload)}${extended}`;
   }
 
   /**
    * Sends one guarded request and returns each sender's reply messages.
    *
-   * A request over one frame (more than 7 bytes) is sent with the STN `STPX` command, which
-   * segments it per ISO 15765-2 and handles the unit's flow control. A plain ELM327 has no
-   * documented way to send one, so it refuses.
+   * A request over one frame (more than 7 bytes, or 6 under extended addressing, whose address
+   * byte takes one) is sent with the STN `STPX` command, which segments it per ISO 15765-2 and
+   * handles the unit's flow control. A plain ELM327 has no documented way to send one, so it
+   * refuses. Under extended addressing each reply frame's leading tester address is removed before
+   * reassembly.
    *
    * @param timeoutMs How long to wait for the adapter's prompt, in milliseconds.
    * @throws NoResponse when no unit answers.
@@ -501,13 +556,20 @@ export class Elm {
     const payload = permit.payload;
     // A link that segments in software (a raw CAN link) takes any length up to its limit as a plain
     // request line; otherwise a request over one frame needs the STN STPX command.
-    const nativeLong = MAX_SINGLE_FRAME < payload.length && payload.length <= this.maxRequest;
-    if (payload.length > this.maxRequest && this.maxRequest > MAX_SINGLE_FRAME) {
+    const extended = this.extendedAddress !== undefined;
+    // The extended address takes the first data byte, so a single frame carries one byte less.
+    // Source: ELM327 datasheet, "CAN Extended Addresses" ("The remaining seven bytes are used as
+    // described previously").
+    const singleFrame = extended ? MAX_SINGLE_FRAME - 1 : MAX_SINGLE_FRAME;
+    const segmentsInSoftware = this.maxRequest > MAX_SINGLE_FRAME;
+    const nativeLong =
+      segmentsInSoftware && singleFrame < payload.length && payload.length <= this.maxRequest;
+    if (payload.length > this.maxRequest && segmentsInSoftware) {
       throw new ElmError(
         `request of ${String(payload.length)} bytes does not fit ${String(this.maxRequest)} bytes`,
       );
     }
-    const longRequest = payload.length > MAX_SINGLE_FRAME && !nativeLong;
+    const longRequest = payload.length > singleFrame && !nativeLong;
     const text = longRequest ? this.longRequestCommand(payload) : toUpperHex(payload);
     const lines = await this.command(text, timeoutMs);
     const idChars = this.idBits === 11 ? 3 : 8;
@@ -532,12 +594,25 @@ export class Elm {
       if (
         !/^[0-9A-F]+$/.test(compact) ||
         body.length % 2 !== 0 ||
-        body.length < 2 ||
+        body.length < (extended ? 4 : 2) ||
         body.length > 2 * FRAME_BYTES
       ) {
         throw new ElmError(`unreadable reply line: ${quoted(line)}`);
       }
-      frames.push([Number.parseInt(compact.slice(0, idChars), 16), fromHex(body)]);
+      const data = fromHex(body);
+      // With headers on, the adapter prints the extended address after the identifier and before
+      // the PCI byte, as Quantex's BMW exchange shows ("610F10662F1500F25F0": "610=CAN ID,
+      // F1=tester, 06=length"); https://www.quantexlab.com/en/develop/elm327.html
+      if (extended && byteAt(data, 0) !== EXTENDED_TESTER_ADDRESS) {
+        throw new ElmError(
+          `reply line ${quoted(line)} does not start with the tester address ` +
+            hexNumber(EXTENDED_TESTER_ADDRESS, 2),
+        );
+      }
+      frames.push([
+        Number.parseInt(compact.slice(0, idChars), 16),
+        extended ? data.subarray(1) : data,
+      ]);
     }
     if (frames.length === 0) throw new NoResponse("no control unit answered");
     return isotpReassemble(frames);

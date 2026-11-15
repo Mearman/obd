@@ -77,7 +77,7 @@ function hex(value: number): string {
 /**
  * Lists everything wrong with a profile's parsed JSON; an empty list means it is sound.
  *
- * Covers what loading rejects (each reported with where it is, prefixed by `where`), and also unknown keys (a misspelt optional-looking key is otherwise silently ignored), a status other than confirmed or unconfirmed, a name that is not lower-case words joined by hyphens, blank descriptions and sources, identifiers wider than the bus allows (a CAN identifier for its width, a K-line address for one byte), a CAN unit whose request and response identifiers are the same, and any identifier shared by two units, which makes a reply impossible to attribute. For named values: unknown keys, a status other than confirmed or unconfirmed, a blank source and a zero scale.
+ * Covers what loading rejects (each reported with where it is, prefixed by `where`), and also unknown keys (a misspelt optional-looking key is otherwise silently ignored), a status other than confirmed or unconfirmed, a name that is not lower-case words joined by hyphens, blank descriptions and sources, identifiers wider than the bus allows (a CAN identifier for its width, a K-line address for one byte), a CAN unit whose request and response identifiers are the same, any response identifier shared by two units and any request shared by two units, which make a reply impossible to attribute. Under extended addressing a request is the identifier with its target byte, so units may share an identifier when their extended addresses differ, but one identifier may not be used both with and without one. For named values: unknown keys, a status other than confirmed or unconfirmed, a blank source and a zero scale.
  */
 export function checkProfile(data: unknown, where: string): string[] {
   const validated = validateProfile(data, where);
@@ -107,8 +107,11 @@ export function checkProfile(data: unknown, where: string): string[] {
   const can = "id_bits" in profile.bus ? profile.bus.id_bits : undefined;
   const limit = can === undefined ? MAX_KLINE_ADDRESS : MAX_CAN_ID[can];
   const width = can === undefined ? "one-byte K-line addresses" : `${String(can)}-bit identifiers`;
-  const requests = new Map<number, string>();
+  // A request is told apart by its identifier and, under extended addressing, its target byte, so
+  // units may share an identifier only when each carries a different extended address.
+  const requests = new Map<string, string>();
   const responses = new Map<number, string>();
+  const addressing = new Map<number, { readonly extended: boolean; readonly unit: string }>();
   for (const [unitName, unit] of Object.entries(profile.units)) {
     const label = `[units.${unitName}]`;
     if (unit.description.trim() === "") problems.push(`${label}: description is blank`);
@@ -124,13 +127,22 @@ export function checkProfile(data: unknown, where: string): string[] {
     if (can !== undefined && unit.request === unit.response) {
       problems.push(`${label}: request and response are both ${hex(unit.request)}`);
     }
-    for (const [kind, value, seen] of [
-      ["request", unit.request, requests],
-      ["response", unit.response, responses],
-    ] as const) {
-      const other = seen.get(value);
-      if (other === undefined) seen.set(value, unitName);
-      else problems.push(`${label}: ${kind} ${hex(value)} is also used by ${other}`);
+    const target = unit.extended_address;
+    const requestKey =
+      target === undefined ? hex(unit.request) : `${hex(unit.request)} to ${hex(target)}`;
+    const otherRequest = requests.get(requestKey);
+    if (otherRequest === undefined) requests.set(requestKey, unitName);
+    else problems.push(`${label}: request ${requestKey} is also used by ${otherRequest}`);
+    const otherResponse = responses.get(unit.response);
+    if (otherResponse === undefined) responses.set(unit.response, unitName);
+    else problems.push(`${label}: response ${hex(unit.response)} is also used by ${otherResponse}`);
+    const mode = addressing.get(unit.request);
+    if (mode === undefined)
+      addressing.set(unit.request, { extended: target !== undefined, unit: unitName });
+    else if (mode.extended !== (target !== undefined)) {
+      problems.push(
+        `${label}: request ${hex(unit.request)} is used with and without extended_address (also by ${mode.unit})`,
+      );
     }
   }
   return problems;
