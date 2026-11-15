@@ -162,6 +162,17 @@ A profile is a JSON file with the bus settings, the diagnostic protocol and one 
 
 Identifiers and the session are plain JSON numbers (146 is `0x92`, 2016 is `0x7E0`). Read the bundled profiles in [`src/profiles`](src/profiles) for the exact field spellings, including K-line profiles, which name an initialisation scheme instead of CAN settings. Pass a shipped profile by name (`--profile mercedes-w211`) or your own by a path ending in `.json`. Every unit needs a `source`, so an address can be traced to where it was found. Run `obd-read profile check ./my-car.json` before first use: beyond what loading rejects it reports unknown keys, identifiers too wide for the bus, a request and response that are the same, an identifier shared by two units and blank sources. The app imports a profile from a local JSON file the same way. Which live values the shipped profiles define is [issue 6](https://github.com/Mearman/obd/issues/6).
 
+A unit reached with ISO 15765-2 extended addressing also has an `extended_address`: the target byte that goes first in every frame sent to it, so several units can share one request identifier. The adapter then sets it with `ATCEA`, puts it first in the flow-control data and expects each reply frame to start with the tester address 0xF1. The check treats a request as the identifier with its target byte, and refuses one identifier used both with and without one.
+
+The shipped profiles are `mercedes-w211`, `vag-mqb` and three BMW profiles that use extended addressing over the OBD socket's CAN (D-CAN): `bmw-f-fem` (F-series cars with a front electronics module), `bmw-i3` (i3 and i3s) and `bmw-g29` (Z4 G29 and Supra J29, engine only). Every one is unconfirmed until read from a car; [docs/vehicles/bmw-mini.md](docs/vehicles/bmw-mini.md) gives the sources. BMW and Mini families without a profile, and the confirmation each BMW profile needs, are deferred issues:
+
+- E-series on D-CAN, which the core can reach but no source names the units for: [issue 17](https://github.com/Mearman/obd/issues/17)
+- K-line cars (DS2, KWP2000 on K-line), which need a K+DCAN cable and a DS2 transport: [issue 18](https://github.com/Mearman/obd/issues/18)
+- F and G series over ENET (HSFZ), which an ELM327 or STN adapter cannot reach: [issue 19](https://github.com/Mearman/obd/issues/19)
+- F-series without a front electronics module: [issue 21](https://github.com/Mearman/obd/issues/21)
+- Mini: [issue 24](https://github.com/Mearman/obd/issues/24)
+- Confirming `bmw-f-fem`, `bmw-i3` and `bmw-g29` on a car: [issue 20](https://github.com/Mearman/obd/issues/20), [issue 22](https://github.com/Mearman/obd/issues/22) and [issue 23](https://github.com/Mearman/obd/issues/23)
+
 ## Home Assistant and MQTT
 
 `mqtt` reads the same values as `live` and publishes each one to an MQTT broker every `--interval` seconds, together with the adapter's own voltage reading unless `--no-voltage` is given. It sends no request that `live` does not, and every request still passes the guard.
