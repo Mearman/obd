@@ -16,6 +16,7 @@ export * from "./bluetooth.js";
 export * from "./capabilities.js";
 export * from "./gatt.js";
 export * from "./granted-devices.js";
+export * from "./journal-storage.js";
 export * from "./read-queue.js";
 export * from "./serial.js";
 export * from "./storage.js";
