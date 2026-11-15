@@ -2,12 +2,13 @@ import { useState } from "react";
 import { detectBrowserSupport, type BrowserSupport } from "./connect/support";
 import { DatabaseNotice } from "./database/DatabaseNotice";
 import { useDiagnostics } from "./diagnostics/DiagnosticsProvider";
-import { app, brand, header, main, nav, status } from "./App.css";
+import { app, brand, header, identity, main, nav, status } from "./App.css";
 import { ConnectScreen } from "./screens/ConnectScreen";
 import { LiveScreen } from "./screens/LiveScreen";
 import { RunsScreen } from "./screens/RunsScreen";
 import { ScanScreen } from "./screens/ScanScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { VersionLink } from "./release/VersionLink";
 import { SharedViewer } from "./share/SharedViewer";
 import { useSharedLink } from "./share/useSharedLink";
 import { THEME_PREFERENCES } from "./theme/preference";
@@ -58,7 +59,10 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
   return (
     <div className={app}>
       <header className={header}>
-        <span className={brand}>obd-read</span>
+        <div className={identity}>
+          <span className={brand}>obd-read</span>
+          <VersionLink />
+        </div>
         <div className={status}>
           {shared.fragment === undefined ? (
             <Badge
