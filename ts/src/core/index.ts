@@ -12,3 +12,4 @@ export * from "./uds.js";
 export * from "./profile.js";
 export * from "./profile-check.js";
 export * from "./codenames.js";
+export * from "./definitions.js";
