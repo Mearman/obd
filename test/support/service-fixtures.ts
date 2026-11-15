@@ -38,7 +38,7 @@ export class FakeCollector implements Collector {
 
   status(runId: string): CollectionStatus | undefined {
     return this.active().includes(runId)
-      ? { state: "collecting", attempt: 0, lastError: null, samples: 0 }
+      ? { state: "collecting", attempt: 0, lastError: null, samples: 0, progress: null }
       : undefined;
   }
 

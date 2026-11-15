@@ -116,6 +116,28 @@ export const collectionStatusSchema = z.object({
   lastError: z.string().nullable(),
   /** Samples stored since collection started in this process. */
   samples: z.number().int().nonnegative(),
+  /** The value being requested now, or `null` before the first request and while reconnecting. */
+  progress: z
+    .object({
+      position: z.number().int().positive(),
+      total: z.number().int().positive(),
+      label: z.string(),
+    })
+    .nullable(),
+});
+
+/** The legislated values the connected car supports. */
+export const supportedValuesSchema = z.object({
+  values: z.array(
+    z.object({
+      /** The name `runs.start` selects the value by in `signals`. */
+      name: nameSchema,
+      /** The readings the value yields; each becomes a sample under its label. */
+      columns: z.array(z.object({ label: z.string(), unit: z.string() })).min(1),
+    }),
+  ),
+  /** How long one request of the adapter took, in milliseconds, measured by reading the first value. */
+  requestMs: z.number().nonnegative(),
 });
 
 /** What the adapter said about itself. */
@@ -404,7 +426,9 @@ export const diagnosticsContract = {
     start: oc.input(startRunInputSchema).output(runSchema),
     /** Collects again for a run that is open and not being collected, as after a reload; it keeps what the run was started with. Rejects with `CONFLICT` for a run that is not `local`, since a shared or imported run was not read here, and for a run a recording plan recorded, since a plan does not resume. */
     resume: oc.input(runIdInput).output(runSchema),
-    /** Stops collecting for a run and closes it. */
+    /** The legislated values the connected car supports, for choosing what a run collects, with the time one request took. Needs the adapter free: no collection run, plan or capture. */
+    values: oc.output(supportedValuesSchema),
+    /** Stops collecting for a run and closes it. A cycle in progress ends before its next request, so the call returns within the request in flight. */
     stop: oc.input(runIdInput).output(runSchema),
     /** How a run's collection is going, or `null` for a run this host is not collecting. */
     status: oc.input(runIdInput).output(collectionStatusSchema.nullable()),

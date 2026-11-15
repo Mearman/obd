@@ -40,6 +40,7 @@ import {
   type GuardedKind,
 } from "./guarded.js";
 import { GuardError } from "./guard.js";
+import { supportedValues } from "./live.js";
 import { runMonitor } from "./monitor.js";
 import { jsonText } from "./ordered-json.js";
 import { OptionError } from "./options.js";
@@ -881,6 +882,18 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
         translated(async () => {
           await collector.stop(input.runId);
           return presented(await storage.stopRun(input.runId, now()));
+        }),
+      ),
+      values: os.runs.values.handler(() =>
+        onLink(async (session) => {
+          const bus = sessionBus(session.profile);
+          await session.elm.selectCan(bus.idBits, bus.bitrate);
+          await session.elm.addressFunctional(FUNCTIONAL_ID[bus.idBits]);
+          const { values, requestMs } = await supportedValues(session.elm);
+          return {
+            values: values.map((value) => ({ name: value.name, columns: [...value.columns] })),
+            requestMs,
+          };
         }),
       ),
       status: os.runs.status.handler(({ input }) => collector.status(input.runId) ?? null),
