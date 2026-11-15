@@ -85,6 +85,9 @@ const IDLE: CollectionView = {
 
 const STATUS_POLL_MS = 1000;
 
+/** How often a collection run's status is read, so the value being requested keeps up with an adapter that answers a request a second; the read is local to the service. */
+const COLLECTION_POLL_MS = 250;
+
 /**
  * Gives the screens the service and tracks the connection and the collection run.
  *
@@ -238,7 +241,7 @@ export function DiagnosticsProvider({
           progress: status.progress,
         }));
       });
-    }, STATUS_POLL_MS);
+    }, COLLECTION_POLL_MS);
     return () => {
       live.active = false;
       clearInterval(timer);
