@@ -286,6 +286,9 @@ describe("a shared link with automatic saving off", () => {
     });
     await userEvent.click(screen.getByRole("button", { name: "Save this scan" }));
 
+    expect(await screen.findByText("Saved to this device, marked as shared.")).toBeInTheDocument();
+    expect(window.location.hash).not.toBe("");
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(await screen.findByText("Saved the shared scan")).toBeInTheDocument();
     expect(window.location.hash).toBe("");
     expect(screen.getByRole("tablist")).toBeInTheDocument();
@@ -382,6 +385,9 @@ describe("a shared link with automatic saving off", () => {
       expect(screen.getByRole("button", { name: "Save this read" })).toBeEnabled();
     });
     await userEvent.click(screen.getByRole("button", { name: "Save this read" }));
+    expect(await screen.findByText("Saved to this device, marked as shared.")).toBeInTheDocument();
+    expect(window.location.hash).not.toBe("");
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(await screen.findByText("Saved the shared OBD-II read")).toBeInTheDocument();
     const [summary, ...others] = await storage.listScanReports({});
     expect(others).toEqual([]);
@@ -445,6 +451,9 @@ describe("a shared link with automatic saving off", () => {
       expect(screen.getByRole("button", { name: "Save this run" })).toBeEnabled();
     });
     await userEvent.click(screen.getByRole("button", { name: "Save this run" }));
+    expect(await screen.findByText("Saved to this device, marked as shared.")).toBeInTheDocument();
+    expect(window.location.hash).not.toBe("");
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(await screen.findByText("Saved the shared run")).toBeInTheDocument();
     const [run, ...others] = await storage.listRuns({});
     expect(others).toEqual([]);
@@ -545,6 +554,9 @@ describe("a shared link with automatic saving off", () => {
     });
     expect(await storage.listCaptures({})).toEqual([]);
     await userEvent.click(screen.getByRole("button", { name: "Save this capture" }));
+    expect(await screen.findByText("Saved to this device, marked as shared.")).toBeInTheDocument();
+    expect(window.location.hash).not.toBe("");
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(await screen.findByText("Saved the shared capture")).toBeInTheDocument();
     expect(window.location.hash).toBe("");
     const [stored, ...others] = await storage.listCaptures({});
