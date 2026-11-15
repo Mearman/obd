@@ -14,3 +14,5 @@ export * from "./profile-check.js";
 export * from "./codenames.js";
 export * from "./definitions.js";
 export * from "./scancompare.js";
+export * from "./offline.js";
+export * from "./csvlog.js";
