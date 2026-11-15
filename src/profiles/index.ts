@@ -22,6 +22,7 @@ import renaultTwingoSmart453 from "./renault-twingo-smart-453.json" with { type:
 import renaultTwizy from "./renault-twizy.json" with { type: "json" };
 import renaultZoePh1 from "./renault-zoe-ph1.json" with { type: "json" };
 import renaultZoePh2 from "./renault-zoe-ph2.json" with { type: "json" };
+import toyotaTnga from "./toyota-tnga.json" with { type: "json" };
 import vagMqb from "./vag-mqb.json" with { type: "json" };
 import vwUp from "./vw-up.json" with { type: "json" };
 
@@ -42,6 +43,7 @@ const SHIPPED: ReadonlyMap<string, unknown> = new Map<string, unknown>([
   ["renault-twizy", renaultTwizy],
   ["renault-zoe-ph1", renaultZoePh1],
   ["renault-zoe-ph2", renaultZoePh2],
+  ["toyota-tnga", toyotaTnga],
   ["vag-mqb", vagMqb],
   ["vw-up", vwUp],
 ]);
