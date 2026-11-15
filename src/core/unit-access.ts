@@ -16,8 +16,11 @@ export type LineSink = (line: string) => void;
 /** The parts of a diagnostic profile the write and actuator commands read. */
 export type UnitProfile = Pick<Profile, "name" | "status" | "protocol" | "session">;
 
-/** The CAN address pair, extended address when it has one, and name of one control unit. */
-export type UnitAddress = Pick<Unit, "name" | "requestId" | "responseId" | "extendedAddress">;
+/** The CAN address pair, extended address and identifier width when it has them, and name of one control unit. */
+export type UnitAddress = Pick<
+  Unit,
+  "name" | "requestId" | "responseId" | "extendedAddress" | "idBits"
+>;
 
 /** A guarded request channel to one unit. The unit must already be addressed. */
 export function unitSession(elm: Elm, profile: UnitProfile, unit: UnitAddress): UnitSession {

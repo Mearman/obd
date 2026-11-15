@@ -152,7 +152,7 @@ export interface ActuateCommandParams {
 export async function actuateCommand(params: ActuateCommandParams): Promise<number> {
   const { elm, profile, unit, request, stop, durationMs, out, ask } = params;
   checkActuation(profile.protocol, request, stop, durationMs);
-  await elm.addressUnit(unit.requestId, unit.responseId, unit.extendedAddress);
+  await elm.addressUnit(unit.requestId, unit.responseId, unit.extendedAddress, unit.idBits);
   await makeClient(elm, profile, unit).start();
   const seconds = String(durationMs / 1000);
   out(`unit: ${unit.name} (${hexNumber(unit.requestId, 1)} -> ${hexNumber(unit.responseId, 1)})`);

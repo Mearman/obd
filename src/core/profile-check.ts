@@ -77,7 +77,7 @@ function hex(value: number): string {
 /**
  * Lists everything wrong with a profile's parsed JSON; an empty list means it is sound.
  *
- * Covers what loading rejects (each reported with where it is, prefixed by `where`), and also unknown keys (a misspelt optional-looking key is otherwise silently ignored), a status other than confirmed or unconfirmed, a name that is not lower-case words joined by hyphens, blank descriptions and sources, identifiers wider than the bus allows (a CAN identifier for its width, a K-line address for one byte), a CAN unit whose request and response identifiers are the same, any response identifier shared by two units and any request shared by two units, which make a reply impossible to attribute. Under extended addressing a request is the identifier with its target byte, so units may share an identifier when their extended addresses differ, but one identifier may not be used both with and without one. For named values: unknown keys, a status other than confirmed or unconfirmed, a blank source and a zero scale.
+ * Covers what loading rejects (each reported with where it is, prefixed by `where`), and also unknown keys (a misspelt optional-looking key is otherwise silently ignored), a status other than confirmed or unconfirmed, a name that is not lower-case words joined by hyphens, blank descriptions and sources, identifiers wider than the unit allows (a CAN identifier for the unit's `id_bits` or, without one, the bus's, a K-line address for one byte), a CAN unit whose request and response identifiers are the same, any response identifier shared by two units and any request shared by two units, which make a reply impossible to attribute. Under extended addressing a request is the identifier with its target byte, so units may share an identifier when their extended addresses differ, but one identifier may not be used both with and without one. For named values: unknown keys, a status other than confirmed or unconfirmed, a blank source and a zero scale.
  */
 export function checkProfile(data: unknown, where: string): string[] {
   const validated = validateProfile(data, where);
@@ -105,8 +105,6 @@ export function checkProfile(data: unknown, where: string): string[] {
   }
 
   const can = "id_bits" in profile.bus ? profile.bus.id_bits : undefined;
-  const limit = can === undefined ? MAX_KLINE_ADDRESS : MAX_CAN_ID[can];
-  const width = can === undefined ? "one-byte K-line addresses" : `${String(can)}-bit identifiers`;
   // A request is told apart by its identifier and, under extended addressing, its target byte, so
   // units may share an identifier only when each carries a different extended address.
   const requests = new Map<string, string>();
@@ -114,6 +112,10 @@ export function checkProfile(data: unknown, where: string): string[] {
   const addressing = new Map<number, { readonly extended: boolean; readonly unit: string }>();
   for (const [unitName, unit] of Object.entries(profile.units)) {
     const label = `[units.${unitName}]`;
+    const unitBits = unit.id_bits ?? can;
+    const limit = unitBits === undefined ? MAX_KLINE_ADDRESS : MAX_CAN_ID[unitBits];
+    const width =
+      unitBits === undefined ? "one-byte K-line addresses" : `${String(unitBits)}-bit identifiers`;
     if (unit.description.trim() === "") problems.push(`${label}: description is blank`);
     if (unit.source.trim() === "")
       problems.push(`${label}: source is blank, so the address cannot be traced`);
@@ -124,7 +126,7 @@ export function checkProfile(data: unknown, where: string): string[] {
       if (value < 0 || value > limit)
         problems.push(`${label}: ${kind} ${hex(value)} does not fit ${width}`);
     }
-    if (can !== undefined && unit.request === unit.response) {
+    if (unitBits !== undefined && unit.request === unit.response) {
       problems.push(`${label}: request and response are both ${hex(unit.request)}`);
     }
     const target = unit.extended_address;

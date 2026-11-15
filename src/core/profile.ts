@@ -110,6 +110,7 @@ export const unitSchema = object({
   request: whole(),
   response: whole(),
   extended_address: byte().optional(),
+  id_bits: z.literal([11, 29], { error: wrong("11 or 29") }).optional(),
   source: text(),
   values: z.record(z.string(), valueSchema).optional(),
 });
@@ -153,6 +154,13 @@ export const profileFileSchema = object({
           code: "custom",
           path: ["units", unitName],
           message: "extended_address is ISO 15765-2 CAN addressing and a K-line bus has none",
+        });
+      }
+      if (unit.id_bits !== undefined) {
+        context.addIssue({
+          code: "custom",
+          path: ["units", unitName],
+          message: "id_bits is a CAN identifier width and a K-line bus has none",
         });
       }
     }
@@ -239,6 +247,8 @@ export interface DataValue {
  * One control unit: where to send requests and where its replies come from.
  *
  * `extendedAddress` is present for a unit reached with ISO 15765-2 extended addressing: the byte goes first in the data of every frame sent to the unit (requests and flow control), and every frame the unit sends starts with the tester address {@link DEFAULT_TESTER}. Several units may then share one request identifier, told apart by this byte.
+ *
+ * `idBits` is the width of the unit's CAN identifiers: the unit's own `id_bits` when the profile gives one, else the bus's, so a car that mixes 11-bit and 29-bit units names each one's width. A K-line unit has none.
  */
 export interface Unit {
   readonly name: string;
@@ -246,6 +256,7 @@ export interface Unit {
   readonly requestId: number;
   readonly responseId: number;
   readonly extendedAddress?: number;
+  readonly idBits?: 11 | 29;
   readonly source: string;
   readonly values: ReadonlyMap<string, DataValue>;
 }
@@ -388,6 +399,7 @@ function build(file: ProfileFile): Profile {
       requestId: unit.request,
       responseId: unit.response,
       ...(unit.extended_address === undefined ? {} : { extendedAddress: unit.extended_address }),
+      ...(bus.kind === "can" ? { idBits: unit.id_bits ?? bus.idBits } : {}),
       source: unit.source,
       values,
     });
