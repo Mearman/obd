@@ -2,6 +2,15 @@ import { describe, expect, it } from "vitest";
 import {
   DiagProtocol,
   Elm,
+  FUNCTIONAL_ID,
+  PIDS,
+  STORED_CODES,
+  decodeCode,
+  readAnswers,
+  readPid,
+  readiness,
+  vin,
+  codes,
   ElmError,
   GuardError,
   Kwp2000,
@@ -13,6 +22,7 @@ import {
   authoriseClear,
   fromHex,
   toHex,
+  toUpperHex,
   type Fault,
 } from "../src/core/index.js";
 import { FakeElmCore, KwpEcu, fakeTransport, type Responder } from "./helpers/fake-elm.js";
@@ -197,5 +207,82 @@ describe("UDS", () => {
     store.write("snapshot.json", "{}");
     await new Uds(unit, 0x03).clear(await authoriseClear(store, "snapshot.json"));
     expect(core.requests).toEqual(["14FFFFFF"]);
+  });
+});
+
+describe("OBD", () => {
+  const replies = new Map<string, [number, string][]>([
+    ["0902", [[0x7e8, `490201${toHex(asciiEncode("WDB2110200A000000"))}`]]],
+    [
+      "0101",
+      [
+        [0x7e8, "410182076500"],
+        [0x7e9, "410100000000"],
+      ],
+    ],
+    [
+      "03",
+      [
+        [0x7e8, "430201230420"],
+        [0x7e9, "4300"],
+      ],
+    ],
+    ["07", [[0x7e8, "4700"]]],
+    ["0A", []],
+    ["010C", [[0x7e8, "410C0C80"]]],
+    ["0105", [[0x7e8, "41055A"]]],
+    ["0142", [[0x7e8, "41423070"]]],
+  ]);
+
+  function obdCar(request: Uint8Array): [number, Uint8Array][] {
+    const found = replies.get(toUpperHex(request)) ?? [];
+    return found.map(([sender, text]) => [sender, fromHex(text)]);
+  }
+
+  async function obdElm(): Promise<[Elm, FakeElmCore]> {
+    const core = new FakeElmCore({ 0x7df: obdCar });
+    const elm = new Elm(fakeTransport(core));
+    await elm.selectCan(11, 500_000);
+    await elm.addressFunctional(FUNCTIONAL_ID[11]);
+    return [elm, core];
+  }
+
+  it("reads the VIN, readiness, codes and values", async () => {
+    const [elm, core] = await obdElm();
+    expect(core.sent.slice(1)).toEqual(["ATSH7DF", "ATAR", "ATFCSM0"]);
+    expect(await vin(elm)).toBe("WDB2110200A000000");
+    const state = await readiness(elm);
+    expect(state.get(0x7e8)).toEqual({ lampOn: true, codeCount: 2 });
+    expect(state.get(0x7e9)).toEqual({ lampOn: false, codeCount: 0 });
+    expect(await codes(elm, STORED_CODES)).toEqual(
+      new Map([
+        [0x7e8, ["P0123", "P0420"]],
+        [0x7e9, []],
+      ]),
+    );
+    const pid = (code: number): NonNullable<ReturnType<typeof PIDS.get>> => {
+      const found = PIDS.get(code);
+      if (found === undefined) throw new Error(`no parameter ${String(code)}`);
+      return found;
+    };
+    expect(await readPid(elm, pid(0x05))).toEqual(new Map([[0x7e8, [50]]]));
+    expect(await readPid(elm, pid(0x0c))).toEqual(new Map([[0x7e8, [800]]]));
+    expect(await readPid(elm, pid(0x42))).toEqual(new Map([[0x7e8, [12.4]]]));
+  });
+
+  it.each([
+    ["0123", "P0123"],
+    ["4321", "C0321"],
+    ["9003", "B1003"],
+    ["C100", "U0100"],
+    ["3FFF", "P3FFF"],
+  ])("decodes the code bytes %s as %s", (pair, code) => {
+    expect(decodeCode(fromHex(pair))).toBe(code);
+  });
+
+  it("cannot clear without the clear command", async () => {
+    const [elm, core] = await obdElm();
+    await expect(readAnswers(elm, Uint8Array.of(0x04))).rejects.toThrow(GuardError);
+    expect(core.requests).toEqual([]);
   });
 });
