@@ -131,7 +131,15 @@ export async function readObdScan(
 ): Promise<ObdScan> {
   await elm.selectCan(bus.idBits, bus.bitrate);
   await elm.addressFunctional(FUNCTIONAL_ID[bus.idBits]);
+  return readAddressedObdScan(elm);
+}
 
+/**
+ * Reads everything the legislated services offer from a session that is already on the bus and addressed to every emissions unit (`addressFunctional`), CAN or K-line.
+ *
+ * @throws ElmError, NegativeResponse and TransportError as the layers below do.
+ */
+export async function readAddressedObdScan(elm: Elm): Promise<ObdScan> {
   const units = new Map<number, ObdUnitScan>();
   const unit = (sender: number): ObdUnitScan => {
     const known = units.get(sender);

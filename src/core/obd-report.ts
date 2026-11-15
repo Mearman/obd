@@ -4,6 +4,7 @@ import { hexNumber } from "./bytes.js";
 import { ElmError, type Elm } from "./elm.js";
 import { KLineElm } from "./kline.js";
 import { report } from "./legislated.js";
+import { readAddressedObdScan, type ObdScan } from "./obd-scan.js";
 import {
   FUNCTIONAL_ID,
   MISFIRE_FIRST_CYLINDER,
@@ -93,17 +94,11 @@ export interface ObdCommandOptions {
 }
 
 /**
- * The `obd` command: selects the bus, addresses every emissions unit and prints {@link obdReport}.
- * It needs no profile.
+ * Selects the bus the `obd` command is asked for and addresses every emissions unit on it.
  *
- * @returns The exit status, always 0.
  * @throws ElmError when a K-line scheme is asked for on a session that is not a {@link KLineElm}.
  */
-export async function obdCommand(
-  elm: Elm,
-  options: ObdCommandOptions,
-  out: LineSink,
-): Promise<number> {
+export async function selectObdBus(elm: Elm, options: ObdCommandOptions): Promise<void> {
   if (options.kline !== undefined) {
     if (!(elm instanceof KLineElm)) {
       throw new ElmError("a K-line read needs a K-line adapter session");
@@ -119,5 +114,30 @@ export async function obdCommand(
     await elm.selectCan(options.idBits, options.bitrate);
     await elm.addressFunctional(FUNCTIONAL_ID[options.idBits]);
   }
+}
+
+/**
+ * The `obd` command: selects the bus, addresses every emissions unit and prints {@link obdReport}.
+ * It needs no profile.
+ *
+ * @returns The exit status, always 0.
+ * @throws ElmError when a K-line scheme is asked for on a session that is not a {@link KLineElm}.
+ */
+export async function obdCommand(
+  elm: Elm,
+  options: ObdCommandOptions,
+  out: LineSink,
+): Promise<number> {
+  await selectObdBus(elm, options);
   return obdReport(elm, out);
+}
+
+/**
+ * The `obd` command's structured form: selects the bus, addresses every emissions unit and reads the legislated services as an {@link ObdScan}, which a link or a saved file carries. It needs no profile.
+ *
+ * @throws ElmError when a K-line scheme is asked for on a session that is not a {@link KLineElm}, and as {@link readAddressedObdScan} does.
+ */
+export async function obdScanCommand(elm: Elm, options: ObdCommandOptions): Promise<ObdScan> {
+  await selectObdBus(elm, options);
+  return readAddressedObdScan(elm);
 }

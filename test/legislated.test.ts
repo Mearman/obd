@@ -1,49 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   CURRENT_DATA,
-  Elm,
-  FUNCTIONAL_ID,
   PIDS,
   decodeMonitorTests,
   decodeReadiness,
   decodeSupportBitmap,
   formatValue,
   fromHex,
-  obdReport,
   supportedIds,
 } from "../src/core/index.js";
-import { FakeElmCore, fakeTransport } from "./helpers/fake-elm.js";
-import { loadReplies, responder, type Replies } from "./helpers/transcripts.js";
-
-const RECORDED = ["a150-modes-01-to-09.txt", "a150-since-clear.txt"];
-
-/** A fake car on the functional address that answers from recorded replies. */
-class Car {
-  readonly core: FakeElmCore;
-  private readonly transport;
-  readonly lines: string[] = [];
-
-  constructor(replies: Replies) {
-    this.core = new FakeElmCore({ 0x7df: responder(replies) });
-    this.transport = fakeTransport(this.core);
-  }
-
-  /** Runs the `obd` command's report on a session that is on the bus and addressed functionally. */
-  async obd(): Promise<number> {
-    return obdReport(await this.elm(), (line) => this.lines.push(line));
-  }
-
-  async elm(): Promise<Elm> {
-    const elm = new Elm(this.transport);
-    await elm.selectCan(11, 500_000);
-    await elm.addressFunctional(FUNCTIONAL_ID[11]);
-    return elm;
-  }
-
-  get output(): string {
-    return this.lines.join("\n");
-  }
-}
+import { Car, RECORDED } from "./helpers/recorded-car.js";
+import { loadReplies } from "./helpers/transcripts.js";
 
 function pid(code: number): NonNullable<ReturnType<typeof PIDS.get>> {
   const found = PIDS.get(code);
