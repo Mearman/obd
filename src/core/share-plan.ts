@@ -4,7 +4,8 @@
  * This module builds and describes both kinds; the schemas and the link format are in `share.ts`. It is platform-free.
  */
 
-import { FAULT_SIGNALS, faultEvents } from "./fault-history.js";
+import { canonicalJson } from "./canonical-json.js";
+import { FAULT_SIGNALS, faultEvents, faultSampleValue, type FaultList } from "./fault-history.js";
 import {
   describeCondition,
   describePlanVersion,
@@ -29,6 +30,7 @@ import {
   aggregateSamples,
   describeSharedRun,
   runSummaryShareData,
+  sharedRunSamples,
   type PlanResultShareData,
   type ShareEnvelope,
 } from "./share.js";
@@ -204,4 +206,68 @@ export function describeSharedPlanResult(data: PlanResultShareData, createdAt: n
   lines.push("", "the plan:", ...describePlan(data.plan).map((line) => `  ${line}`), "");
   lines.push(...describeSharedRun(data.run, createdAt));
   return lines;
+}
+
+/**
+ * The samples of a saved copy of a shared plan result, as run `runId`: the plan, each phase pass and each fault code list as the runner stores them, and the readings the summary carries (a thinned copy of the sender's), all at the run's start plus their offsets. Saved this way, the copy reads like any plan run: its phases, codes and graphs, and it shares back as a plan result.
+ */
+export function sharedPlanResultSamples(data: PlanResultShareData, runId: string): Sample[] {
+  const start = data.run.run.startedAt;
+  const samples: Sample[] = [
+    { runId, signal: PLAN_SIGNAL, unit: "", timestamp: start, value: canonicalJson(data.plan) },
+  ];
+  for (const pass of data.phases) {
+    samples.push({
+      runId,
+      signal: PLAN_PHASE_SIGNAL,
+      unit: "",
+      timestamp: start + pass.start,
+      value: JSON.stringify({
+        phase: pass.phase,
+        title: pass.title,
+        iteration: pass.iteration,
+        startedAt: start + pass.start,
+        endedAt: start + pass.end,
+        outcome: pass.outcome,
+        reads: pass.reads.map((read) => ({ ...read, at: start + read.at })),
+      }),
+    });
+  }
+  // Each list is rebuilt from its changes and written at each time it changed, as the runner writes it.
+  const lists = new Map<FaultList, Set<string>>();
+  // A list whose first change was not there from the start was read empty before it, at the latest at the run's start.
+  for (const list of new Set(data.codeEvents.map((event) => event.list))) {
+    const first = data.codeEvents.find((event) => event.list === list);
+    if (first === undefined || first.atStart) continue;
+    lists.set(list, new Set());
+    samples.push({
+      runId,
+      signal: FAULT_SIGNALS[list],
+      unit: "",
+      timestamp: start,
+      value: faultSampleValue([]),
+    });
+  }
+  const times = [...new Set(data.codeEvents.map((event) => event.at))].sort((a, b) => a - b);
+  for (const at of times) {
+    const changed = new Set<FaultList>();
+    for (const event of data.codeEvents.filter((item) => item.at === at)) {
+      const codes = lists.get(event.list) ?? new Set<string>();
+      if (event.change === "appeared") codes.add(event.code);
+      else codes.delete(event.code);
+      lists.set(event.list, codes);
+      changed.add(event.list);
+    }
+    for (const list of changed) {
+      samples.push({
+        runId,
+        signal: FAULT_SIGNALS[list],
+        unit: "",
+        timestamp: start + at,
+        value: faultSampleValue([...(lists.get(list) ?? [])].sort()),
+      });
+    }
+  }
+  samples.push(...sharedRunSamples(data.run, runId));
+  return samples.sort((a, b) => a.timestamp - b.timestamp);
 }

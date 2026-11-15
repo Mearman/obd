@@ -132,30 +132,33 @@ const valueConditionSchema = z.discriminatedUnion("op", [
 ]);
 
 /** A {@link PlanCondition}. */
-export const planConditionSchema: z.ZodType<PlanCondition> = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("elapsed"), seconds }),
-  z.strictObject({ kind: z.literal("samples"), count: z.number().int().positive() }),
-  valueConditionSchema,
-  z.strictObject({
-    kind: z.literal("code-appears"),
-    list: z.enum(FAULT_LISTS).optional(),
-    code: faultCode.optional(),
-  }),
-  z.strictObject({
-    kind: z.literal("code-clears"),
-    list: z.enum(FAULT_LISTS).optional(),
-    code: faultCode.optional(),
-  }),
-  z.strictObject({ kind: z.literal("confirm"), prompt: z.string().min(1).optional() }),
-  z.strictObject({
-    kind: z.literal("any"),
-    of: z.array(z.lazy(() => planConditionSchema)).min(1),
-  }),
-  z.strictObject({
-    kind: z.literal("all"),
-    of: z.array(z.lazy(() => planConditionSchema)).min(1),
-  }),
-]);
+export const planConditionSchema: z.ZodType<PlanCondition, PlanCondition> = z.discriminatedUnion(
+  "kind",
+  [
+    z.strictObject({ kind: z.literal("elapsed"), seconds }),
+    z.strictObject({ kind: z.literal("samples"), count: z.number().int().positive() }),
+    valueConditionSchema,
+    z.strictObject({
+      kind: z.literal("code-appears"),
+      list: z.enum(FAULT_LISTS).optional(),
+      code: faultCode.optional(),
+    }),
+    z.strictObject({
+      kind: z.literal("code-clears"),
+      list: z.enum(FAULT_LISTS).optional(),
+      code: faultCode.optional(),
+    }),
+    z.strictObject({ kind: z.literal("confirm"), prompt: z.string().min(1).optional() }),
+    z.strictObject({
+      kind: z.literal("any"),
+      of: z.array(z.lazy(() => planConditionSchema)).min(1),
+    }),
+    z.strictObject({
+      kind: z.literal("all"),
+      of: z.array(z.lazy(() => planConditionSchema)).min(1),
+    }),
+  ],
+);
 
 /** What happens when a wait runs out: `skip` ends the phase and carries on, `fail` ends the plan. */
 export const ON_TIMEOUT = ["skip", "fail"] as const;
@@ -371,6 +374,15 @@ export const planSchema = planShape.superRefine((plan, context) => {
 
 /** A recording plan. */
 export type Plan = z.output<typeof planSchema>;
+
+/** A plan document as written in a file, defaults not yet filled in: what `parsePlan` takes. */
+export type PlanDocument = z.input<typeof planSchema>;
+
+/** One phase of a {@link PlanDocument}. */
+export type PlanDocumentPhase = z.input<typeof planPhaseSchema>;
+
+/** One wait of a {@link PlanDocumentPhase}. */
+export type PlanDocumentWait = z.input<typeof planWaitSchema>;
 
 /** Which version of a plan a run followed: its name, title, revision and the SHA-256 of its canonical JSON. */
 export interface PlanIdentity {
