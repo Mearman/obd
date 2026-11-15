@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { readRootVersion } from "../app-version";
+import { readReleasedVersion } from "../app-version";
 import { App } from "../src/App";
 import { REPOSITORY_URL, releaseUrl } from "../src/release/release";
 import { renderApp } from "./render";
@@ -28,9 +27,8 @@ describe("releaseUrl", () => {
   });
 });
 
-describe("readRootVersion", () => {
-  it("reads the root package version, which the app package matches", () => {
-    const parsed: unknown = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(parsed).toMatchObject({ version: readRootVersion() });
+describe("readReleasedVersion", () => {
+  it("reads a semantic version from the latest release tag", () => {
+    expect(readReleasedVersion()).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
