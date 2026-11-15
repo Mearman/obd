@@ -106,12 +106,7 @@ export async function sweep(
   const result: Sweep = { found: [], errors: new Map() };
   for (let requestId = first; requestId <= last; requestId++) {
     progress?.(requestId);
-    const id = requestId.toString(16).toUpperCase().padStart(3, "0");
-    await elm.require(`ATSH${id}`);
-    await elm.require("ATAR");
-    await elm.require(`ATFCSH${id}`);
-    await elm.require("ATFCSD300000");
-    await elm.require("ATFCSM1");
+    await elm.addressAnyReply(requestId);
     try {
       result.found.push(...interpret(await elm.request(request), requestId));
     } catch (error) {
