@@ -30,6 +30,7 @@ import {
 } from "../src/core/index.js";
 import { authored, record, shipped, simulatedSession } from "./helpers/captures.js";
 import { FakeKLineCore, fakeKLineTransport } from "./helpers/fake-kline.js";
+import { MINIMAL, edit } from "./support/profiles.js";
 
 const W211 = shipped("mercedes-w211");
 const MQB = shipped("vag-mqb");
@@ -338,6 +339,32 @@ describe("decodeCapture on other sessions and buses", () => {
     expect(engine?.notes).toEqual([
       "decoded with the session the capture opened (10 81), not the profile's (10 92)",
     ]);
+  });
+
+  it("decodes a profile that mixes 11-bit and 29-bit units on each unit's own width", async () => {
+    const mixed = authored(
+      edit(MINIMAL, ["units"], {
+        narrow: { description: "Narrow", request: 0x752, response: 0x772, source: "test" },
+        wide: {
+          description: "Wide",
+          request: 0x18dadaf1,
+          response: 0x18daf1da,
+          id_bits: 29,
+          source: "test",
+        },
+      }),
+    );
+    const live = await record(mixed, (elm) => scan(elm, mixed, { faults: true, freeze: false }));
+    const wide = live.exchanges.find(
+      (exchange) =>
+        exchange.address?.mode === "physical" && exchange.address.requestId === 0x18dadaf1,
+    );
+    expect(wide?.bus).toEqual({ kind: "can", idBits: 29, bitrate: 500_000 });
+    const decoded = await decodeCapture(live, { kind: "profile", profile: mixed });
+    const { elm } = await simulatedSession(mixed);
+    expect(decoded.units).toEqual(await scan(elm, mixed, { faults: true, freeze: false }));
+    expect(decoded.units.map((unit) => unit.answered)).toEqual([true, true]);
+    expect(decoded.undecoded).toEqual([]);
   });
 
   it("decodes a K-line capture", async () => {
