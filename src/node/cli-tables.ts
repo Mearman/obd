@@ -3,7 +3,6 @@
  */
 
 import {
-  CodeNameError,
   OptionError,
   faultCodeRows,
   identificationRows,
@@ -14,7 +13,6 @@ import {
   IDENTIFICATION_TABLE,
   TABLE_FORMATS,
   type CodeDescriber,
-  type CodeNames,
   type ObdScan,
   type TableFormat,
   type UnitReport,
@@ -45,18 +43,6 @@ export function tableRequest(args: ParsedArgs, views: readonly string[]): TableR
   const format = TABLE_FORMATS.find((candidate) => candidate === requested);
   if (format === undefined) throw new OptionError(`unknown format ${requested}`);
   return { format, view: view ?? views[0] ?? "" };
-}
-
-/** A code's text from `names` as `unit` reported it, or from the generic titles when `generic`; `undefined` where none is known or the code is not valid. */
-export function describerOf(names: CodeNames, generic: boolean): CodeDescriber {
-  return (unit, code) => {
-    try {
-      return (generic ? names.genericCode(code) : names.unitCode(unit, code))?.text;
-    } catch (error) {
-      if (error instanceof CodeNameError) return undefined;
-      throw error;
-    }
-  };
 }
 
 /** The unit reports of a probe, scan or unit read as the requested table's text, without its final line terminator. */

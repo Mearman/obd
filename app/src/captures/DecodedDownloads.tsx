@@ -12,10 +12,11 @@ import {
   type Capture,
   type DecodedCaptureData,
 } from "obd-read";
+import { useCodeDescriber } from "../profiles/code-describer";
 import { TableDownloads } from "../tabular/TableDownloads";
 
 /**
- * Download buttons for a capture's tables as CSV and TSV: the decoded values with their times, the fault codes and identification values the decoding found, and every raw exchange. A decoding under no profile reads its fault codes and identification from the OBD-II report.
+ * Download buttons for a capture's tables as CSV and TSV: the decoded values with their times, the fault codes and identification values the decoding found, and every raw exchange. A decoding under no profile reads its fault codes and identification from the OBD-II report. A code's description comes from the describer the command line's `decode` uses: the generic titles under no profile, the decoding profile's code tables under one. The buttons appear once the descriptions are loaded.
  */
 export function DecodedDownloads({
   capture,
@@ -24,12 +25,14 @@ export function DecodedDownloads({
   readonly capture: Capture;
   readonly decoded: DecodedCaptureData;
 }) {
+  const describe = useCodeDescriber(decoded.profile?.name ?? null, decoded.profile === null);
+  if (describe === undefined) return null;
   const faults =
     decoded.profile === null
       ? decoded.obd === null
         ? []
-        : obdFaultCodeRows(decoded.obd)
-      : faultCodeRows(decoded.units);
+        : obdFaultCodeRows(decoded.obd, describe)
+      : faultCodeRows(decoded.units, describe);
   const identification =
     decoded.profile === null
       ? decoded.obd === null

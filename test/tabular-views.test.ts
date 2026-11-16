@@ -1,15 +1,19 @@
 import { describe, expect, it } from "vitest";
+import { loadGenericTitles } from "../src/data/index.js";
 import {
+  CodeNames,
   DECODED_VALUE_TABLE,
   EXCHANGE_TABLE,
   FAULT_CODE_TABLE,
   IDENTIFICATION_TABLE,
   decodedValueRows,
+  describerOf,
   exchangeRows,
   faultCodeRows,
   identificationRows,
   obdFaultCodeRows,
   obdIdentificationRows,
+  parseProfileCodes,
   renderTable,
   tableHeader,
   type Exchange,
@@ -103,6 +107,32 @@ describe("fault code rows", () => {
       ["", "VIN", "SIMULATEDCAR00001"],
       ["7E8", "calibration identifier", "CAL1"],
     ]);
+  });
+});
+
+describe("a code describer", () => {
+  const names = new CodeNames(
+    loadGenericTitles(),
+    parseProfileCodes(
+      {
+        units: { engine: {} },
+        codes: { engine: { P0420: { text: "Catalyst below threshold", source: "notes" } } },
+      },
+      "test",
+    ),
+    [],
+  );
+
+  it("describes a generic read's codes from the generic titles", () => {
+    const describe = describerOf(names, true);
+    expect(describe("7E8", "P0420")).toBe("Catalyst System Efficiency Below Threshold Bank 1");
+  });
+
+  it("describes a unit's codes from its profile only, and an invalid code as unknown", () => {
+    const describe = describerOf(names, false);
+    expect(describe("engine", "P0420")).toBe("Catalyst below threshold");
+    expect(describe("engine", "P0171")).toBeUndefined();
+    expect(describe("engine", "not a code")).toBeUndefined();
   });
 });
 

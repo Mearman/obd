@@ -27,6 +27,7 @@ import {
   DECODED_VALUE_TABLE,
   EXCHANGE_TABLE,
   decodedValueRows,
+  describerOf,
   exchangeRows,
 } from "../core/tabular-views.js";
 import { renderTable } from "../core/tabular.js";
@@ -120,7 +121,6 @@ import { HelpRequested, parseCommandLine, UsageError, type ParsedArgs } from "./
 import { PROGRAM } from "./cli-commands.js";
 import {
   UNIT_VIEWS,
-  describerOf,
   obdScanTable,
   tableRequest,
   unitReportsTable,

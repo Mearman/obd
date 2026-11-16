@@ -1,16 +1,10 @@
-import {
-  OBD_REPORT_FORMAT,
-  obdReportDocumentShareData,
-  scanShareData,
-  unitReportOf,
-  type Json,
-  type ScanReport,
-} from "obd-read";
+import { obdReportDocumentShareData, scanShareData, unitReportOf, type ScanReport } from "obd-read";
 import { OriginBadge } from "../origin/OriginBadge";
 import { ObdReport } from "../screens/ObdReport";
 import { FaultCodesTable, ScanResultsTable } from "../screens/ScanResults";
 import { muted, row, stack } from "../screens/screen.css";
 import { ReportDownloads } from "../tabular/ReportDownloads";
+import { isObdRead } from "./saved-report";
 import { Button, download } from "../ui";
 
 /** What the open report's origin means, in a sentence. */
@@ -19,15 +13,6 @@ const ORIGIN_NOTES: Readonly<Record<ScanReport["origin"], (report: ScanReport) =
   shared: () => "Shared data from a link, not read from your adapter.",
   imported: () => "Imported from a file, not read here.",
 };
-
-function isObdRead(report: Json): boolean {
-  return (
-    typeof report === "object" &&
-    report !== null &&
-    !Array.isArray(report) &&
-    report.format === OBD_REPORT_FORMAT
-  );
-}
 
 /** One saved report's body, read-only: a generic OBD-II read with the report the Session screen's Read section shows, a scan with its units and fault codes. Nothing here acts on the car or changes the report. */
 function SavedReportBody({ report }: { readonly report: ScanReport }) {
