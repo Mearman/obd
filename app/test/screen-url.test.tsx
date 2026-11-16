@@ -71,4 +71,10 @@ describe("active screen in the address", () => {
     expect(new URLSearchParams(window.location.search).get("keep")).toBe("1");
     expect(new URLSearchParams(window.location.search).get("screen")).toBe("guide");
   });
+
+  it("shows the app for a path the router has no route for", async () => {
+    reset("/some/deep/link?screen=guide");
+    await renderApp(<App support={CHROME} />);
+    expect(screen.getByRole("tab", { name: "Guide" })).toHaveAttribute("aria-selected", "true");
+  });
 });

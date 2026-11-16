@@ -18,15 +18,17 @@ export interface AppRouterOptions {
 /**
  * The app's router: one route whose component is the whole page, with the active screen and the open Library item held in the validated query, so Back, Forward, a reload and a pasted address all return to the same place.
  *
- * There are no path routes, because GitHub Pages serves a file for every path and has no fallback for one that does not exist; the query always reaches `index.html`.
+ * There are no meaningful path routes, because GitHub Pages serves a file for every path and has no fallback for one that does not exist; the query always reaches `index.html`.
  *
  * @param component The page, which reads and changes the query through `useAppLocation`.
  */
 export function createAppRouter(component: FunctionComponent, options: AppRouterOptions = {}) {
   const rootRoute = createRootRoute({ validateSearch: searchSchema });
   const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component });
+  // The service worker answers every path under the base with the shell, so a path the app has no route for shows the app too, with the query as it is.
+  const anyPathRoute = createRoute({ getParentRoute: () => rootRoute, path: "$", component });
   return createRouter({
-    routeTree: rootRoute.addChildren([indexRoute]),
+    routeTree: rootRoute.addChildren([indexRoute, anyPathRoute]),
     ...(options.basepath === undefined ? {} : { basepath: options.basepath }),
     ...(options.history === undefined ? {} : { history: options.history }),
   });
