@@ -422,7 +422,7 @@ describe.each(codecs)("the %s codec", (_name, codec) => {
       ["empty", "", "malformed"],
       ["not a share", "other=1.abc", "malformed"],
       ["no version", "share=abc", "malformed"],
-      ["future version", `share=3.${payload(good)}`, "unsupported-version"],
+      ["future version", `share=4.${payload(good)}`, "unsupported-version"],
       ["bad base64", "share=1.!!!!", "malformed"],
       ["impossible base64 length", "share=1.A", "malformed"],
       ["truncated", good.slice(0, Math.floor(good.length / 2)), "malformed"],

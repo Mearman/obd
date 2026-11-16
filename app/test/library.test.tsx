@@ -4,10 +4,15 @@ import userEvent from "@testing-library/user-event";
 import {
   CAPTURE_FORMAT,
   PLAN_FORMAT,
+  PRACTICAL_LINK_LENGTH,
+  decodeSharedLink,
+  fragmentOfLink,
   sharedScanReport,
   simulatorUrl,
   type ScanShareData,
+  type SharedLink,
 } from "obd-read";
+import { streamShareCodec } from "obd-read/web";
 import { builtinProfileData } from "obd-read/profiles";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
@@ -127,7 +132,7 @@ async function openLibrary(service: TestService): Promise<HTMLElement> {
 /** The library's rows below the header, as each row's kind badge. */
 function kindsListed(): string[] {
   const [, ...rows] = within(screen.getByRole("table", { name: "Library" })).getAllByRole("row");
-  return rows.map((row) => within(row).getAllByRole("cell")[0]?.textContent ?? "");
+  return rows.map((row) => within(row).getAllByRole("cell")[1]?.textContent ?? "");
 }
 
 async function choose(label: string, option: string): Promise<void> {
@@ -560,5 +565,116 @@ describe("the Library", () => {
       "Guide",
       "Settings",
     ]);
+  });
+});
+
+/** What a link the Share dialog shows decodes to. */
+async function decodedLink(link: string): Promise<SharedLink> {
+  const decoded = await decodeSharedLink(fragmentOfLink(link) ?? "", streamShareCodec);
+  if (!decoded.ok) throw new Error(decoded.error.message);
+  return decoded.value;
+}
+
+describe("sharing several Library items", () => {
+  it("selects rows with their checkboxes, without opening them, and shares them in one link", async () => {
+    const { service, runId, reportId } = await seeded();
+    const table = await openLibrary(service);
+    expect(screen.queryByRole("button", { name: /Share selected/ })).toBeNull();
+
+    const run = within(table).getByRole("checkbox", { name: `Select run ${runId}` });
+    const report = within(table).getByRole("checkbox", { name: `Select report ${reportId}` });
+    await userEvent.click(run);
+    await userEvent.click(report);
+    expect(run).toBeChecked();
+    expect(report).toBeChecked();
+    expect(window.location.search).toBe("?screen=library");
+    expect(screen.getByRole("table", { name: "Library" })).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Share selected (2)" }));
+    const dialog = await screen.findByRole("dialog", { name: "Share 2 results" });
+    const included = await within(dialog).findByRole("list", { name: "What the link contains" });
+    expect(included).toHaveTextContent(/Result 1 \(run\):/);
+    expect(included).toHaveTextContent(/Result 2 \(scan\):/);
+    const toggle = within(dialog).getByRole("switch", {
+      name: /remove identifying values from every result/i,
+    });
+    expect(toggle).toBeChecked();
+    const link = (await within(dialog).findByLabelText("Link")).textContent;
+    expect(link).toMatch(/#share=3\./);
+    const shared = await decodedLink(link);
+    expect(shared.kind).toBe("bundle");
+    if (shared.kind === "bundle") {
+      expect(shared.redacted).toBe(true);
+      expect(shared.items.map((item) => item.kind)).toEqual(["run-summary", "scan"]);
+    }
+
+    await userEvent.click(toggle);
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText("Link").textContent).not.toBe(link);
+    });
+    const open = await decodedLink(within(dialog).getByLabelText("Link").textContent);
+    expect(open.kind === "bundle" && open.redacted).toBe(false);
+  });
+
+  it("clears the selection, and shares one selected item as an ordinary link", async () => {
+    const { service, captureId, reportId } = await seeded();
+    const table = await openLibrary(service);
+    await userEvent.click(
+      within(table).getByRole("checkbox", { name: `Select report ${reportId}` }),
+    );
+    await userEvent.click(
+      within(table).getByRole("checkbox", { name: `Select capture ${captureId}` }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+    expect(screen.queryByRole("button", { name: /Share selected/ })).toBeNull();
+    expect(
+      within(table).getByRole("checkbox", { name: `Select report ${reportId}` }),
+    ).not.toBeChecked();
+
+    await userEvent.click(
+      within(table).getByRole("checkbox", { name: `Select capture ${captureId}` }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Share selected (1)" }));
+    const dialog = await screen.findByRole("dialog", { name: "Share 1 result" });
+    const link = (await within(dialog).findByLabelText("Link")).textContent;
+    expect(link).toMatch(/#share=2\./);
+    expect((await decodedLink(link)).kind).toBe("capture");
+  });
+
+  it("splits a selection whose link is too long into links within the length", async () => {
+    const { service } = await seeded();
+    // Captures whose notes do not compress into each other, so together they pass the length.
+    const base = await simulatedCapture();
+    let state = 11;
+    const letters = (): string =>
+      Array.from({ length: 900 }, () => {
+        state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
+        return String.fromCharCode(97 + (state % 26));
+      }).join("");
+    for (const id of ["noisy-a", "noisy-b", "noisy-c"]) {
+      await service.storage.saveCapture({ ...base, id, notes: [letters()] }, "imported");
+    }
+    const table = await openLibrary(service);
+    await choose("Kind", "Captures");
+    for (const id of ["noisy-a", "noisy-b", "noisy-c"]) {
+      await userEvent.click(within(table).getByRole("checkbox", { name: `Select capture ${id}` }));
+    }
+    await userEvent.click(screen.getByRole("button", { name: "Share selected (3)" }));
+    const dialog = await screen.findByRole("dialog", { name: "Share 3 results" });
+    const link = (await within(dialog).findByLabelText("Link")).textContent;
+    expect(link.length).toBeGreaterThan(PRACTICAL_LINK_LENGTH);
+    const parts = await within(dialog).findByRole("list", { name: "Shorter links" });
+    const shorter = within(parts).getAllByLabelText(/^Link \d+ of \d+$/);
+    expect(shorter.length).toBeGreaterThan(1);
+    const ids: string[] = [];
+    for (const part of shorter) {
+      const text = part.textContent;
+      expect(text.length).toBeLessThanOrEqual(PRACTICAL_LINK_LENGTH);
+      const shared = await decodedLink(text);
+      for (const item of shared.kind === "bundle" ? shared.items : [shared]) {
+        if (item.kind === "capture") ids.push(item.data.capture.id);
+      }
+    }
+    expect(ids.sort()).toEqual(["noisy-a", "noisy-b", "noisy-c"]);
   });
 });
