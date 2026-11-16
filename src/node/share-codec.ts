@@ -1,5 +1,5 @@
 import { deflateRawSync, inflateRawSync } from "node:zlib";
-import type { InflateResult, ShareCodec } from "../core/share.js";
+import { SHARE_DEFLATE_LEVEL, type InflateResult, type ShareCodec } from "../core/share.js";
 
 /** Whether `error` is zlib refusing to produce more than `maxOutputLength` bytes. */
 function isOutputLimit(error: unknown): boolean {
@@ -7,11 +7,11 @@ function isOutputLimit(error: unknown): boolean {
 }
 
 /**
- * A {@link ShareCodec} over `node:zlib` (raw deflate, the format the browser's `CompressionStream` writes). Inflation is bounded by zlib's own `maxOutputLength`, so a bomb is refused before it is held in memory.
+ * A {@link ShareCodec} over `node:zlib` (raw deflate at {@link SHARE_DEFLATE_LEVEL}, the bytes the browser codec writes). Inflation is bounded by zlib's own `maxOutputLength`, so a bomb is refused before it is held in memory.
  */
 export const zlibShareCodec: ShareCodec = {
   deflate(bytes: Uint8Array): Promise<Uint8Array> {
-    return Promise.resolve(new Uint8Array(deflateRawSync(bytes, { level: 9 })));
+    return Promise.resolve(new Uint8Array(deflateRawSync(bytes, { level: SHARE_DEFLATE_LEVEL })));
   },
 
   inflate(bytes: Uint8Array, maxBytes: number): Promise<InflateResult> {

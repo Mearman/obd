@@ -3,7 +3,7 @@
  *
  * A link is `<app address>#share=2.<payload>`. Its content is a versioned envelope `{v, kind, createdAt, data}`. The payload is a head written as canonical JSON (keys sorted, ASCII only), for a capture followed by its exchanges packed into columns of bytes (`capture-pack.ts`): a capture's head holds its other fields by position with no field names, any other kind's holds the whole envelope. A raw capture so costs a fraction of its JSON size. The whole is compressed with raw deflate and written as unpadded base64url. A link of the first form, `#share=1.<payload>`, is the whole envelope's canonical JSON compressed the same way; it is still read. Both forms decode to exactly the envelope that was encoded. The data sits in the fragment, which a browser never sends to a server, so only whoever holds the link can read it.
  *
- * This module is platform-free. Compression goes through a {@link ShareCodec}, which each platform supplies (`CompressionStream` in the browser, `node:zlib` in Node). Decoding never throws: every failure, hostile input included, is a typed {@link ShareError}, and inflation stops as soon as the output passes {@link MAX_DECODED_BYTES}, so a small payload cannot expand without bound.
+ * This module is platform-free. Compression goes through a {@link ShareCodec}, which each platform supplies (`pako` and `DecompressionStream` in the browser, `node:zlib` in Node), and both compress a payload to the same bytes. Decoding never throws: every failure, hostile input included, is a typed {@link ShareError}, and inflation stops as soon as the output passes {@link MAX_DECODED_BYTES}, so a small payload cannot expand without bound.
  *
  * Nothing in a link is written to storage or sent to an adapter by this module; a link carries fault history, so it is only as private as the place it is pasted.
  */
@@ -78,9 +78,12 @@ export type InflateResult =
   | { readonly ok: true; readonly bytes: Uint8Array }
   | { readonly ok: false; readonly reason: "too-large" | "corrupt" };
 
+/** The deflate level every {@link ShareCodec} compresses at: zlib's highest, so a link is as short as zlib can make it. */
+export const SHARE_DEFLATE_LEVEL = 9;
+
 /** Raw-deflate compression, supplied by the platform. Both ends of a link must use the same format: RFC 1951 with no header or checksum. */
 export interface ShareCodec {
-  /** Compresses `bytes`. */
+  /** Compresses `bytes` at {@link SHARE_DEFLATE_LEVEL} with zlib's algorithm, so every platform writes the same bytes for the same payload. */
   deflate(bytes: Uint8Array): Promise<Uint8Array>;
 
   /**

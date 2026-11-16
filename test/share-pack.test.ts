@@ -7,6 +7,7 @@ import {
   PRACTICAL_LINK_LENGTH,
   SIMULATED_VIN,
   canonicalJson,
+  captureEverything,
   captureShareData,
   captureText,
   decodeShare,
@@ -16,16 +17,18 @@ import {
   obdReport,
   packedSharePayload,
   scan,
+  shareLink,
   sweep,
   toBase64Url,
   type Capture,
   type Exchange,
+  type Profile,
   type ShareCodec,
   type ShareEnvelope,
 } from "../src/core/index.js";
 import { zlibShareCodec } from "../src/node/share-codec.js";
 import { streamShareCodec } from "../src/web/share-codec.js";
-import { record, shipped } from "./helpers/captures.js";
+import { record, shipped, simulatedSession } from "./helpers/captures.js";
 
 const VIN = new TextDecoder().decode(SIMULATED_VIN);
 const W211 = shipped("mercedes-w211");
@@ -566,5 +569,69 @@ describe("describeLinkLength", () => {
     expect(describeLinkLength(PRACTICAL_LINK_LENGTH + 1)).toMatch(
       /2001 characters, over the 2000 .* may cut it/,
     );
+  });
+});
+
+/** The address the published app is served from, which every link it makes starts with. */
+const APP = "https://mearman.github.io/obd/";
+
+/** The legislated reads, every unit of `profile` and an identifier sweep up to `last`, on a simulated car, with a real recording's gaps between exchanges. */
+async function fullCapture(profile: Profile, last: number): Promise<Capture> {
+  const { elm, adapter } = await simulatedSession(profile);
+  const capture = await captureEverything(elm, {
+    profile,
+    adapter,
+    adapterUrl: null,
+    toolVersion: "test",
+    id: "capture",
+    now: () => 1_000,
+    sleep: () => Promise.resolve(),
+    identifiers: { first: 0x00, last, budget: 10_000, pauseMs: 10 },
+  });
+  return timed(capture, 7);
+}
+
+/** The browser's `CompressionStream` at its own default level, which the app compressed links with before it matched the CLI. */
+async function defaultLevelDeflate(bytes: Uint8Array): Promise<Uint8Array> {
+  const stream = new Blob([new Uint8Array(bytes)])
+    .stream()
+    .pipeThrough(new CompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+describe("the web share codec", () => {
+  it("compresses every payload to the very bytes the Node codec does", async () => {
+    const payloads: readonly (readonly [string, ShareEnvelope])[] = [
+      ["W211 units and identifiers", envelopeOf(await fullCapture(W211, 0x40))],
+      ["MQB units and identifiers", envelopeOf(await fullCapture(MQB, 0x40))],
+      ...Array.from(
+        { length: 20 },
+        (_, index) => [`seed ${String(index + 1)}`, envelopeOf(randomCapture(index + 1))] as const,
+      ),
+    ];
+    for (const [label, envelope] of payloads) {
+      const payload = packedSharePayload(envelope);
+      expect(await streamShareCodec.deflate(payload), label).toEqual(
+        await zlibShareCodec.deflate(payload),
+      );
+    }
+  });
+
+  it("keeps a capture within the practical link length that the default level puts over it", async () => {
+    const envelope = envelopeOf(await fullCapture(W211, 0x22));
+    const defaultLevel = `share=2.${toBase64Url(await defaultLevelDeflate(packedSharePayload(envelope)))}`;
+    expect(shareLink(APP, defaultLevel).length).toBeGreaterThan(PRACTICAL_LINK_LENGTH);
+
+    const fragment = await fragmentOf(envelope, streamShareCodec);
+    expect(shareLink(APP, fragment).length).toBeLessThanOrEqual(PRACTICAL_LINK_LENGTH);
+    expect(fragment).toBe(await fragmentOf(envelope, zlibShareCodec));
+  });
+
+  it("still reads a link compressed at the browser's default level", async () => {
+    const envelope = envelopeOf(await fullCapture(W211, 0x22));
+    const fragment = `share=2.${toBase64Url(await defaultLevelDeflate(packedSharePayload(envelope)))}`;
+    for (const codec of [streamShareCodec, zlibShareCodec]) {
+      expect(await decodeShare(fragment, codec)).toEqual({ ok: true, value: envelope });
+    }
   });
 });
