@@ -113,7 +113,7 @@ const VIN_CHARACTERS = "[A-HJ-NPR-Z0-9]";
  */
 function vinFragments(field: string, min: number, max: number) {
   const pattern = new RegExp(`^${VIN_CHARACTERS}{${String(min)},${String(max)}}$`);
-  const size = min === max ? `${String(min)}` : `${String(min)} to ${String(max)}`;
+  const size = min === max ? String(min) : `${String(min)} to ${String(max)}`;
   return z.array(text(), { error: wrong("a list") }).superRefine((list, context) => {
     list.forEach((item, index) => {
       if (!pattern.test(item)) {
