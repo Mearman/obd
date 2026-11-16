@@ -6,7 +6,7 @@ import {
   type Run,
   type ScanReport,
 } from "obd-read";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { CaptureViewer } from "../captures/CaptureViewer";
 import { failureMessage } from "../diagnostics/client";
 import { useDatabase } from "../database/DatabaseProvider";
@@ -44,6 +44,7 @@ import { selectBox } from "./library.css";
 import { ImportNotes, LibraryImport, useLibraryImport } from "./LibraryImport";
 import { runEnvelope } from "./run-envelope";
 import { SavedReportView } from "./SavedReportView";
+import { useSearchText } from "./useSearchText";
 import { useCaptureItems, useReportItems, useRunItems } from "./sources";
 import {
   GROUPING_OPTIONS,
@@ -68,37 +69,6 @@ function when(at: number): string {
 /** `count` with the noun in the number it takes: "1 sample", "2 samples". */
 function counted(count: number, one: string, many: string): string {
   return `${String(count)} ${count === 1 ? one : many}`;
-}
-
-/**
- * The search field's text, kept here while the person types so the field never waits on the address, with what to call as it changes and as it loses focus. The first change of an edit adds a history entry and the rest replace it, so Back undoes the whole edit; a search the address changes to from elsewhere, as Back does, replaces the text.
- */
-function useSearchText(
-  search: string,
-  write: (text: string, replace: boolean) => void,
-): { readonly text: string; readonly change: (text: string) => void; readonly end: () => void } {
-  const [text, setText] = useState(search);
-  // The values this edit wrote, whose return through the address is not a change from elsewhere.
-  const written = useRef(new Set<string>());
-  const editing = useRef(false);
-  useEffect(() => {
-    if (written.current.has(search)) return;
-    written.current.clear();
-    setText(search);
-  }, [search]);
-  return {
-    text,
-    change: (next) => {
-      setText(next);
-      written.current.add(next);
-      write(next, editing.current);
-      editing.current = true;
-    },
-    end: () => {
-      editing.current = false;
-      written.current.clear();
-    },
-  };
 }
 
 /** What the open item's viewer needs beyond its id: the run or the report read from the service. */
