@@ -1,41 +1,115 @@
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
-import { body, cell, head, headRow, headerCell, openable, row, table } from "./DataTable.css";
+import { useId, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import {
+  body,
+  cell,
+  group,
+  groupHeading,
+  groupToggle,
+  head,
+  headRow,
+  headerCell,
+  openable,
+  row,
+  sortButton,
+  sortableHead,
+  sortableHeaderCell,
+  table,
+} from "./DataTable.css";
 
 /** What inside a row handles its own click. */
 const INTERACTIVE = "button, a, input, select, textarea, [role=button], [role=dialog]";
 
+/** Which way a sorted column runs, in the words `aria-sort` takes. */
+export type SortDirection = "ascending" | "descending";
+
 /** One column of a {@link DataTable}. */
-export interface Column<Row> {
+export interface Column<Row, Key extends string = string> {
   /** Column heading; on narrow screens it labels each value inside its card. */
   readonly header: string;
   readonly render: (row: Row) => ReactNode;
+  /** What the table's {@link DataTableProps.sorting} calls this column; a column without one cannot be sorted by. */
+  readonly sortKey?: Key;
+}
+
+/** The sorted column of a {@link DataTable}, and what picking a column's header does. */
+export interface DataTableSorting<Key extends string> {
+  readonly key: Key;
+  readonly direction: SortDirection;
+  /** Called with the column's key when the person picks its header; the owner decides the new order and sorts the rows. */
+  readonly onSort: (key: Key) => void;
 }
 
 /** Props of {@link DataTable}. */
-export interface DataTableProps<Row> {
+export interface DataTableProps<Row, Key extends string = string> {
   /** Accessible name for the table. */
   readonly label: string;
-  readonly columns: readonly Column<Row>[];
+  readonly columns: readonly Column<Row, Key>[];
   readonly rows: readonly Row[];
   /** A stable key for a row. */
   readonly rowKey: (row: Row) => string;
   /** Makes each row open something: the name the row is announced by, and what activating it does. A click on a button or link inside the row does not activate the row. */
   readonly onOpen?: { readonly label: (row: Row) => string; readonly open: (row: Row) => void };
+  /** Makes each column with a {@link Column.sortKey} sortable by a button in its header, the sorted one marked with `aria-sort`; on a phone those headers stay on screen above the cards. The rows are shown in the order given. */
+  readonly sorting?: DataTableSorting<Key>;
+}
+
+/** What a column's header holds: its heading, or a button that sorts by it with an arrow for the sorted direction. */
+function Header<Row, Key extends string>({
+  column,
+  sorting,
+}: {
+  readonly column: Column<Row, Key>;
+  readonly sorting: DataTableSorting<Key> | undefined;
+}) {
+  const { sortKey } = column;
+  if (sorting === undefined || sortKey === undefined) {
+    return (
+      <div role="columnheader" className={headerCell}>
+        {column.header}
+      </div>
+    );
+  }
+  const direction = sorting.key === sortKey ? sorting.direction : undefined;
+  return (
+    <div
+      role="columnheader"
+      className={`${headerCell} ${sortableHeaderCell}`}
+      {...(direction === undefined ? {} : { "aria-sort": direction })}
+    >
+      <button
+        type="button"
+        className={sortButton}
+        onClick={() => {
+          sorting.onSort(sortKey);
+        }}
+      >
+        {column.header}
+        <span aria-hidden>
+          {direction === "ascending" ? "▲" : direction === "descending" ? "▼" : "↕"}
+        </span>
+      </button>
+    </div>
+  );
 }
 
 /**
  * A table on tablet and desktop widths that reflows to one card per row on a phone, so it never
  * scrolls sideways. ARIA roles keep the table semantics when CSS changes the display type.
  */
-export function DataTable<Row>({ label, columns, rows, rowKey, onOpen }: DataTableProps<Row>) {
+export function DataTable<Row, Key extends string = string>({
+  label,
+  columns,
+  rows,
+  rowKey,
+  onOpen,
+  sorting,
+}: DataTableProps<Row, Key>) {
   return (
     <div role="table" aria-label={label} className={table}>
-      <div role="rowgroup" className={head}>
+      <div role="rowgroup" className={sorting === undefined ? head : sortableHead}>
         <div role="row" className={headRow}>
           {columns.map((column) => (
-            <div key={column.header} role="columnheader" className={headerCell}>
-              {column.header}
-            </div>
+            <Header key={column.header} column={column} sorting={sorting} />
           ))}
         </div>
       </div>
@@ -82,4 +156,64 @@ export function DataTable<Row>({ label, columns, rows, rowKey, onOpen }: DataTab
       </div>
     </div>
   );
+}
+
+/** One group of rows of a {@link GroupedDataTable}. */
+export interface DataTableGroup<Row> {
+  /** A key unique among the groups, which also keeps a group collapsed while its rows change. */
+  readonly key: string;
+  readonly label: string;
+  readonly rows: readonly Row[];
+}
+
+/** Props of {@link GroupedDataTable}: a {@link DataTable}'s, with the rows in groups. */
+export type GroupedDataTableProps<Row, Key extends string = string> = Omit<
+  DataTableProps<Row, Key>,
+  "rows"
+> & {
+  readonly groups: readonly DataTableGroup<Row>[];
+};
+
+/**
+ * Rows in groups, each under a heading whose button collapses and expands it, and each group its own {@link DataTable} named `<label>, <group>`. Every group starts expanded.
+ */
+export function GroupedDataTable<Row, Key extends string = string>({
+  groups,
+  label,
+  ...table
+}: GroupedDataTableProps<Row, Key>) {
+  const id = useId();
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (key: string): void => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  };
+  return groups.map((each, index) => {
+    const expanded = !collapsed.has(each.key);
+    const panel = `${id}-${String(index)}`;
+    return (
+      <section key={each.key} className={group}>
+        <h2 className={groupHeading}>
+          <button
+            type="button"
+            className={groupToggle}
+            aria-expanded={expanded}
+            aria-controls={panel}
+            onClick={() => {
+              toggle(each.key);
+            }}
+          >
+            <span aria-hidden>{expanded ? "▾" : "▸"}</span>
+            {`${each.label} (${String(each.rows.length)})`}
+          </button>
+        </h2>
+        <div id={panel} hidden={!expanded}>
+          {expanded && <DataTable {...table} label={`${label}, ${each.label}`} rows={each.rows} />}
+        </div>
+      </section>
+    );
+  });
 }

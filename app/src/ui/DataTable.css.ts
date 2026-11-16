@@ -1,4 +1,4 @@
-import { style } from "@vanilla-extract/css";
+import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../theme/contract.css";
 
 const WIDE = "screen and (min-width: 640px)";
@@ -95,5 +95,93 @@ export const cell = style({
       borderBottom: `1px solid ${vars.color.border}`,
       selectors: { "&::before": { content: "none" } },
     },
+  },
+});
+
+/** The head of a sortable table, which stays on a phone as a row of sort buttons above the cards. */
+export const sortableHead = style({
+  display: "block",
+  marginBottom: vars.space["3"],
+  "@media": { [WIDE]: { display: "table-header-group", marginBottom: 0 } },
+});
+
+globalStyle(`${sortableHead} > [role=row]`, {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: vars.space["2"],
+  "@media": { [WIDE]: { display: "table-row" } },
+});
+
+export const sortableHeaderCell = style({
+  padding: 0,
+  borderBottom: 0,
+  "@media": {
+    [WIDE]: {
+      padding: `${vars.space["1"]} ${vars.space["1"]}`,
+      borderBottom: `2px solid ${vars.color.border}`,
+    },
+  },
+});
+
+// A heading that cannot be sorted by has nothing to do on a phone, where each card labels its own values.
+globalStyle(`${sortableHead} [role=columnheader]:not(${sortableHeaderCell})`, {
+  position: "absolute",
+  width: "1px",
+  height: "1px",
+  overflow: "hidden",
+  clipPath: "inset(50%)",
+  "@media": {
+    [WIDE]: {
+      position: "static",
+      width: "auto",
+      height: "auto",
+      overflow: "visible",
+      clipPath: "none",
+    },
+  },
+});
+
+export const sortButton = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: vars.space["1"],
+  minHeight: vars.size.touch,
+  minWidth: vars.size.touch,
+  paddingInline: vars.space["2"],
+  background: "transparent",
+  color: "inherit",
+  font: "inherit",
+  border: `1px solid ${vars.color.border}`,
+  borderRadius: vars.radius.medium,
+  cursor: "pointer",
+  selectors: {
+    "&:hover": { background: vars.color.border },
+  },
+  "@media": { [WIDE]: { borderColor: "transparent" } },
+});
+
+export const group = style({
+  display: "flex",
+  flexDirection: "column",
+  gap: vars.space["2"],
+});
+
+export const groupHeading = style({ margin: 0, fontSize: vars.fontSize.body });
+
+export const groupToggle = style({
+  display: "inline-flex",
+  alignItems: "center",
+  gap: vars.space["2"],
+  minHeight: vars.size.touch,
+  paddingInline: vars.space["2"],
+  background: "transparent",
+  color: "inherit",
+  font: "inherit",
+  fontWeight: 600,
+  border: 0,
+  borderRadius: vars.radius.medium,
+  cursor: "pointer",
+  selectors: {
+    "&:hover": { background: vars.color.border },
   },
 });

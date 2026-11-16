@@ -9,6 +9,7 @@ import {
   Card,
   DataTable,
   Dialog,
+  GroupedDataTable,
   Select,
   Switch,
   Tabs,
@@ -120,6 +121,53 @@ describe("components", () => {
     expect(screen.getByRole("table", { name: "Things" })).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(3);
     expect(screen.getByText("2").closest("[role=cell]")).toHaveAttribute("data-label", "Value");
+  });
+
+  it("DataTable sorts by a button in each sortable column's header, marking the sorted one", async () => {
+    const onSort = vi.fn<(key: "name" | "value") => void>();
+    render(
+      <DataTable
+        label="Things"
+        columns={[
+          { header: "Name", sortKey: "name", render: (row: { n: string }) => row.n },
+          { header: "Value", sortKey: "value", render: (row) => row.n },
+          { header: "Note", render: () => "-" },
+        ]}
+        rows={[{ n: "a" }]}
+        rowKey={(row) => row.n}
+        sorting={{ key: "value", direction: "descending", onSort }}
+      />,
+    );
+    const [name, value, note] = screen.getAllByRole("columnheader");
+    expect(value).toHaveAttribute("aria-sort", "descending");
+    expect(name).not.toHaveAttribute("aria-sort");
+    expect(note).not.toHaveAttribute("aria-sort");
+    expect(screen.queryByRole("button", { name: "Note" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Name" }));
+    expect(onSort).toHaveBeenCalledWith("name");
+  });
+
+  it("GroupedDataTable shows each group under a heading that collapses and expands it", async () => {
+    render(
+      <GroupedDataTable
+        label="Things"
+        columns={[{ header: "Name", render: (row: { n: string }) => row.n }]}
+        groups={[
+          { key: "x", label: "Xs", rows: [{ n: "x1" }, { n: "x2" }] },
+          { key: "y", label: "Ys", rows: [{ n: "y1" }] },
+        ]}
+        rowKey={(row) => row.n}
+      />,
+    );
+    const xs = screen.getByRole("button", { name: "Xs (2)" });
+    expect(xs).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("table", { name: "Things, Xs" })).toBeInTheDocument();
+    await userEvent.click(xs);
+    expect(xs).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("table", { name: "Things, Xs" })).not.toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Things, Ys" })).toBeInTheDocument();
+    await userEvent.click(xs);
+    expect(screen.getByRole("table", { name: "Things, Xs" })).toBeInTheDocument();
   });
 });
 
