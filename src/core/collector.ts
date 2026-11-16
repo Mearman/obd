@@ -266,45 +266,53 @@ export class LiveCollector implements Collector {
     await job.sink.write(batch);
   }
 
+  /** Stores what is buffered once {@link CollectorTiming.batchSize} readings are held or {@link CollectorTiming.flushMs} has passed since the last store. */
+  private async flushIfDue(job: Job): Promise<void> {
+    if (job.pending.length < this.batchSize && this.now() - job.lastFlush < this.flushMs) return;
+    const count = job.pending.length;
+    await this.flush(job);
+    job.status = { ...job.status, samples: job.status.samples + count };
+  }
+
   private async poll(job: Job, first: Source): Promise<void> {
     let source = first;
     // Whether a stop cut the last cycle short, which also skips the fault code reads that would follow it.
     let interrupted = false;
-    const control: ReadControl = {
-      stopped: () => job.stopping,
-      progress: (position, total, label) => {
-        job.status = { ...job.status, progress: { position, total, label } };
-      },
-    };
     try {
       while (!job.stopping) {
         try {
-          const readings = await this.dependencies.link.withSession(() =>
-            source.read(() => undefined, control),
-          );
-          interrupted = isStopping(job);
+          // Every reading of a cycle carries the time the cycle began, so an export lays a cycle out as one row.
           const timestamp = this.now();
-          source.columns.forEach((column, index) => {
-            const value = readings[index];
-            if (value === undefined || (typeof value === "number" && !Number.isFinite(value))) {
-              return;
-            }
-            job.pending.push({
-              runId: job.run.id,
-              signal: column.label,
-              unit: column.unit,
-              timestamp,
-              value,
-            });
-          });
+          const columns = source.columns;
+          const control: ReadControl = {
+            stopped: () => job.stopping,
+            progress: (position, total, label) => {
+              job.status = { ...job.status, progress: { position, total, label } };
+            },
+            // Buffered as each value arrives and stored once a batch is due, so on an adapter slower
+            // than the flush interval a reading is shown without waiting for the rest of its cycle.
+            read: async (first, readings) => {
+              readings.forEach((value, offset) => {
+                const column = columns[first + offset];
+                if (column === undefined || value === undefined) return;
+                if (typeof value === "number" && !Number.isFinite(value)) return;
+                job.pending.push({
+                  runId: job.run.id,
+                  signal: column.label,
+                  unit: column.unit,
+                  timestamp,
+                  value,
+                });
+              });
+              await this.flushIfDue(job);
+            },
+          };
+          await this.dependencies.link.withSession(() => source.read(() => undefined, control));
+          interrupted = isStopping(job);
           if (!interrupted) await this.readCodes(job, timestamp, false);
           interrupted = isStopping(job);
           job.status = { ...job.status, state: "collecting", attempt: 0 };
-          if (job.pending.length >= this.batchSize || timestamp - job.lastFlush >= this.flushMs) {
-            const count = job.pending.length;
-            await this.flush(job);
-            job.status = { ...job.status, samples: job.status.samples + count };
-          }
+          await this.flushIfDue(job);
           await this.idle(job, this.pollMs);
         } catch (error) {
           if (isStopping(job)) break;

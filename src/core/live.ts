@@ -36,6 +36,8 @@ export interface ReadControl {
   readonly stopped: () => boolean;
   /** Called before each value is requested: its 1-based position, how many values the cycle holds and its name. */
   readonly progress: (position: number, total: number, label: string) => void;
+  /** Called after each value is read, and awaited before the next request: the index of the value's first column and its readings, one per column, so a caller can use a value before the cycle ends. */
+  readonly read: (first: number, readings: readonly Reading[]) => Promise<void>;
 }
 
 /** What a live run reads: one column per reading, and a way to read them all once. */
@@ -45,7 +47,8 @@ export interface Source {
   /**
    * Reads every column once. Takes a printer for anything worth saying about a read and returns
    * one entry per column. With a {@link ReadControl} the cycle checks `stopped` before each request,
-   * so it ends within the request in flight, and reports its progress before each one.
+   * so it ends within the request in flight, reports its progress before each one and hands over
+   * each value's readings as they arrive.
    */
   readonly read: (out: LineSink, control?: ReadControl) => Promise<readonly Reading[]>;
   /** The names that can be chosen. */
@@ -106,7 +109,9 @@ export async function legislatedSource(elm: Elm, wanted: readonly string[]): Pro
         const answers = await readPid(elm, pid);
         // With several answering units the first one to reply is logged.
         const first = answers.values().next();
-        readings.push(...(first.done === true ? pid.columns.map(() => undefined) : first.value));
+        const values = first.done === true ? pid.columns.map(() => undefined) : first.value;
+        await control?.read(readings.length, values);
+        readings.push(...values);
       }
       return readings;
     },
@@ -209,7 +214,9 @@ export async function unitSource(
           continue;
         }
         control?.progress(index + 1, chosen.length, item.label);
-        readings.push(await readOne(item, out));
+        const reading = await readOne(item, out);
+        await control?.read(index, [reading]);
+        readings.push(reading);
       }
       return readings;
     },
