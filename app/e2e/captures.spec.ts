@@ -45,7 +45,11 @@ test("a simulator capture decodes differently under another profile and reopens 
   await page.getByRole("button", { name: "Close" }).first().click();
   const listed = page.getByRole("table", { name: "Library" });
   await expect(listed.getByText("mercedes-w211")).toBeVisible();
-  await listed.getByRole("row", { name: /^Open capture / }).getByRole("cell").first().click();
+  await listed
+    .getByRole("row", { name: /^Open capture / })
+    .getByRole("cell")
+    .first()
+    .click();
   await expectSummary(page, /with mercedes-w211/);
   await chooseProfile(page, "", "Decode with");
   await expectSummary(page, /Left raw [1-9]\d* of \d+ exchanges with Generic OBD-II/);

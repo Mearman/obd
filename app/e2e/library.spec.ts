@@ -128,7 +128,11 @@ for (const viewport of VIEWPORTS) {
         await page.getByRole("combobox", { name: "Kind" }).click();
         await page.getByRole("option", { name: "Runs" }).click();
         await expect.poll(() => kindsListed(page)).toEqual(["Run"]);
-        await page.getByRole("row", { name: /^Open run / }).getByRole("cell").first().click();
+        await page
+          .getByRole("row", { name: /^Open run / })
+          .getByRole("cell")
+          .first()
+          .click();
         await expect(page.getByRole("group", { name: "Run playback" })).toBeVisible();
         await fits(page, "the Library with a run's graphs");
         await page.screenshot({ path: `${base}-run.png`, fullPage: true });
