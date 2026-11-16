@@ -115,7 +115,7 @@ async function seeded(): Promise<{
 }
 
 async function openLibrary(service: TestService): Promise<HTMLElement> {
-  renderApp(<App support={CHROME} />, service);
+  await renderApp(<App support={CHROME} />, service);
   await userEvent.click(screen.getByRole("tab", { name: "Library" }));
   return screen.findByRole("table", { name: "Library" });
 }
@@ -240,7 +240,7 @@ describe("the Library", () => {
 
   it("imports a run's CSV as an imported run", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await upload("run.csv", RUN_CSV);
     expect(await screen.findByText("Imported run.csv as a stopped run.")).toBeVisible();
@@ -254,7 +254,7 @@ describe("the Library", () => {
 
   it("names the first column of a run CSV whose header is not the export's", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await upload("bad.csv", "when,elapsed (s)\r\n");
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -266,7 +266,7 @@ describe("the Library", () => {
 
   it("imports a transcript as a capture and opens it in the viewer", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await upload("adapter.log", TRANSCRIPT);
     expect(await screen.findByRole("status", { name: "Decoding summary" })).toBeVisible();
@@ -279,7 +279,7 @@ describe("the Library", () => {
   it("imports a capture document as a capture under its own id", async () => {
     const service = createTestService();
     const capture = await simulatedCapture();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await upload("capture.json", JSON.stringify(capture));
     expect(await screen.findByText(`Capture ${capture.id}`)).toBeVisible();
@@ -288,7 +288,7 @@ describe("the Library", () => {
 
   it("imports a saved scan as a capture", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await upload("scan.json", JSON.stringify(sharedScanReport(SCAN)));
     await waitFor(async () => {
@@ -299,7 +299,7 @@ describe("the Library", () => {
 
   it("imports a file dropped anywhere on the screen, routed the same way", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     fireEvent.drop(screen.getByRole("heading", { level: 1, name: "Library" }), {
       dataTransfer: { files: [new File([RUN_CSV.replaceAll(",", "\t")], "run.tsv")] },
@@ -311,7 +311,7 @@ describe("the Library", () => {
 
   it("refuses a vehicle profile and points to Settings, keeping nothing", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await upload("profile.json", JSON.stringify(builtinProfileData("mercedes-w211")));
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -418,7 +418,7 @@ describe("the Library", () => {
       profile: "mercedes-w211",
       adapter: simulatorUrl("mercedes-w211"),
     });
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await openSection("Read");
     expect(screen.queryByRole("table", { name: "Saved reports" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Capture everything" }));
@@ -430,8 +430,8 @@ describe("the Library", () => {
     expect(screen.getByRole("tab", { name: "Library" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("puts the Library between Session and Guide in the tab bar, with no Runs or Captures tab", () => {
-    renderApp(<App support={CHROME} />);
+  it("puts the Library between Session and Guide in the tab bar, with no Runs or Captures tab", async () => {
+    await renderApp(<App support={CHROME} />);
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Session",
       "Library",

@@ -44,8 +44,8 @@ async function connectSimulator(): Promise<void> {
 }
 
 describe("the Session screen's tab bar", () => {
-  it("has Session, Library, Guide and Settings, opening on Session", () => {
-    renderApp(<App support={CHROME} />);
+  it("has Session, Library, Guide and Settings, opening on Session", async () => {
+    await renderApp(<App support={CHROME} />);
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Session",
       "Library",
@@ -59,7 +59,7 @@ describe("the Session screen's tab bar", () => {
 
 describe("the section navigation", () => {
   it("on a narrow screen shows one section at a time, each controlling its section", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     expect(expanded()).toEqual(["Connection"]);
     for (const name of ["Read", "Live", "Advanced", "Connection"] as const) {
       await userEvent.click(navButton(name));
@@ -74,7 +74,7 @@ describe("the section navigation", () => {
 
   it("on a wide screen shows Read and Live together and toggles each section on its own", async () => {
     setWideLayout(true);
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     expect(expanded()).toEqual(["Connection", "Read", "Live"]);
     await userEvent.click(navButton("Advanced"));
     expect(expanded()).toEqual(["Connection", "Read", "Live", "Advanced"]);
@@ -85,7 +85,7 @@ describe("the section navigation", () => {
   });
 
   it("follows the connection: Connection until connected, then Read, and Connection again after Disconnect", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     expect(expanded()).toEqual(["Connection"]);
     await connectSimulator();
     expect(expanded()).toEqual(["Read"]);
@@ -107,7 +107,7 @@ describe("sections that need a connection", () => {
       "Clear every emissions code (mode 04)",
     ],
   ] as const)("%s says why it is disabled and opens Connection", async (name, reason, action) => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await openSection(name);
     const area = section(name);
     expect(within(area).getByRole("note")).toHaveTextContent(reason);
@@ -118,7 +118,7 @@ describe("sections that need a connection", () => {
   });
 
   it("drops the Connect first note once connected", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await connectSimulator();
     for (const name of ["Read", "Live", "Advanced"] as const) {
       await openSection(name);
@@ -130,7 +130,7 @@ describe("sections that need a connection", () => {
   });
 
   it("says a collection run holds the adapter in Read and Advanced, and where to stop it", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await connectSimulator();
     await openSection("Live");
     await userEvent.click(await screen.findByRole("button", { name: "Start collecting" }));
@@ -152,7 +152,7 @@ describe("sections that need a connection", () => {
 describe("the connection summary", () => {
   it("collapses Connection to one line with the adapter, profile, battery voltage and Disconnect", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await pickProfile("mercedes-w211");
     await connectSimulator();
     const status = await service.client.link.status();
@@ -174,7 +174,7 @@ describe("the connection summary", () => {
 
   it("disconnects from the summary", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await connectSimulator();
     await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
     expect(
@@ -186,14 +186,14 @@ describe("the connection summary", () => {
 
 describe("the Advanced section", () => {
   it("starts collapsed, with its operations hidden", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await connectSimulator();
     expect(navButton("Advanced")).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByRole("button", { name: "Write a value" })).toBeNull();
   });
 
   it("keeps every typed field through collapsing and expanding, and through another screen", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await openSection("Advanced");
     const typed = {
       "Unit to change": "transmission",
@@ -222,7 +222,7 @@ describe("the Advanced section", () => {
 
 describe("the Session screen's handoffs", () => {
   it("keeps a scan's results while the Library is shown", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await connectSimulator();
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
     await screen.findByRole("table", { name: /Scan of Generic OBD-II/ });

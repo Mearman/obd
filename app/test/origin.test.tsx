@@ -54,7 +54,7 @@ describe("the origin of stored data", () => {
     const capture = await simulatedCapture();
     await service.storage.saveCapture(capture, "shared");
     await service.storage.saveCapture({ ...capture, id: "capture-own" }, "local");
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
 
     const listed = await screen.findByRole("table", { name: "Library" });
@@ -99,7 +99,7 @@ describe("the origin of stored data", () => {
       label: "Own scan",
       report: sharedScanReport({ ...SHARED_SCAN, redacted: false }),
     });
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
 
     const reports = await screen.findByRole("table", { name: "Library" });
@@ -155,7 +155,7 @@ describe("the origin of stored data", () => {
     ) {
       names.push(this.download);
     });
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await userEvent.click(await screen.findByRole("row", { name: /^Open report / }));
     const opened = await screen.findByLabelText("Saved report");
@@ -178,7 +178,7 @@ describe("the origin of stored data", () => {
       adapter: "ble://vLinker",
       startedAt: 1000,
     });
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     const runs = await screen.findByRole("table", { name: "Library" });
     const [, sharedRow, ownRow] = within(runs).getAllByRole("row");

@@ -149,7 +149,7 @@ describe("a screen's boundary", () => {
     async (id, label) => {
       const user = userEvent.setup();
       failing.add(id);
-      renderApp(<App support={SUPPORT} />);
+      await renderApp(<App support={SUPPORT} />);
       await user.click(screen.getByRole("tab", { name: label }));
       await screen.findByRole("heading", { name: `${label} could not be shown` });
       expectContained(label);
@@ -162,7 +162,7 @@ describe("a screen's boundary", () => {
     "contains a failing %s section: the fallback shows in its place and the other sections work",
     async (id, label) => {
       failing.add(id);
-      renderApp(<App support={SUPPORT} />);
+      await renderApp(<App support={SUPPORT} />);
       await openSection(label);
       await screen.findByRole("heading", { name: `${label} could not be shown` });
       expectContained(label);
@@ -183,7 +183,7 @@ describe("a screen's boundary", () => {
     const user = userEvent.setup();
     const service = createTestService();
     failing.add("read");
-    renderApp(<App support={SUPPORT} />, service);
+    await renderApp(<App support={SUPPORT} />, service);
     await user.click(screen.getByRole("button", { name: /connect with the simulator/i }));
     await screen.findByText("Connected to Simulator");
     await openSection("Live");
@@ -213,7 +213,7 @@ describe("a screen's boundary", () => {
   it("Go to Connect leaves the failed screen for the Session's Connection section", async () => {
     const user = userEvent.setup();
     failing.add("library");
-    renderApp(<App support={SUPPORT} />);
+    await renderApp(<App support={SUPPORT} />);
     await openSection("Read");
     await user.click(screen.getByRole("tab", { name: "Library" }));
     await user.click(await screen.findByRole("button", { name: "Go to Connect" }));
@@ -224,7 +224,7 @@ describe("a screen's boundary", () => {
   it("navigating away and back shows the screen afresh", async () => {
     const user = userEvent.setup();
     failing.add("settings");
-    renderApp(<App support={SUPPORT} />);
+    await renderApp(<App support={SUPPORT} />);
     await user.click(screen.getByRole("tab", { name: "Settings" }));
     await screen.findByRole("heading", { name: "Settings could not be shown" });
     failing.delete("settings");
@@ -237,7 +237,7 @@ describe("a screen's boundary", () => {
     const user = userEvent.setup();
     failing.add("shared");
     window.location.hash = "#share=1.abc";
-    renderApp(<App support={SUPPORT} />);
+    await renderApp(<App support={SUPPORT} />);
     expect(
       await screen.findByRole("heading", { name: "Shared data could not be shown" }),
     ).toBeVisible();
@@ -250,7 +250,7 @@ describe("a screen's boundary", () => {
   it("a different shared link resets the boundary", async () => {
     failing.add("shared");
     window.location.hash = "#share=1.first";
-    renderApp(<App support={SUPPORT} />);
+    await renderApp(<App support={SUPPORT} />);
     await screen.findByRole("heading", { name: "Shared data could not be shown" });
     failing.delete("shared");
     window.location.hash = "#share=1.second";
@@ -260,7 +260,7 @@ describe("a screen's boundary", () => {
 
   it("records the visit and a section's failure in the event log", async () => {
     failing.add("live");
-    renderApp(<App support={SUPPORT} />);
+    await renderApp(<App support={SUPPORT} />);
     await openSection("Live");
     await screen.findByRole("heading", { name: "Live could not be shown" });
     const events = appLog.snapshot();
@@ -410,7 +410,7 @@ describe("expected typed errors stay ordinary UI states", () => {
       new ORPCError("FORBIDDEN", { message: "The guard refused this." }),
     );
     const observed = { ...service, client: observeClient(failing, reportCall(store)) };
-    renderApp(
+    await renderApp(
       <>
         <ReportHost store={store} />
         <App support={SUPPORT} />
@@ -439,7 +439,7 @@ describe("expected typed errors stay ordinary UI states", () => {
     const service = createTestService();
     const failing = scanFailsWith(service.client, new TypeError("service bug"));
     const observed = { ...service, client: observeClient(failing, reportCall(store)) };
-    renderApp(
+    await renderApp(
       <>
         <ReportHost store={store} />
         <App support={SUPPORT} />

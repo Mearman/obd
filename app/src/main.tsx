@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./theme/themes.css";
 import "./theme/global.css";
+import { RouterProvider } from "@tanstack/react-router";
 import { App } from "./App";
 import { DatabaseProvider } from "./database/DatabaseProvider";
 import { exposeForE2e } from "./database/e2e-hook";
@@ -19,6 +20,7 @@ import { APP_VERSION } from "./release/release";
 import { errorStore, installGlobalHandlers } from "./report/capture";
 import { installE2eFaults } from "./report/e2e-fault";
 import { ReportHost, RootBoundary } from "./report";
+import { createAppRouter } from "./router/router";
 import { createPageService } from "./service/page-service";
 import { StorageBridge } from "./service/StorageBridge";
 import { applyThemePreference, readThemePreference } from "./theme/preference";
@@ -59,6 +61,8 @@ function startSession(): DatabaseSession {
 const databaseSession = startSession();
 const service = createPageService();
 
+const router = createAppRouter(App, { basepath: import.meta.env.BASE_URL });
+
 const root = document.getElementById("root");
 if (root === null) throw new Error("index.html has no #root element");
 
@@ -77,7 +81,7 @@ createRoot(root).render(
                     <DiagnosticsProvider service={service}>
                       <ReportHost />
                       <RootBoundary>
-                        <App />
+                        <RouterProvider router={router} />
                       </RootBoundary>
                     </DiagnosticsProvider>
                   </ProfilesProvider>

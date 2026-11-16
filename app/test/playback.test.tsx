@@ -30,7 +30,7 @@ async function show(capture: Capture) {
   const decodeAt = decoder(capture);
   const whole = await decodeAt(capture.exchanges.length);
   decodeAt.mockClear();
-  renderApp(<PlaybackView capture={capture} decoded={whole} decodeAt={decodeAt} />);
+  await renderApp(<PlaybackView capture={capture} decoded={whole} decodeAt={decodeAt} />);
   return { decodeAt, total: capture.exchanges.length };
 }
 
