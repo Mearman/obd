@@ -252,6 +252,8 @@ describe("a shared link with automatic saving off", () => {
     await renderApp(<App support={CHROME} />, service, sessionOver(storage));
 
     expect(await screen.findByRole("heading", { name: "Shared data" })).toBeInTheDocument();
+    // The Session screen is the one behind the viewer, and the header still marks the data as shared.
+    expect(within(screen.getByRole("banner")).getByText("Shared data")).toBeVisible();
     expect(screen.getByText("From a link, not your adapter")).toBeInTheDocument();
     expect(await screen.findByText(/Link made 15\/11\/2026, 11:00:00 UTC/)).toBeInTheDocument();
     expect(screen.getByText(/not read from the adapter you have connected/)).toBeInTheDocument();
