@@ -132,7 +132,9 @@ async function openLibrary(service: TestService): Promise<HTMLElement> {
 /** The library's rows below the header, as each row's kind badge. */
 function kindsListed(): string[] {
   const [, ...rows] = within(screen.getByRole("table", { name: "Library" })).getAllByRole("row");
-  return rows.map((row) => within(row).getAllByRole("cell")[1]?.textContent ?? "");
+  return rows.map(
+    (row) => row.querySelector('[role="cell"][data-label="Kind"]')?.textContent ?? "",
+  );
 }
 
 async function choose(label: string, option: string): Promise<void> {

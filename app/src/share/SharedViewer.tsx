@@ -314,15 +314,15 @@ export function SharedViewer({ fragment, onDone, onOpenPlan }: SharedViewerProps
     void (async () => {
       const digest = await fragmentDigest(fragment);
       // A capture carries its own id, so whether it is stored is known exactly; every other kind relies on the remembered digest.
-      const stored = capturesOnly(items)
-        ? (
-            await Promise.all(
-              items.map((item) =>
-                item.kind === "capture" ? storage.getCapture(item.data.capture.id) : undefined,
-              ),
+      const captureIds = items.flatMap((item) =>
+        item.kind === "capture" ? [item.data.capture.id] : [],
+      );
+      const stored =
+        captureIds.length === items.length
+          ? (await Promise.all(captureIds.map((id) => storage.getCapture(id)))).every(
+              (found) => found !== undefined,
             )
-          ).every((found) => found !== undefined)
-        : wasAutoSaved(digest);
+          : wasAutoSaved(digest);
       if (stored) {
         setAlreadySaved(true);
         return;

@@ -56,3 +56,12 @@ export async function itemEnvelope(
     }
   }
 }
+
+/** The envelopes that share `items`, in their order, all made at the same moment. */
+export function itemEnvelopes(
+  client: DiagnosticsClient,
+  items: readonly LibraryItem[],
+): Promise<ShareEnvelope[]> {
+  const createdAt = Date.now();
+  return Promise.all(items.map((item) => itemEnvelope(client, item, createdAt)));
+}
