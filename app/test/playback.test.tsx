@@ -7,7 +7,7 @@ import {
   type Capture,
   type Exchange,
 } from "obd-read";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { PlaybackView } from "../src/captures/playback/PlaybackView";
 import {
   MAX_STRIP_CELLS,
@@ -52,6 +52,24 @@ async function withProblems(): Promise<Capture> {
 }
 
 const slider = () => screen.getByRole("slider", { name: "Playback position" });
+
+/**
+ * Under fake timers, runs the timers playback schedules one at a time, letting React render after each, until the cursor reaches `count` exchanges.
+ *
+ * @throws when no timer is left to run before the cursor gets there, which means playback stopped early.
+ */
+async function playUntil(count: number): Promise<void> {
+  while (Number(slider().getAttribute("value")) < count) {
+    if (vi.getTimerCount() === 0) {
+      throw new Error(
+        `playback stopped at ${String(slider().getAttribute("value"))} of ${String(count)}`,
+      );
+    }
+    await act(async () => {
+      await vi.advanceTimersToNextTimerAsync();
+    });
+  }
+}
 
 describe("the strip helpers", () => {
   it("groups any number of exchanges into a bounded strip, marking each run by its worst outcome", async () => {
@@ -163,33 +181,38 @@ describe("playback of a capture", () => {
   it("plays from the start with Space at the chosen speed and stops at the end", async () => {
     const capture = await simulatedCapture();
     const { total } = await show(capture);
-    await userEvent.click(screen.getByRole("button", { name: "4 times speed" }));
+    // Playback waits out each gap on a timer, so the test runs those timers itself, one scheduled step at a time, instead of waiting for them in real time. Events go through fireEvent, which is synchronous: user-event awaits Testing Library's async wrapper, whose own timeout only advances under Jest's fake timers and so never fires under Vitest's.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "4 times speed" }));
     expect(screen.getByRole("button", { name: "4 times speed" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    slider().focus();
-    await userEvent.keyboard("{Home}");
-    await userEvent.keyboard(" ");
+    fireEvent.keyDown(slider(), { key: "Home" });
+    fireEvent.keyDown(slider(), { key: " " });
     expect(screen.getByRole("button", { name: "Pause" })).toBeVisible();
-    await waitFor(() => {
-      expect(Number(slider().getAttribute("value"))).toBeGreaterThan(2);
-    });
-    await userEvent.keyboard(" ");
+    await playUntil(3);
+    fireEvent.keyDown(slider(), { key: " " });
     expect(screen.getByRole("button", { name: "Play" })).toBeVisible();
     const paused = slider().getAttribute("value");
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    // Longer than the rest of the capture takes to play at any speed, so a playback that kept going would reach the end.
+    const { entries } = buildTimeline(capture);
+    const [first] = entries;
+    const last = entries.at(-1);
+    if (first === undefined || last === undefined) throw new Error("the capture is empty");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(last.t - first.t);
+    });
     expect(slider().getAttribute("value")).toBe(paused);
 
-    await userEvent.click(screen.getByRole("button", { name: "Play" }));
-    await waitFor(
-      () => {
-        expect(slider()).toHaveValue(String(total));
-      },
-      { timeout: 10_000 },
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    await playUntil(total);
+    expect(slider()).toHaveValue(String(total));
     expect(screen.getByRole("button", { name: "Replay" })).toBeVisible();
-  }, 20_000);
+  });
 
   it("marks refused and unanswered exchanges in words and jumps between them", async () => {
     const capture = await withProblems();
