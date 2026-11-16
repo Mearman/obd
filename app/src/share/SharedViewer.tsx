@@ -1,5 +1,5 @@
 import {
-  decodeShare,
+  decodeSharedLink,
   planDigest,
   type Storage,
   unitReportOf,
@@ -9,7 +9,7 @@ import {
   type ShareEnvelope,
 } from "obd-read";
 import { streamShareCodec } from "obd-read/web";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { unavailableBecause } from "../database/problem";
 import { useDatabase } from "../database/DatabaseProvider";
 import { LineChart } from "../charts";
@@ -32,11 +32,20 @@ import {
   type SavedShare,
 } from "./saved";
 
+/** What a link carried: one result, or several made into one link at `createdAt`. */
+type Carried =
+  | { readonly kind: "single"; readonly envelope: ShareEnvelope }
+  | {
+      readonly kind: "bundle";
+      readonly createdAt: number;
+      readonly envelopes: readonly ShareEnvelope[];
+    };
+
 /** How the viewer's decoding went. */
 type Decoded =
   | { readonly status: "decoding" }
   | { readonly status: "failed"; readonly message: string; readonly problems: readonly string[] }
-  | { readonly status: "ready"; readonly envelope: ShareEnvelope };
+  | { readonly status: "ready"; readonly carried: Carried };
 
 /** Props of {@link SharedViewer}. */
 export interface SharedViewerProps {
@@ -150,10 +159,70 @@ function RunView({ data }: { readonly data: RunSummaryShareData }) {
   );
 }
 
+/** One shared result's view, by its kind. */
+function EnvelopeView({
+  envelope,
+  storage,
+  planSaved,
+  onPlanSaved,
+  onOpenPlan,
+  onProblem,
+}: {
+  readonly envelope: ShareEnvelope;
+  readonly storage: Storage | undefined;
+  readonly planSaved: boolean;
+  readonly onPlanSaved: () => void;
+  readonly onOpenPlan: ((planId: string) => void) | undefined;
+  readonly onProblem: (message: string) => void;
+}) {
+  const keepFailed = (): void => {
+    onProblem("The plan could not be kept in My plans.");
+  };
+  switch (envelope.kind) {
+    case "scan":
+      return <ScanView data={envelope.data} />;
+    case "obd-report":
+      return <ObdView data={envelope.data} />;
+    case "run-summary":
+      return <RunView data={envelope.data} />;
+    case "plan":
+      return (
+        <SharedPlanView
+          data={envelope.data}
+          hash={planDigest(envelope.data.plan)}
+          onOpenInGuide={
+            storage === undefined || onOpenPlan === undefined
+              ? undefined
+              : () => void keepSharedPlan(storage, envelope.data.plan).then(onOpenPlan, keepFailed)
+          }
+        />
+      );
+    case "plan-result":
+      return (
+        <PlanResultView
+          data={envelope.data}
+          planSaved={planSaved}
+          onSavePlan={
+            storage === undefined
+              ? undefined
+              : () => void keepSharedPlan(storage, envelope.data.plan).then(onPlanSaved, keepFailed)
+          }
+        />
+      );
+    case "capture":
+      return <SharedCaptureView data={envelope.data} storage={storage} />;
+  }
+}
+
+/** Whether every one of `envelopes` is a capture, the only kind whose being stored is known exactly. */
+function capturesOnly(envelopes: readonly ShareEnvelope[]): boolean {
+  return envelopes.every((envelope) => envelope.kind === "capture");
+}
+
 /**
- * A read-only view of the result a link carries, labelled as shared data that did not come from the connected adapter.
+ * A read-only view of the result a link carries, or of each result of a link of several, one after another under its own heading, labelled as shared data that did not come from the connected adapter.
  *
- * The data is decoded and validated here and shown. By default it is then saved once, automatically, and with the setting "Save received links automatically" off it is saved only when the user presses Save. Either way every kind is kept marked `origin: "shared"` ({@link saveShared}). It never goes to the diagnostics service, the guard or an adapter: this component reads the database to save and, for a capture, to read an imported profile it is decoded with.
+ * The data is decoded and validated here and shown. By default it is then saved once, automatically, and with the setting "Save received links automatically" off it is saved only when the user presses Save, which saves every result of a link of several. Either way every kind is kept marked `origin: "shared"` ({@link saveShared}). It never goes to the diagnostics service, the guard or an adapter: this component reads the database to save and, for a capture, to read an imported profile it is decoded with.
  */
 export function SharedViewer({ fragment, onDone, onOpenPlan }: SharedViewerProps) {
   const { state } = useDatabase();
@@ -163,18 +232,29 @@ export function SharedViewer({ fragment, onDone, onOpenPlan }: SharedViewerProps
   const [autoSave] = useAutoSaveShared();
   const [saved, setSaved] = useState(false);
   const [alreadySaved, setAlreadySaved] = useState(false);
-  const [planSaved, setPlanSaved] = useState(false);
+  // The positions of the plan results whose plan has been kept in My plans.
+  const [plansSaved, setPlansSaved] = useState<ReadonlySet<number>>(new Set());
   useActivity("saving a shared link", saving && !saved);
   // The fragment an automatic save was started for. A ref, so the second effect run React StrictMode makes in development cannot start another.
   const autoStarted = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const live = { active: true };
-    void decodeShare(fragment, streamShareCodec).then((result) => {
+    void decodeSharedLink(fragment, streamShareCodec).then((result) => {
       if (!live.active) return;
       setDecoded(
         result.ok
-          ? { status: "ready", envelope: result.value }
+          ? {
+              status: "ready",
+              carried:
+                result.value.kind === "bundle"
+                  ? {
+                      kind: "bundle",
+                      createdAt: result.value.createdAt,
+                      envelopes: result.value.items,
+                    }
+                  : { kind: "single", envelope: result.value },
+            }
           : {
               status: "failed",
               message: result.error.message,
@@ -187,65 +267,86 @@ export function SharedViewer({ fragment, onDone, onOpenPlan }: SharedViewerProps
     };
   }, [fragment]);
 
-  /** Saves `envelope`; true when it was stored, with the problem shown otherwise. */
-  async function store(storage: Storage, envelope: ShareEnvelope): Promise<boolean> {
-    try {
-      await saveShared(storage, envelope);
-      return true;
-    } catch (caught) {
-      if (caught instanceof AlreadyStored) {
-        setAlreadySaved(true);
+  /**
+   * Saves every one of `envelopes`; true when at least one was stored and none failed, with the problem shown otherwise. One already stored is passed over and noted, so saving a link of several again stores what was not stored before.
+   */
+  async function store(storage: Storage, envelopes: readonly ShareEnvelope[]): Promise<boolean> {
+    let stored = 0;
+    for (const envelope of envelopes) {
+      try {
+        await saveShared(storage, envelope);
+        stored += 1;
+      } catch (caught) {
+        if (caught instanceof AlreadyStored) {
+          setAlreadySaved(true);
+          continue;
+        }
+        setProblem(
+          caught instanceof NotSaved
+            ? caught.message
+            : `The ${KIND_NAMES[envelope.kind]} could not be saved.`,
+        );
         return false;
       }
-      setProblem(
-        caught instanceof NotSaved
-          ? caught.message
-          : `The ${KIND_NAMES[envelope.kind]} could not be saved.`,
-      );
-      return false;
     }
+    return stored > 0;
   }
 
-  async function save(envelope: ShareEnvelope): Promise<void> {
+  const carried = decoded.status === "ready" ? decoded.carried : undefined;
+  const envelopes =
+    carried === undefined ? [] : carried.kind === "single" ? [carried.envelope] : carried.envelopes;
+
+  async function save(): Promise<void> {
     if (state.status !== "ready") return;
     setSaving(true);
     setProblem(undefined);
-    // The viewer stays open, so the person sees it saved; Dismiss then reports the saved kind and clears the address.
-    if (await store(state.storage, envelope)) setSaved(true);
+    // The viewer stays open, so the person sees it saved; Dismiss then reports what was saved and clears the address.
+    if (await store(state.storage, envelopes)) setSaved(true);
     setSaving(false);
   }
 
-  const readyEnvelope = decoded.status === "ready" ? decoded.envelope : undefined;
   const storage = state.status === "ready" ? state.storage : undefined;
   useEffect(() => {
-    if (!autoSave || readyEnvelope === undefined || storage === undefined) return;
+    if (!autoSave || carried === undefined || storage === undefined) return;
     if (autoStarted.current === fragment) return;
     autoStarted.current = fragment;
+    const items = carried.kind === "single" ? [carried.envelope] : carried.envelopes;
     void (async () => {
       const digest = await fragmentDigest(fragment);
       // A capture carries its own id, so whether it is stored is known exactly; every other kind relies on the remembered digest.
-      const stored =
-        readyEnvelope.kind === "capture"
-          ? (await storage.getCapture(readyEnvelope.data.capture.id)) !== undefined
-          : wasAutoSaved(digest);
+      const stored = capturesOnly(items)
+        ? (
+            await Promise.all(
+              items.map((item) =>
+                item.kind === "capture" ? storage.getCapture(item.data.capture.id) : undefined,
+              ),
+            )
+          ).every((found) => found !== undefined)
+        : wasAutoSaved(digest);
       if (stored) {
         setAlreadySaved(true);
         return;
       }
       setSaving(true);
-      if (await store(storage, readyEnvelope)) {
+      if (await store(storage, items)) {
         recordAutoSaved(digest);
         setSaved(true);
       } else {
         setSaving(false);
       }
     })();
-  }, [autoSave, fragment, readyEnvelope, storage]);
+  }, [autoSave, fragment, carried, storage]);
 
-  const envelope = readyEnvelope;
-  const unsavedNote = saved
-    ? "It never goes to the adapter."
-    : alreadySaved
+  const [only] = envelopes;
+  const single = carried?.kind === "single" ? carried.envelope : undefined;
+  // What the save button and the notes call what the link carries.
+  const what =
+    single !== undefined
+      ? `the ${KIND_NAMES[single.kind]}`
+      : `the ${String(envelopes.length)} results`;
+  const nothingNew = alreadySaved && only !== undefined && capturesOnly(envelopes);
+  const unsavedNote =
+    saved || alreadySaved
       ? "It never goes to the adapter."
       : autoSave && state.status === "opening"
         ? "It is saved to this device automatically, marked as shared, once the database is open. It never goes to the adapter."
@@ -255,7 +356,10 @@ export function SharedViewer({ fragment, onDone, onOpenPlan }: SharedViewerProps
       <div className={heading}>
         <h1 className={headingStyle}>Shared data</h1>
         <Badge tone="warning">From a link, not your adapter</Badge>
-        {envelope !== undefined && <Badge>{`Link made ${utc(envelope.createdAt)}`}</Badge>}
+        {carried !== undefined && (
+          <Badge>{`Link made ${utc(carried.kind === "single" ? carried.envelope.createdAt : carried.createdAt)}`}</Badge>
+        )}
+        {carried?.kind === "bundle" && <Badge>{`${String(envelopes.length)} results`}</Badge>}
       </div>
       <p className={muted}>
         This is a read-only copy that someone sent you in a link. It was not read from the adapter
@@ -283,80 +387,63 @@ export function SharedViewer({ fragment, onDone, onOpenPlan }: SharedViewerProps
           {problem}
         </p>
       )}
-      {envelope?.kind === "scan" && <ScanView data={envelope.data} />}
-      {envelope?.kind === "obd-report" && <ObdView data={envelope.data} />}
-      {envelope?.kind === "run-summary" && <RunView data={envelope.data} />}
-      {envelope?.kind === "plan" && (
-        <SharedPlanView
-          data={envelope.data}
-          hash={planDigest(envelope.data.plan)}
-          onOpenInGuide={
-            storage === undefined || onOpenPlan === undefined
-              ? undefined
-              : () =>
-                  void keepSharedPlan(storage, envelope.data.plan).then(onOpenPlan, () => {
-                    setProblem("The plan could not be kept in My plans.");
-                  })
-          }
-        />
-      )}
-      {envelope?.kind === "plan-result" && (
-        <PlanResultView
-          data={envelope.data}
-          planSaved={planSaved}
-          onSavePlan={
-            storage === undefined
-              ? undefined
-              : () =>
-                  void keepSharedPlan(storage, envelope.data.plan).then(
-                    () => {
-                      setPlanSaved(true);
-                    },
-                    () => {
-                      setProblem("The plan could not be kept in My plans.");
-                    },
-                  )
-          }
-        />
-      )}
-      {envelope?.kind === "capture" && (
-        <SharedCaptureView
-          data={envelope.data}
-          storage={state.status === "ready" ? state.storage : undefined}
-        />
-      )}
+      {envelopes.map((envelope, index) => {
+        const view = (
+          <EnvelopeView
+            envelope={envelope}
+            storage={storage}
+            planSaved={plansSaved.has(index)}
+            onPlanSaved={() => {
+              setPlansSaved((before) => new Set(before).add(index));
+            }}
+            onOpenPlan={onOpenPlan}
+            onProblem={setProblem}
+          />
+        );
+        if (carried?.kind !== "bundle") return <Fragment key={index}>{view}</Fragment>;
+        const name = `Result ${String(index + 1)} of ${String(envelopes.length)}: ${KIND_NAMES[envelope.kind]}`;
+        return (
+          <section key={index} aria-label={name} className={page}>
+            <h2 className={headingStyle}>{name}</h2>
+            {view}
+          </section>
+        );
+      })}
       <div className={row}>
-        {envelope !== undefined && (
+        {only !== undefined && (
           <Button
             variant="primary"
-            disabled={
-              state.status !== "ready" ||
-              saving ||
-              saved ||
-              (alreadySaved && envelope.kind === "capture")
-            }
-            onClick={() => void save(envelope)}
+            disabled={state.status !== "ready" || saving || saved || nothingNew}
+            onClick={() => void save()}
           >
-            {saved || (alreadySaved && envelope.kind === "capture")
+            {saved || nothingNew
               ? "Saved"
               : alreadySaved
                 ? "Save again"
-                : SAVE_LABELS[envelope.kind]}
+                : single !== undefined
+                  ? SAVE_LABELS[single.kind]
+                  : `Save all ${String(envelopes.length)} results`}
           </Button>
         )}
         <Button
           onClick={() => {
-            onDone(saved && envelope !== undefined ? envelope.kind : undefined);
+            onDone(
+              !saved || carried === undefined
+                ? undefined
+                : carried.kind === "single"
+                  ? carried.envelope.kind
+                  : { results: carried.envelopes.length },
+            );
           }}
         >
           Dismiss
         </Button>
       </div>
-      {envelope !== undefined && state.status !== "ready" && (
+      {only !== undefined && state.status !== "ready" && (
         <p className={muted}>
           {state.status === "opening"
-            ? `The database is opening, so the ${KIND_NAMES[envelope.kind]} cannot be saved yet.`
-            : `The ${KIND_NAMES[envelope.kind]} cannot be saved because ${unavailableBecause(state.problem, state.message)}.`}
+            ? `The database is opening, so ${what} cannot be saved yet.`
+            : `${what.charAt(0).toUpperCase()}${what.slice(1)} cannot be saved because ${unavailableBecause(state.problem, state.message)}.`}
         </p>
       )}
     </div>

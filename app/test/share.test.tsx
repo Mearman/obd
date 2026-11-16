@@ -6,6 +6,7 @@ import {
   jsonSchema,
   decodeShare,
   encodeShare,
+  encodeShareBundle,
   fragmentOfLink,
   type ObdReportShareData,
   type ScanShareData,
@@ -733,5 +734,106 @@ describe("the setting Save received links automatically", () => {
     });
     expect(screen.getByText(/Nothing in it has been saved/)).toBeInTheDocument();
     expect(await storage.listRuns({})).toEqual([]);
+  });
+});
+
+describe("a shared link of several results", () => {
+  /** A run summary of one signal, started at `startedAt`. */
+  function runSummary(startedAt: number): ShareEnvelope {
+    return {
+      v: 1,
+      kind: "run-summary",
+      createdAt: startedAt,
+      data: {
+        run: {
+          profile: "mercedes-w211",
+          adapter: "ble://vLinker",
+          startedAt,
+          stoppedAt: startedAt + 2000,
+          notes: "",
+        },
+        signals: [
+          {
+            signal: "engine speed",
+            unit: "rpm",
+            count: 2,
+            numericCount: 2,
+            min: 700,
+            max: 900,
+            mean: 800,
+            firstAt: startedAt,
+            lastAt: startedAt + 1000,
+            series: [
+              [0, 700],
+              [1000, 900],
+            ],
+          },
+        ],
+      },
+    };
+  }
+
+  async function bundleFragment(): Promise<string> {
+    const scan: ShareEnvelope = {
+      v: 1,
+      kind: "scan",
+      createdAt: Date.UTC(2026, 10, 15, 11, 0, 0),
+      data: SHARED,
+    };
+    const result = await encodeShareBundle(
+      { createdAt: Date.UTC(2026, 10, 15, 12, 0, 0), items: [scan, runSummary(1_790_000_000_000)] },
+      streamShareCodec,
+    );
+    if (!result.ok) throw new Error(result.error.message);
+    return result.value.fragment;
+  }
+
+  it("shows every result together, each under its own heading, and saves them all on Save", async () => {
+    localStorage.setItem("obd-read.auto-save-shared", "off");
+    window.location.hash = await bundleFragment();
+    const storage = new MemoryStorage();
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+
+    expect(await screen.findByRole("heading", { name: "Shared data" })).toBeInTheDocument();
+    expect(await screen.findByText("2 results")).toBeInTheDocument();
+    const first = screen.getByRole("region", { name: "Result 1 of 2: scan" });
+    const second = screen.getByRole("region", { name: "Result 2 of 2: run" });
+    expect(within(first).getByRole("table", { name: "Shared scan" })).toHaveTextContent(
+      "Engine control",
+    );
+    expect(within(second).getByRole("table", { name: "Shared run signals" })).toHaveTextContent(
+      "engine speed (rpm)",
+    );
+    expect(await storage.listScanReports({})).toEqual([]);
+    expect(await storage.listRuns({})).toEqual([]);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Save all 2 results" })).toBeEnabled();
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Save all 2 results" }));
+    expect(await screen.findByText("Saved to this device, marked as shared.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(await screen.findByText("Saved the 2 shared results")).toBeInTheDocument();
+    expect(await storage.listScanReports({})).toHaveLength(1);
+    expect(await storage.listRuns({})).toHaveLength(1);
+  });
+
+  it("saves every result once by default, and not again when the link is opened again", async () => {
+    const fragment = await bundleFragment();
+    const storage = new MemoryStorage();
+    window.location.hash = fragment;
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    expect(await screen.findByText("Saved to this device, marked as shared.")).toBeInTheDocument();
+    expect(await storage.listScanReports({})).toHaveLength(1);
+    expect(await storage.listRuns({})).toHaveLength(1);
+
+    cleanup();
+    window.location.hash = fragment;
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    expect(
+      await screen.findByText("Already saved to this device earlier, so it was not saved again."),
+    ).toBeInTheDocument();
+    expect(await storage.listScanReports({})).toHaveLength(1);
+    expect(await storage.listRuns({})).toHaveLength(1);
   });
 });

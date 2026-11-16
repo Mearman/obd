@@ -38,7 +38,7 @@ import {
 import {
   OBD_REPORT_FORMAT,
   captureShareData,
-  decodeShare,
+  decodeSharedLink,
   describeSharedCapture,
   describeSharedRun,
   describeSharedScan,
@@ -316,7 +316,7 @@ export function describeObdScan(scan: ObdScan, names: CodeNames): string[] {
 }
 
 /**
- * The report lines for a share link (or just its fragment): in the format `describe` prints for a saved scan, preceded by where the data came from.
+ * The report lines for a share link (or just its fragment): in the format `describe` prints for a saved scan, preceded by where the data came from. A link of several results prints a line saying how many, then each result under a `result N of M` line.
  *
  * `namesFor` gives the code names for the profile the link names, or undefined when it names none the caller knows; it must not read anything the link controls. A capture is decoded with what `decodeWith` chooses for it, and printed as `decode` prints it. Throws {@link ShareLinkError} when the link is not a valid share.
  */
@@ -330,7 +330,25 @@ export async function openShareLink(
   const fragment = fragmentOfLink(link);
   if (fragment === undefined)
     throw new ShareLinkError("not a share link: it has no #share= fragment");
-  const envelope = unwrap(await decodeShare(fragment, codec), "share link");
+  const shared = unwrap(await decodeSharedLink(fragment, codec), "share link");
+  if (shared.kind !== "bundle") return sharedLines(shared, namesFor, generic, decodeWith);
+  const lines = [
+    `${String(shared.items.length)} shared results in one link; link made ${new Date(shared.createdAt).toISOString()}`,
+  ];
+  for (const [index, item] of shared.items.entries()) {
+    lines.push(`result ${String(index + 1)} of ${String(shared.items.length)}`);
+    lines.push(...(await sharedLines(item, namesFor, generic, decodeWith)));
+  }
+  return lines;
+}
+
+/** The report lines for one shared result, as {@link openShareLink} prints it. */
+async function sharedLines(
+  envelope: ShareEnvelope,
+  namesFor: (profile: string) => CodeNames | undefined,
+  generic: CodeNames,
+  decodeWith: (capture: Capture) => Promise<DecodeTarget>,
+): Promise<string[]> {
   if (envelope.kind === "plan") {
     return [
       `shared plan, from a link; link made ${new Date(envelope.createdAt).toISOString()}`,

@@ -12,7 +12,7 @@ import { SettingsScreen } from "./screens/SettingsScreen";
 import { SessionScreen } from "./session/SessionScreen";
 import { VersionLink } from "./release/VersionLink";
 import { ScreenBoundary } from "./report";
-import { SAVED_NOTICES, type SavedShare } from "./share/saved";
+import { savedNotice, type SavedShare } from "./share/saved";
 import { SharedViewer } from "./share/SharedViewer";
 import { useSharedLink } from "./share/useSharedLink";
 import { THEME_PREFERENCES } from "./theme/preference";
@@ -113,8 +113,8 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
           onOpenChange={(open) => {
             if (!open) setSaved(undefined);
           }}
-          title={SAVED_NOTICES[saved].title}
-          description={SAVED_NOTICES[saved].description}
+          title={savedNotice(saved).title}
+          description={savedNotice(saved).description}
         />
       )}
       {shared.fragment !== undefined ? (

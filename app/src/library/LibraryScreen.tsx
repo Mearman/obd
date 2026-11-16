@@ -15,6 +15,7 @@ import { FaultHistory } from "../faults/FaultHistory";
 import { OriginBadge } from "../origin/OriginBadge";
 import { ORIGIN_FILTER_OPTIONS } from "../origin/origins";
 import { RunGraphs } from "../screens/RunGraphs";
+import { checkBox } from "../guide/editor.css";
 import { error, muted, page, row } from "../screens/screen.css";
 import { ScreenHeading } from "../screens/ScreenHeading";
 import { ShareDialog } from "../share/ShareDialog";
@@ -39,6 +40,7 @@ import {
   type LibraryKind,
   type LibraryOpen,
 } from "./items";
+import { itemEnvelope } from "./item-envelope";
 import { ImportNotes, LibraryImport, useLibraryImport } from "./LibraryImport";
 import { runEnvelope } from "./run-envelope";
 import { SavedReportView } from "./SavedReportView";
@@ -143,6 +145,8 @@ export function LibraryScreen({
     { readonly id: string; readonly origin: CaptureSummary["origin"] | undefined } | undefined
   >(undefined);
   const collectingId = collection.run?.id;
+  // The rows ticked for sharing together, by item key; an item deleted or no longer stored drops out.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
 
   const query = (kind: LibraryKind) => ({
     origin: origins,
@@ -157,6 +161,19 @@ export function LibraryScreen({
   const stored = listings.flatMap((listing) => listing.items ?? []);
   const items = sortItems(shownItems(stored, view), view.sort);
   const listProblem = listings.find((listing) => listing.problem !== undefined)?.problem;
+  // Shared in the order the list shows them, including any the search or dates hide.
+  const chosen = sortItems(
+    stored.filter((item) => selected.has(itemKey(item))),
+    view.sort,
+  );
+  const select = (item: LibraryItem, ticked: boolean): void => {
+    setSelected((before) => {
+      const next = new Set(before);
+      if (ticked) next.add(itemKey(item));
+      else next.delete(itemKey(item));
+      return next;
+    });
+  };
 
   const onImported = useCallback(
     (kind: LibraryKind, id: string) => {
@@ -323,6 +340,20 @@ export function LibraryScreen({
   }
 
   const columns: readonly Column<LibraryItem, SortColumn>[] = [
+    {
+      header: "Select",
+      render: (item) => (
+        <input
+          className={checkBox}
+          type="checkbox"
+          aria-label={`Select ${item.kind} ${item.id}`}
+          checked={selected.has(itemKey(item))}
+          onChange={(event) => {
+            select(item, event.currentTarget.checked);
+          }}
+        />
+      ),
+    },
     { header: "Kind", sortKey: "kind", render: (item) => <Badge>{KIND_LABELS[item.kind]}</Badge> },
     { header: "Date", sortKey: "date", render: (item) => when(item.at) },
     { header: "Profile", sortKey: "profile", render: profileText },
@@ -442,6 +473,27 @@ export function LibraryScreen({
               }}
             />
           </div>
+          {chosen.length > 0 && (
+            <div className={row} role="group" aria-label="Selected items">
+              <span>{`${counted(chosen.length, "item", "items")} selected`}</span>
+              <ShareDialog
+                label={`Share selected (${String(chosen.length)})`}
+                title={`Share ${counted(chosen.length, "result", "results")}`}
+                loadAll={() => {
+                  const createdAt = Date.now();
+                  return Promise.all(chosen.map((item) => itemEnvelope(client, item, createdAt)));
+                }}
+              />
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSelected(new Set());
+                }}
+              >
+                Clear selection
+              </Button>
+            </div>
+          )}
           {!loaded ? (
             <p className={muted}>Loading the library…</p>
           ) : stored.length === 0 ? (

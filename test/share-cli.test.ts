@@ -3,7 +3,13 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { decodeShare, describeLinkLength, fragmentOfLink } from "../src/core/share.js";
+import {
+  decodeShare,
+  describeLinkLength,
+  encodeShareBundle,
+  fragmentOfLink,
+  shareLink,
+} from "../src/core/share.js";
 import { readCaptureFile } from "../src/core/capture-file.js";
 import { parseAdapterUrl } from "../src/core/transport.js";
 import { run, type CliIo } from "../src/node/cli.js";
@@ -165,6 +171,29 @@ describe("share", () => {
     expect(lines.join("\n")).toMatch(
       /engine speed \(rpm\): 4 readings, min 700, max 1000, mean 850, 4 series points/,
     );
+  });
+
+  it("opens a link of several results and prints each in turn", async () => {
+    const scanLink = (await share(["share", "scan.json", "--redact-vin"])).lines[0] ?? "";
+    const runLink = (await share(["share", "run.json"])).lines[0] ?? "";
+    const items = [];
+    for (const link of [scanLink, runLink]) {
+      const decoded = await decodeShare(fragmentOfLink(link) ?? "", zlibShareCodec);
+      if (!decoded.ok) throw new Error(decoded.error.message);
+      items.push(decoded.value);
+    }
+    const bundle = await encodeShareBundle({ createdAt: 1_000, items }, zlibShareCodec);
+    if (!bundle.ok) throw new Error(bundle.error.message);
+    const link = shareLink("https://example.com/", bundle.value.fragment);
+    const { status, lines } = await share(["share", "--open", link]);
+    expect(status).toBe(0);
+    expect(lines[0]).toBe("2 shared results in one link; link made 1970-01-01T00:00:01.000Z");
+    expect(lines).toContain("result 1 of 2");
+    expect(lines).toContain("result 2 of 2");
+    expect(lines.indexOf("result 1 of 2")).toBeLessThan(
+      lines.indexOf("VIN and serial numbers were removed before sharing"),
+    );
+    expect(lines.join("\n")).toMatch(/engine speed \(rpm\): 4 readings/);
   });
 
   it("reports a bad file, a bad link and a wrong argument count with status 1", async () => {

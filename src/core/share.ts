@@ -56,6 +56,15 @@ export const LINK_VERSION = 2;
 /** The link form of the whole envelope as canonical JSON, which this module still reads. */
 export const JSON_LINK_VERSION = 1;
 
+/** The link form of several results in one link, `#share=3.<payload>` ({@link encodeShareBundle}). */
+export const BUNDLE_LINK_VERSION = 3;
+
+/** The version of a bundle's own format, which its payload's head starts with. */
+export const BUNDLE_VERSION = 1;
+
+/** The most results one bundle link carries. */
+export const MAX_BUNDLE_ITEMS = 50;
+
 /** The most bytes the canonical JSON of an envelope may have, before and after compression; a packed link is held to the same limit on the envelope it decodes to. */
 export const MAX_DECODED_BYTES = 256 * 1024;
 
@@ -488,6 +497,21 @@ export const shareEnvelopeSchema = z.discriminatedUnion("kind", [
 
 /** A link's content. */
 export type ShareEnvelope = z.output<typeof shareEnvelopeSchema>;
+
+/** Several results in one link: the bundle's version, when it was made, whether every result had its identifying values removed, and the results in their order. */
+export const shareBundleSchema = z.strictObject({
+  v: z.literal(BUNDLE_VERSION),
+  kind: z.literal("bundle"),
+  createdAt: timeSchema,
+  redacted: z.boolean(),
+  items: z.array(shareEnvelopeSchema).min(1).max(MAX_BUNDLE_ITEMS),
+});
+
+/** Several results in one link. */
+export type ShareBundle = z.output<typeof shareBundleSchema>;
+
+/** What a link carries: one result, or a bundle of several. */
+export type SharedLink = ShareEnvelope | ShareBundle;
 
 /**
  * Every value in a scan that identifies the car or a unit: the values of identification entries {@link isIdentifyingLabel} names, and any VIN-shaped word in another identification value (as text or as the ASCII of its hexadecimal bytes) or in a note. A unit that gives its VIN inside an unlabelled identification block is caught by the second.
@@ -954,15 +978,13 @@ function jsonValue(bytes: Uint8Array): ShareResult<unknown> {
   return { ok: true, value };
 }
 
-function withinLimit(envelope: ShareEnvelope): ShareResult<ShareEnvelope> {
+function withinLimit(envelope: ShareEnvelope, limit: number): ShareResult<ShareEnvelope> {
   const size = canonicalJson(envelope).length;
-  return size > MAX_DECODED_BYTES
-    ? tooLarge("decoded", size, true, MAX_DECODED_BYTES)
-    : { ok: true, value: envelope };
+  return size > limit ? tooLarge("decoded", size, true, limit) : { ok: true, value: envelope };
 }
 
-/** The envelope a packed payload holds, rebuilt and checked against the envelope schema and {@link MAX_DECODED_BYTES}. */
-function unpackedEnvelope(bytes: Uint8Array): ShareResult<ShareEnvelope> {
+/** The envelope a packed payload holds, rebuilt and checked against the envelope schema and `limit` bytes of canonical JSON, at most {@link MAX_DECODED_BYTES}. */
+function unpackedEnvelope(bytes: Uint8Array, limit: number): ShareResult<ShareEnvelope> {
   const framing = headLength(bytes);
   if (framing === undefined || framing.start + framing.length > bytes.length) {
     return failure("malformed", "the link payload has no head");
@@ -981,7 +1003,7 @@ function unpackedEnvelope(bytes: Uint8Array): ShareResult<ShareEnvelope> {
     if (checked.value.kind !== other.data[0]) {
       return failure("malformed", "the head names another kind than its envelope");
     }
-    return withinLimit(checked.value);
+    return withinLimit(checked.value, limit);
   }
   const parsed = packedCaptureHeadSchema.safeParse(head.value);
   if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
@@ -1035,7 +1057,7 @@ function unpackedEnvelope(bytes: Uint8Array): ShareResult<ShareEnvelope> {
   const envelope = shell.value;
   const { capture } = envelope.data;
   // Each exchange adds its canonical JSON and a comma to the empty list the head stands for; the first adds no comma.
-  const budget = MAX_DECODED_BYTES - canonicalJson(envelope).length + 1;
+  const budget = limit - canonicalJson(envelope).length + 1;
   const unpacked = unpackExchanges(
     rest,
     { buses: busTable.data, protocols, texts },
@@ -1045,17 +1067,58 @@ function unpackedEnvelope(bytes: Uint8Array): ShareResult<ShareEnvelope> {
   );
   if (unpacked === undefined) return failure("malformed", "the packed exchanges are not valid");
   if ("tooLarge" in unpacked) {
-    return tooLarge("decoded", MAX_DECODED_BYTES + 1, false, MAX_DECODED_BYTES);
+    return tooLarge("decoded", limit + 1, false, limit);
   }
   const rebuilt = checkedEnvelope({
     ...envelope,
     data: { ...envelope.data, capture: { ...capture, exchanges: unpacked.exchanges } },
   });
-  return rebuilt.ok ? withinLimit(rebuilt.value) : rebuilt;
+  return rebuilt.ok ? withinLimit(rebuilt.value, limit) : rebuilt;
+}
+
+/** A link's fragment with its version read and its payload inflated within {@link MAX_DECODED_BYTES}. */
+async function inflatedLink(
+  fragment: string,
+  codec: ShareCodec,
+): Promise<ShareResult<{ readonly version: number; readonly bytes: Uint8Array }>> {
+  const text = fragment.startsWith("#") ? fragment.slice(1) : fragment;
+  if (text.length > MAX_ENCODED_LENGTH) {
+    return tooLarge("encoded", text.length, true, MAX_ENCODED_LENGTH);
+  }
+  if (!text.startsWith(PREFIX)) return failure("malformed", "not a share link");
+  const token = text.slice(PREFIX.length);
+  const dot = token.indexOf(".");
+  if (dot < 0) return failure("malformed", "the link has no version");
+  const version = [LINK_VERSION, JSON_LINK_VERSION, BUNDLE_LINK_VERSION].find(
+    (known) => String(known) === token.slice(0, dot),
+  );
+  if (version === undefined) {
+    return failure(
+      "unsupported-version",
+      `link version ${token.slice(0, dot).slice(0, 20)} is not supported`,
+    );
+  }
+  const packed = fromBase64Url(token.slice(dot + 1));
+  if (packed === undefined) return failure("malformed", "the link payload is not base64url");
+  const inflated = await codec.inflate(packed, MAX_DECODED_BYTES);
+  if (!inflated.ok) {
+    return inflated.reason === "too-large"
+      ? tooLarge("decoded", MAX_DECODED_BYTES + 1, false, MAX_DECODED_BYTES)
+      : failure("malformed", "the link payload is not valid compressed data");
+  }
+  return { ok: true, value: { version, bytes: inflated.bytes } };
+}
+
+/** The envelope of a one-result link's inflated payload: packed for `share=2.`, JSON for `share=1.`. */
+function singleEnvelope(version: number, bytes: Uint8Array): ShareResult<ShareEnvelope> {
+  if (version === LINK_VERSION) return unpackedEnvelope(bytes, MAX_DECODED_BYTES);
+  const value = jsonObject(bytes);
+  if (!value.ok) return value;
+  return checkedEnvelope(value.value);
 }
 
 /**
- * Reads a link's fragment (with or without its `#`) back into an envelope: the packed form `share=2.` or the JSON form `share=1.`.
+ * Reads a link's fragment (with or without its `#`) back into an envelope: the packed form `share=2.` or the JSON form `share=1.`. A bundle link, `share=3.`, is refused with `unsupported-kind`; {@link decodeSharedLink} reads every form.
  *
  * Never throws. A fragment over {@link MAX_ENCODED_LENGTH} is refused before it is decoded, inflation stops past {@link MAX_DECODED_BYTES}, a packed capture stops being rebuilt once its canonical JSON would pass that limit, and the envelope must match its kind's strict schema: an unknown version, kind or field, or a key such as `__proto__`, is an error and nothing is partly read.
  */
@@ -1064,36 +1127,199 @@ export async function decodeShare(
   codec: ShareCodec,
 ): Promise<ShareResult<ShareEnvelope>> {
   try {
-    const text = fragment.startsWith("#") ? fragment.slice(1) : fragment;
-    if (text.length > MAX_ENCODED_LENGTH) {
-      return tooLarge("encoded", text.length, true, MAX_ENCODED_LENGTH);
+    const link = await inflatedLink(fragment, codec);
+    if (!link.ok) return link;
+    if (link.value.version === BUNDLE_LINK_VERSION) {
+      return failure("unsupported-kind", "the link carries several results, not one");
     }
-    if (!text.startsWith(PREFIX)) return failure("malformed", "not a share link");
-    const token = text.slice(PREFIX.length);
-    const dot = token.indexOf(".");
-    if (dot < 0) return failure("malformed", "the link has no version");
-    const version = token.slice(0, dot);
-    if (version !== String(LINK_VERSION) && version !== String(JSON_LINK_VERSION)) {
-      return failure(
-        "unsupported-version",
-        `link version ${version.slice(0, 20)} is not supported`,
-      );
-    }
-    const packed = fromBase64Url(token.slice(dot + 1));
-    if (packed === undefined) return failure("malformed", "the link payload is not base64url");
-    const inflated = await codec.inflate(packed, MAX_DECODED_BYTES);
-    if (!inflated.ok) {
-      return inflated.reason === "too-large"
-        ? tooLarge("decoded", MAX_DECODED_BYTES + 1, false, MAX_DECODED_BYTES)
-        : failure("malformed", "the link payload is not valid compressed data");
-    }
-    if (version === String(LINK_VERSION)) return unpackedEnvelope(inflated.bytes);
-    const value = jsonObject(inflated.bytes);
-    if (!value.ok) return value;
-    return checkedEnvelope(value.value);
+    return singleEnvelope(link.value.version, link.value.bytes);
   } catch {
     return failure("malformed", "the link could not be read");
   }
+}
+
+/** A bundle payload's head: the bundle version, when it was made, whether it was redacted, and the length of each result's packed payload. */
+const bundleHeadSchema = z.tuple([
+  z.literal(BUNDLE_VERSION),
+  timeSchema,
+  z.boolean(),
+  z.array(z.number().int().nonnegative().max(MAX_DECODED_BYTES)).max(MAX_BUNDLE_ITEMS),
+]);
+
+/** The bundle a `share=3.` payload holds, each result rebuilt within what the ones before it left of {@link MAX_DECODED_BYTES}, and the whole checked against {@link shareBundleSchema}. */
+function unpackedBundle(bytes: Uint8Array): ShareResult<ShareBundle> {
+  const framing = headLength(bytes);
+  if (framing === undefined || framing.start + framing.length > bytes.length) {
+    return failure("malformed", "the link payload has no head");
+  }
+  const head = jsonValue(bytes.subarray(framing.start, framing.start + framing.length));
+  if (!head.ok) return head;
+  if (!Array.isArray(head.value) || head.value[0] !== BUNDLE_VERSION) {
+    return failure("unsupported-version", "the bundle version is not supported");
+  }
+  const parsed = bundleHeadSchema.safeParse(head.value);
+  if (!parsed.success) return failure("invalid", describeIssue(parsed.error));
+  const [, createdAt, redacted, lengths] = parsed.data;
+  let offset = framing.start + framing.length;
+  if (offset + lengths.reduce((sum, length) => sum + length, 0) !== bytes.length) {
+    return failure("malformed", "the results' lengths do not match the payload");
+  }
+  const items: ShareEnvelope[] = [];
+  // Each result after the first adds its canonical JSON and a comma to the bundle's.
+  let used = 0;
+  for (const length of lengths) {
+    const item = unpackedEnvelope(
+      bytes.subarray(offset, offset + length),
+      MAX_DECODED_BYTES - used,
+    );
+    if (!item.ok) return item;
+    items.push(item.value);
+    used += canonicalJson(item.value).length + 1;
+    offset += length;
+  }
+  const bundle = shareBundleSchema.safeParse({
+    v: BUNDLE_VERSION,
+    kind: "bundle",
+    createdAt,
+    redacted,
+    items,
+  });
+  if (!bundle.success) return invalidIssues(bundle.error);
+  const size = canonicalJson(bundle.data).length;
+  return size > MAX_DECODED_BYTES
+    ? tooLarge("decoded", size, true, MAX_DECODED_BYTES)
+    : { ok: true, value: bundle.data };
+}
+
+/**
+ * Reads any link's fragment (with or without its `#`): one result, as {@link decodeShare} reads it, or a bundle of several (`share=3.`).
+ *
+ * Never throws, and holds a bundle to the same limits as one result: the whole bundle's canonical JSON is within {@link MAX_DECODED_BYTES}, every result matches its kind's strict schema, and nothing is partly read.
+ */
+export async function decodeSharedLink(
+  fragment: string,
+  codec: ShareCodec,
+): Promise<ShareResult<SharedLink>> {
+  try {
+    const link = await inflatedLink(fragment, codec);
+    if (!link.ok) return link;
+    return link.value.version === BUNDLE_LINK_VERSION
+      ? unpackedBundle(link.value.bytes)
+      : singleEnvelope(link.value.version, link.value.bytes);
+  } catch {
+    return failure("malformed", "the link could not be read");
+  }
+}
+
+/** The results a bundle link is made from, and when. */
+export interface BundleInput {
+  readonly createdAt: number;
+  readonly items: readonly ShareEnvelope[];
+}
+
+/**
+ * Writes several results as one link fragment, `share=3.<payload>`: a head of the bundle's version, time, redaction and each result's length, then each result packed as a `share=2.` link packs it, the whole compressed and written as unpadded base64url.
+ *
+ * With `redactVin` every result has its identifying values removed ({@link redactEnvelope}), so one choice covers them all. Fails with `invalid` when the bundle does not match {@link shareBundleSchema} and with `too-large` when its canonical JSON passes {@link MAX_DECODED_BYTES} or the fragment passes {@link MAX_ENCODED_LENGTH}.
+ */
+export async function encodeShareBundle(
+  input: BundleInput,
+  codec: ShareCodec,
+  options: EncodeOptions = {},
+): Promise<ShareResult<EncodedShare>> {
+  const candidate = {
+    v: BUNDLE_VERSION,
+    kind: "bundle",
+    createdAt: input.createdAt,
+    redacted: options.redactVin === true,
+    items: input.items,
+  };
+  const forbidden = forbiddenKey(candidate);
+  if (forbidden !== undefined) return failure("invalid", `the key ${forbidden} is not allowed`);
+  const parsed = shareBundleSchema.safeParse(candidate);
+  if (!parsed.success) return invalidIssues(parsed.error);
+  const bundle: ShareBundle =
+    options.redactVin === true
+      ? { ...parsed.data, items: parsed.data.items.map(redactEnvelope) }
+      : parsed.data;
+  const decodedBytes = canonicalJson(bundle).length;
+  if (decodedBytes > MAX_DECODED_BYTES) {
+    return tooLarge("decoded", decodedBytes, true, MAX_DECODED_BYTES);
+  }
+  const payloads = bundle.items.map(packedSharePayload);
+  const head = asciiBytes(
+    canonicalJson([
+      BUNDLE_VERSION,
+      bundle.createdAt,
+      bundle.redacted,
+      payloads.map((payload) => payload.length),
+    ]),
+  );
+  const prefix = lengthBytes(head.length);
+  const payload = new Uint8Array(
+    prefix.length + head.length + payloads.reduce((sum, item) => sum + item.length, 0),
+  );
+  payload.set(prefix, 0);
+  payload.set(head, prefix.length);
+  let offset = prefix.length + head.length;
+  for (const item of payloads) {
+    payload.set(item, offset);
+    offset += item.length;
+  }
+  const fragment = `${PREFIX}${String(BUNDLE_LINK_VERSION)}.${toBase64Url(await codec.deflate(payload))}`;
+  if (fragment.length > MAX_ENCODED_LENGTH) {
+    return tooLarge("encoded", fragment.length, true, MAX_ENCODED_LENGTH);
+  }
+  return { ok: true, value: { fragment, decodedBytes, packedBytes: payload.length } };
+}
+
+/** One link of a split bundle: its fragment and the positions, in the bundle given, of the results it carries. */
+export interface BundlePart {
+  readonly fragment: string;
+  readonly items: readonly number[];
+}
+
+/** Options of {@link splitShareBundle}. */
+export interface SplitOptions extends EncodeOptions {
+  /** The longest fragment a part may be, without the app's address and `#` before it. */
+  readonly maxLength: number;
+}
+
+/**
+ * Splits several results into as few links as keep each fragment within `maxLength`, in their order: each part takes the next results while its link still fits. A part of one result is an ordinary one-result link (`share=2.`), and a result whose own link is longer than `maxLength` is a part of its own, which the caller can tell by its length. One redaction choice covers every part.
+ *
+ * Fails as {@link encodeShare} and {@link encodeShareBundle} do, for the first part that cannot be written at all.
+ */
+export async function splitShareBundle(
+  input: BundleInput,
+  codec: ShareCodec,
+  options: SplitOptions,
+): Promise<ShareResult<readonly BundlePart[]>> {
+  const encode = async (positions: readonly number[]): Promise<ShareResult<EncodedShare>> => {
+    const items = positions.flatMap((position) => input.items.slice(position, position + 1));
+    const [only] = items;
+    return items.length === 1 && only !== undefined
+      ? encodeShare({ ...only, createdAt: input.createdAt }, codec, options)
+      : encodeShareBundle({ createdAt: input.createdAt, items }, codec, options);
+  };
+  const parts: BundlePart[] = [];
+  let current: { readonly fragment: string; readonly items: readonly number[] } | undefined;
+  for (let position = 0; position < input.items.length; position++) {
+    if (current !== undefined) {
+      const grown = [...current.items, position];
+      const joined = await encode(grown);
+      if (joined.ok && joined.value.fragment.length <= options.maxLength) {
+        current = { fragment: joined.value.fragment, items: grown };
+        continue;
+      }
+      parts.push(current);
+    }
+    const alone = await encode([position]);
+    if (!alone.ok) return alone;
+    current = { fragment: alone.value.fragment, items: [position] };
+  }
+  if (current !== undefined) parts.push(current);
+  return { ok: true, value: parts };
 }
 
 function asciiText(bytes: Uint8Array): string {

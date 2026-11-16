@@ -10,11 +10,11 @@ import {
   type Storage,
 } from "obd-read";
 
-/** What a shared link's viewer can save: every kind of link. */
-export type SavedShare = ShareEnvelope["kind"];
+/** What a shared link's viewer saved: the kind of a link of one result, or how many results a link of several carried. */
+export type SavedShare = ShareEnvelope["kind"] | { readonly results: number };
 
 /** The Save button's label for each kind. */
-export const SAVE_LABELS: Readonly<Record<SavedShare, string>> = {
+export const SAVE_LABELS: Readonly<Record<ShareEnvelope["kind"], string>> = {
   scan: "Save this scan",
   "obd-report": "Save this read",
   "run-summary": "Save this run",
@@ -24,7 +24,7 @@ export const SAVE_LABELS: Readonly<Record<SavedShare, string>> = {
 };
 
 /** What each kind is called in a sentence. */
-export const KIND_NAMES: Readonly<Record<SavedShare, string>> = {
+export const KIND_NAMES: Readonly<Record<ShareEnvelope["kind"], string>> = {
   scan: "scan",
   "obd-report": "OBD-II read",
   "run-summary": "run",
@@ -35,7 +35,7 @@ export const KIND_NAMES: Readonly<Record<SavedShare, string>> = {
 
 /** The notice shown once a shared item is saved. */
 export const SAVED_NOTICES: Readonly<
-  Record<SavedShare, { readonly title: string; readonly description: string }>
+  Record<ShareEnvelope["kind"], { readonly title: string; readonly description: string }>
 > = {
   scan: {
     title: "Saved the shared scan",
@@ -64,6 +64,20 @@ export const SAVED_NOTICES: Readonly<
       "It is stored with your runs, marked as shared, with its phases, codes and the readings the link carried.",
   },
 };
+
+/** The notice shown once what a link carried is saved: the kind's own for one result, one for several. */
+export function savedNotice(saved: SavedShare): {
+  readonly title: string;
+  readonly description: string;
+} {
+  return typeof saved === "string"
+    ? SAVED_NOTICES[saved]
+    : {
+        title: `Saved the ${String(saved.results)} shared results`,
+        description:
+          "Each is stored with its own kind (saved reports, runs, captures or My plans), marked as shared.",
+      };
+}
 
 /** The item a link carries is already stored on this device, so saving it again would only duplicate it (or, for a capture with the same id, is refused). */
 export class AlreadyStored extends Error {
