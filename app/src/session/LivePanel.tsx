@@ -1,6 +1,6 @@
 import type { Sample } from "obd-read";
 import { useMemo, useState } from "react";
-import { LineChart, appendRolling, type RollingHistory } from "../charts";
+import { LineChart } from "../charts";
 import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { useActivity } from "../pwa/ActivityProvider";
@@ -18,9 +18,6 @@ import { COLLECTION_LIMIT } from "../screens/limits";
 import { error, muted } from "../screens/screen.css";
 
 const PINNED = "Pinned";
-
-/** How many readings of each value the trend keeps. */
-const TREND_READINGS = 120;
 
 const STATE_LABEL = {
   collecting: "Collecting",
@@ -50,26 +47,7 @@ export function LivePanel() {
   );
   const [query, setQuery] = useState("");
   const [pins, setPins] = useState<readonly string[]>(readPins);
-  const runId = collection.run?.id;
-  // Adjusted while rendering, as React advises for state derived from a changing input: a new run
-  // starts an empty history, and each new set of latest readings is folded into the one kept.
-  const [tracked, setTracked] = useState<{
-    readonly runId: string | undefined;
-    readonly latest: readonly Sample[];
-    readonly history: RollingHistory;
-  }>({ runId, latest: [], history: new Map() });
-  if (tracked.runId !== runId || tracked.latest !== collection.latest) {
-    setTracked({
-      runId,
-      latest: collection.latest,
-      history: appendRolling(
-        tracked.runId === runId ? tracked.history : new Map(),
-        collection.latest,
-        TREND_READINGS,
-      ),
-    });
-  }
-  const { history } = tracked;
+  const { history } = collection;
 
   const columns: readonly Column<Sample>[] = [
     { header: "Value", render: (row) => row.signal },

@@ -1,11 +1,14 @@
 import { openSection } from "./ui-helpers";
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { GENERIC_SIMULATOR_URL, type Sample } from "obd-read";
+import { useState } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import type { BrowserSupport } from "../src/connect/support";
 import type { AppService } from "../src/diagnostics/client";
 import { SATURATED_NOTE } from "../src/format/saturation";
+import { LivePanel } from "../src/session/LivePanel";
 import { createTestService, renderApp } from "./render";
 
 const SUPPORT: BrowserSupport = {
@@ -72,23 +75,62 @@ function slowFirstRound(service: AppService): AppService {
   return { ...service, client: patched(service.client, { runs, live }) };
 }
 
-/** The service whose run delivers `readings` once and then nothing more, as a car reporting these values would. */
-function deliveringReadings(
-  service: AppService,
-  readings: readonly { signal: string; unit: string; value: number }[],
-): AppService {
+/** The service whose run delivers only the readings the test sends, so a test decides what arrives and when. */
+function sendingReadings(service: AppService): {
+  service: AppService;
+  send: (reading: { signal: string; unit: string; timestamp: number; value: number }) => void;
+} {
+  const waiting: ((reading: Omit<Sample, "runId">) => void)[] = [];
+  const queued: Omit<Sample, "runId">[] = [];
+  const next = (): Promise<Omit<Sample, "runId">> => {
+    const reading = queued.shift();
+    return reading === undefined
+      ? new Promise((resolve) => waiting.push(resolve))
+      : Promise.resolve(reading);
+  };
   const live = patched(service.client.live, {
     samples: (input: { runId: string }) =>
       Promise.resolve(
         (async function* () {
-          for (const [index, reading] of readings.entries()) {
-            yield { ...reading, runId: input.runId, timestamp: index };
-          }
-          await new Promise<never>(() => undefined);
+          for (;;) yield { ...(await next()), runId: input.runId };
         })(),
       ),
   });
-  return { ...service, client: patched(service.client, { live }) };
+  return {
+    service: { ...service, client: patched(service.client, { live }) },
+    send: (reading) => {
+      const resolve = waiting.shift();
+      if (resolve === undefined) queued.push(reading);
+      else resolve(reading);
+    },
+  };
+}
+
+/** The engine speed signal the trend tests send readings of. */
+const SPEED = { signal: "engine speed", unit: "rpm" } as const;
+
+/** The text summary of the engine speed trend, once it is shown. */
+async function trendSummary(): Promise<string> {
+  const trend = await screen.findByRole("img", { name: "Trend of engine speed" });
+  return trend.getAttribute("aria-description") ?? "";
+}
+
+/** The Live panel with a button that unmounts and mounts it again, as the shared-link viewer or an error boundary reset does. */
+function Remountable() {
+  const [shown, setShown] = useState(true);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setShown(!shown);
+        }}
+      >
+        {shown ? "Hide Live" : "Show Live"}
+      </button>
+      {shown && <LivePanel />}
+    </>
+  );
 }
 
 beforeEach(() => {
@@ -160,6 +202,55 @@ describe("collecting", () => {
     await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
   });
 
+  it("keeps the trend history of the run when the Live panel is unmounted and mounted again", async () => {
+    const sending = sendingReadings(createTestService());
+    await sending.service.client.link.connect({ adapter: GENERIC_SIMULATOR_URL });
+    await renderApp(<Remountable />, sending.service);
+    await userEvent.click(await screen.findByRole("button", { name: "Start collecting" }));
+    for (const [timestamp, value] of [
+      [1_000, 800],
+      [2_000, 900],
+    ] as const) {
+      await act(async () => {
+        sending.send({ ...SPEED, timestamp, value });
+        await Promise.resolve();
+      });
+      await screen.findByText(String(value));
+    }
+    expect(await trendSummary()).toContain("2 readings");
+
+    await userEvent.click(screen.getByRole("button", { name: "Hide Live" }));
+    expect(screen.queryByRole("img", { name: "Trend of engine speed" })).not.toBeInTheDocument();
+    await act(async () => {
+      sending.send({ ...SPEED, timestamp: 3_000, value: 1_000 });
+      await Promise.resolve();
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Show Live" }));
+
+    await vi.waitFor(async () => {
+      const summary = await trendSummary();
+      expect(summary).toContain("3 readings");
+      expect(summary).toContain("starting at 800");
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
+  });
+
+  it("puts every reading in the trend, including those that arrive between two renders", async () => {
+    const sending = sendingReadings(createTestService());
+    await openLive(sending.service);
+    await userEvent.click(await screen.findByRole("button", { name: "Start collecting" }));
+    await act(async () => {
+      sending.send({ ...SPEED, timestamp: 1_000, value: 800 });
+      sending.send({ ...SPEED, timestamp: 2_000, value: 900 });
+      sending.send({ ...SPEED, timestamp: 3_000, value: 1_000 });
+      await Promise.resolve();
+    });
+    await vi.waitFor(async () => {
+      expect(await trendSummary()).toContain("3 readings");
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
+  });
+
   it("shows Stopping at once and ends the run when the request in flight is answered", async () => {
     const held = holdingStop(createTestService());
     await openLive(held.service);
@@ -197,12 +288,15 @@ describe("reading the table", () => {
   });
 
   it("says a counter at its field's maximum is higher, and leaves a counter below it plain", async () => {
-    await openLive(
-      deliveringReadings(createTestService(), [
-        { signal: "distance since codes cleared", unit: "km", value: 65_535 },
-        { signal: "time since codes cleared", unit: "min", value: 65_534 },
-      ]),
-    );
+    const sending = sendingReadings(createTestService());
+    await openLive(sending.service);
+    sending.send({
+      signal: "distance since codes cleared",
+      unit: "km",
+      timestamp: 0,
+      value: 65_535,
+    });
+    sending.send({ signal: "time since codes cleared", unit: "min", timestamp: 0, value: 65_534 });
     await userEvent.click(await screen.findByRole("button", { name: "Start collecting" }));
     await screen.findByText("time since codes cleared");
     const reading = (signal: string): string => {
