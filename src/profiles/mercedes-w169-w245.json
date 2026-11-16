@@ -3,6 +3,11 @@
   "name": "mercedes-w169-w245",
   "description": "Mercedes-Benz W169 A-Class and W245 B-Class, the engine and the three further units an A 150 answered, KWP2000 over 11-bit CAN",
   "status": "unconfirmed",
+  "vin": {
+    "wmi": ["WDB", "WDD", "WDC", "W1K", "W1N", "4JG", "55S"],
+    "models": ["169", "245"],
+    "source": "The WMIs are the Mercedes-Benz car and SUV identifiers in the world manufacturer identifier table of the Wikipedia article Vehicle identification number, which cites the Kraftfahrt-Bundesamt manufacturer list SV 3.2 (https://en.wikipedia.org/wiki/Vehicle_identification_number, archived https://web.archive.org/web/20261102120229/https://en.wikipedia.org/wiki/Vehicle_identification_number). Characters 4 to 6 of a Mercedes-Benz VIN in the rest-of-world form are the model series, as the Niemoeller VIN guide states with a W169 example (https://www.niemoeller.de/en/mercedes-benz-oldtimer-spare-parts/vin, archived https://web.archive.org/web/20261116163107/https://www.niemoeller.de/en/mercedes-benz-oldtimer-spare-parts/vin); a North American VIN codes the model with letters instead, so it matches none of these models."
+  },
   "bus": {
     "id_bits": 11,
     "bitrate": 500000

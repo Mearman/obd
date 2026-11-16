@@ -6,6 +6,7 @@ import { failureMessage, type AdapterKind } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { GENERIC_SUMMARY, profileTitle } from "../profiles/generic";
 import { ProfilePicker } from "../profiles/ProfilePicker";
+import { ProfileSuggestions } from "../profiles/ProfileSuggestions";
 import { useProfiles } from "../profiles/ProfilesProvider";
 import { Button, Card, Dialog, Switch } from "../ui";
 import { error, list, muted, optionGrid } from "../screens/screen.css";
@@ -42,7 +43,7 @@ const OPTIONS: readonly Option[] = [
 ];
 
 /**
- * The Connection section: choose a vehicle profile and how to reach the car, with clear reasons when this browser cannot; once connected, what the adapter said about itself.
+ * The Connection section: choose a vehicle profile and how to reach the car, with clear reasons when this browser cannot; once connected, what the adapter said about itself and, after a generic read, the profiles its VIN suggests.
  */
 export function ConnectPanel({ support }: { readonly support: BrowserSupport }) {
   const { connection, connect, profile, setProfile } = useDiagnostics();
@@ -67,31 +68,36 @@ export function ConnectPanel({ support }: { readonly support: BrowserSupport }) 
 
   if (connection !== undefined) {
     return (
-      <Card title="This connection">
-        <dl className={details}>
-          <dt>Through</dt>
-          <dd>{connectionLabel(connection)}</dd>
-          <dt>Profile</dt>
-          <dd>{profileTitle(connection.profile)}</dd>
-          <dt>Adapter</dt>
-          <dd>{connection.info.identity}</dd>
-          {connection.info.description !== null && (
-            <>
-              <dt>Description</dt>
-              <dd>{connection.info.description}</dd>
-            </>
-          )}
-          {connection.info.stnIdentity !== null && (
-            <>
-              <dt>STN chip</dt>
-              <dd>{connection.info.stnIdentity}</dd>
-            </>
-          )}
-          <dt>Battery at connection</dt>
-          <dd>{connection.info.voltage ?? "Not reported"}</dd>
-        </dl>
-        <p className={muted}>Disconnect from the bar above to choose another profile or adapter.</p>
-      </Card>
+      <>
+        <Card title="This connection">
+          <dl className={details}>
+            <dt>Through</dt>
+            <dd>{connectionLabel(connection)}</dd>
+            <dt>Profile</dt>
+            <dd>{profileTitle(connection.profile)}</dd>
+            <dt>Adapter</dt>
+            <dd>{connection.info.identity}</dd>
+            {connection.info.description !== null && (
+              <>
+                <dt>Description</dt>
+                <dd>{connection.info.description}</dd>
+              </>
+            )}
+            {connection.info.stnIdentity !== null && (
+              <>
+                <dt>STN chip</dt>
+                <dd>{connection.info.stnIdentity}</dd>
+              </>
+            )}
+            <dt>Battery at connection</dt>
+            <dd>{connection.info.voltage ?? "Not reported"}</dd>
+          </dl>
+          <p className={muted}>
+            Disconnect from the bar above to choose another profile or adapter.
+          </p>
+        </Card>
+        <ProfileSuggestions />
+      </>
     );
   }
 

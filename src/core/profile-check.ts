@@ -15,6 +15,7 @@ import {
   unitSchema,
   validateProfile,
   valueSchema,
+  vinHintSchema,
   type ProfileFile,
 } from "./profile.js";
 import { pythonRepr } from "./format.js";
@@ -48,6 +49,7 @@ function unrecognisedKeys(raw: unknown, file: ProfileFile): string[] {
   problems.push(
     ...unknownKeys(raw.diagnostics, Object.keys(diagnosticsSchema.shape), "[diagnostics]"),
   );
+  problems.push(...unknownKeys(raw.vin, Object.keys(vinHintSchema.shape), "[vin]"));
   const rawUnits = raw.units;
   if (!isRecord(rawUnits)) return problems;
   for (const [name, unit] of Object.entries(rawUnits)) {
@@ -98,6 +100,9 @@ export function checkProfile(data: unknown, where: string): string[] {
     problems.push(`name ${pythonRepr(profile.name)} must be lower-case words joined by hyphens`);
   }
   if (profile.description.trim() === "") problems.push("description is blank");
+  if (profile.vin !== undefined && profile.vin.source.trim() === "") {
+    problems.push("[vin]: source is blank, so the identifiers cannot be traced");
+  }
 
   for (const [unitName, unit] of Object.entries(profile.units)) {
     for (const [valueName, value] of Object.entries(unit.values ?? {})) {

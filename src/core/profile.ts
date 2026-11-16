@@ -105,6 +105,42 @@ export const valueSchema = object({
   status: text().default("unconfirmed"),
 });
 
+/** The characters a VIN may hold (ISO 3779): digits and capital letters other than I, O and Q. */
+const VIN_CHARACTERS = "[A-HJ-NPR-Z0-9]";
+
+/**
+ * A list of VIN fragments of `min` to `max` characters, each named in a problem by `field`: one that is not that many VIN characters, or one listed twice.
+ */
+function vinFragments(field: string, min: number, max: number) {
+  const pattern = new RegExp(`^${VIN_CHARACTERS}{${String(min)},${String(max)}}$`);
+  const size = min === max ? `${String(min)}` : `${String(min)} to ${String(max)}`;
+  return z.array(text(), { error: wrong("a list") }).superRefine((list, context) => {
+    list.forEach((item, index) => {
+      if (!pattern.test(item)) {
+        context.addIssue({
+          code: "custom",
+          message: `${field} ${JSON.stringify(item)} must be ${size} VIN characters (digits and capital letters other than I, O and Q)`,
+        });
+      } else if (list.indexOf(item) !== index) {
+        context.addIssue({ code: "custom", message: `${field} ${item} is listed twice` });
+      }
+    });
+  });
+}
+
+/**
+ * Which cars a profile is for, as read from the VIN, so a generic connection can offer it.
+ *
+ * `wmi` lists the world manufacturer identifiers (VIN characters 1 to 3) of the makers and plants whose cars the profile covers. `models`, when given, lists the starts of the vehicle descriptor (VIN characters 4 onwards) that name the profile's models, such as a Mercedes-Benz chassis series; without it the WMI alone matches. `source` names where the identifiers come from.
+ */
+export const vinHintSchema = object({
+  wmi: vinFragments("wmi", 3, 3).refine((list) => list.length > 0, {
+    error: "wmi must list at least one identifier",
+  }),
+  models: vinFragments("model", 1, 6).optional(),
+  source: text(),
+});
+
 /** The diagnostic protocol and the session that opens it. A profile has one; a unit may carry its own. */
 export const diagnosticsSchema = object({
   protocol: z.literal(PROFILE_PROTOCOLS, { error: wrong("kwp2000 or uds") }),
@@ -143,6 +179,7 @@ export const profileFileSchema = object({
   name: text(),
   description: text(),
   status: text(),
+  vin: vinHintSchema.optional(),
   bus: z.union([klineBusSchema, canBusSchema]),
   diagnostics: diagnosticsSchema,
   units: z
@@ -286,11 +323,19 @@ export interface Unit {
   readonly values: ReadonlyMap<string, DataValue>;
 }
 
+/** The VIN fragments a profile is offered for: see {@link vinHintSchema}. `models` is empty when the WMI alone matches. */
+export interface VinHint {
+  readonly wmi: readonly string[];
+  readonly models: readonly string[];
+}
+
 /** Everything needed to talk to one chassis. */
 export interface Profile {
   readonly name: string;
   readonly description: string;
   readonly status: string;
+  /** Which cars the profile is for by VIN; absent when the profile names none. */
+  readonly vin?: VinHint;
   readonly bus: CanBus | KLineBus;
   readonly protocol: ProfileProtocol;
   readonly session: number;
@@ -343,7 +388,7 @@ export function profileUnit(profile: Profile, name: string): Unit {
 /** The section of a profile file an issue at `path` belongs to, as it is named in error messages. */
 function sectionLabel(where: string, path: readonly PropertyKey[]): string {
   const [first, unitName, third, valueName] = path.map(String);
-  if (first === "bus" || first === "diagnostics") return `${where} [${first}]`;
+  if (first === "bus" || first === "diagnostics" || first === "vin") return `${where} [${first}]`;
   if (first === "units" && unitName !== undefined) {
     if (third === "diagnostics") return `${where} [units.${unitName}.diagnostics]`;
     return third === "values" && valueName !== undefined
@@ -436,6 +481,9 @@ function build(file: ProfileFile): Profile {
     name: file.name,
     description: file.description,
     status: file.status,
+    ...(file.vin === undefined
+      ? {}
+      : { vin: { wmi: file.vin.wmi, models: file.vin.models ?? [] } }),
     bus,
     protocol: file.diagnostics.protocol,
     session: file.diagnostics.session,
