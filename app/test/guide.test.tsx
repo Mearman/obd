@@ -95,7 +95,7 @@ async function guide(options: { connect?: boolean; storage?: MemoryStorage } = {
   if (options.connect !== false) await service.client.link.connect({ adapter: GENERIC });
   const onOpenRun = vi.fn<(runId: string) => void>();
   const tab = openFakeTab(APP_VERSION);
-  renderApp(<GuideScreen onOpenRun={onOpenRun} />, service, undefined, undefined, tab);
+  await renderApp(<GuideScreen onOpenRun={onOpenRun} />, service, undefined, undefined, tab);
   await screen.findByRole("button", { name: "Import a plan file" });
   return { service, clock, onOpenRun, tab };
 }

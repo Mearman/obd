@@ -20,7 +20,7 @@ const SUPPORT: BrowserSupport = {
 };
 
 async function openLive(service: AppService = createTestService()): Promise<void> {
-  renderApp(<App support={SUPPORT} />, service);
+  await renderApp(<App support={SUPPORT} />, service);
   await userEvent.click(screen.getByRole("button", { name: /connect with the simulator/i }));
   await screen.findByText("Connected to Simulator");
   await openSection("Live");

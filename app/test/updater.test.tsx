@@ -280,7 +280,7 @@ describe("the Settings card", () => {
   it("shows the running version and checks on demand", async () => {
     const user = userEvent.setup();
     const tab = openFakeTab(APP_VERSION);
-    renderApp(<UpdateCard />, undefined, undefined, undefined, tab);
+    await renderApp(<UpdateCard />, undefined, undefined, undefined, tab);
     expect(screen.getByText(`Running version ${APP_VERSION}.`)).toBeInTheDocument();
     expect(await screen.findByText(/^Last checked for a new version on /)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Check now" }));
@@ -290,7 +290,7 @@ describe("the Settings card", () => {
   it("says what a ready update waits for", async () => {
     const tab = openFakeTab(APP_VERSION);
     tab.activity.begin("a collection run");
-    renderApp(<UpdateCard />, undefined, undefined, undefined, tab);
+    await renderApp(<UpdateCard />, undefined, undefined, undefined, tab);
     act(() => {
       tab.updater.waiting();
     });
@@ -307,7 +307,7 @@ describe("catching up on the database", () => {
   it("opens the database again once a tab on this version appears, after an older one held it", async () => {
     const broadcast = new FakeBroadcast();
     const tab = openFakeTab(APP_VERSION, broadcast);
-    renderApp(
+    await renderApp(
       <>
         <DatabaseCatchUp />
         <DatabaseNotice />

@@ -29,7 +29,7 @@ async function scanScreen(service: TestService = createTestService()): Promise<T
     profile: "mercedes-w211",
     adapter: simulatorUrl("mercedes-w211"),
   });
-  renderApp(<App support={CHROME} />, service);
+  await renderApp(<App support={CHROME} />, service);
   await userEvent.click(screen.getByRole("tab", { name: "Library" }));
   await openSection("Read");
   return service;
@@ -108,7 +108,7 @@ describe("Captures", () => {
   });
 
   it("imports a transcript and lists what it could not recover", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     expect(screen.getByText(/Nothing here yet/)).toBeVisible();
     const log = [
@@ -129,7 +129,7 @@ describe("Captures", () => {
   });
 
   it("imports a file dropped anywhere on the screen and opens the viewer", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     expect(screen.getByText(/Nothing here yet/)).toBeVisible();
     const log = [

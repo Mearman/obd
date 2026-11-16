@@ -43,7 +43,7 @@ async function collectedRun(): Promise<MemoryStorage> {
 }
 
 async function openGraphs(): Promise<void> {
-  renderApp(<App support={CHROME} />, createTestService(await collectedRun()));
+  await renderApp(<App support={CHROME} />, createTestService(await collectedRun()));
   await userEvent.click(screen.getByRole("tab", { name: "Library" }));
   await userEvent.click(await screen.findByRole("row", { name: /^Open run / }));
   await screen.findByRole("group", { name: "Run playback" });
@@ -56,8 +56,8 @@ describe("LineChart", () => {
     { t: 2000, v: 1000 },
   ];
 
-  it("is an image with a text summary, and reads out the value at the cursor", () => {
-    renderApp(
+  it("is an image with a text summary, and reads out the value at the cursor", async () => {
+    await renderApp(
       <LineChart
         name="engine speed"
         unit="rpm"
@@ -74,7 +74,7 @@ describe("LineChart", () => {
 
   it("moves the cursor by keyboard between readings and to the ends", async () => {
     const onCursorChange = vi.fn();
-    renderApp(
+    await renderApp(
       <LineChart
         name="engine speed"
         unit="rpm"
@@ -94,10 +94,10 @@ describe("LineChart", () => {
     expect(onCursorChange).toHaveBeenLastCalledWith(0);
   });
 
-  it("is not interactive without a cursor handler, and the compact form has no slider", () => {
-    renderApp(<LineChart name="engine speed" unit="rpm" points={points} />);
+  it("is not interactive without a cursor handler, and the compact form has no slider", async () => {
+    await renderApp(<LineChart name="engine speed" unit="rpm" points={points} />);
     expect(screen.queryByRole("slider")).not.toBeInTheDocument();
-    renderApp(<LineChart variant="compact" name="boost" unit="kPa" points={points} />);
+    await renderApp(<LineChart variant="compact" name="boost" unit="kPa" points={points} />);
     expect(screen.getByRole("img", { name: "Trend of boost" })).toBeInTheDocument();
   });
 });

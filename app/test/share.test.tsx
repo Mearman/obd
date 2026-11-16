@@ -74,7 +74,7 @@ function linkIn(dialog: HTMLElement): string {
 
 describe("the Share dialog on the Scan screen", () => {
   it("lists what is included, removes the VIN by default and shows the link length", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await scanWithSimulator();
     await userEvent.click(screen.getByRole("button", { name: "Share scan" }));
     const dialog = await screen.findByRole("dialog", { name: "Share this scan" });
@@ -107,7 +107,7 @@ describe("the Share dialog on the Scan screen", () => {
   it("copies the link, and offers the share sheet only where the browser has one", async () => {
     const writeText = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await scanWithSimulator();
     await userEvent.click(screen.getByRole("button", { name: "Share scan" }));
     const dialog = await screen.findByRole("dialog", { name: "Share this scan" });
@@ -121,7 +121,7 @@ describe("the Share dialog on the Scan screen", () => {
   it("hands the link to the share sheet when there is one", async () => {
     const share = vi.fn(() => Promise.resolve());
     Object.defineProperty(navigator, "share", { value: share, configurable: true });
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await scanWithSimulator();
     await userEvent.click(screen.getByRole("button", { name: "Share scan" }));
     const dialog = await screen.findByRole("dialog", { name: "Share this scan" });
@@ -133,7 +133,7 @@ describe("the Share dialog on the Scan screen", () => {
 
 describe("the Share dialog on a generic OBD-II scan", () => {
   it("makes an OBD-II report link, removing the VIN by default", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await userEvent.click(screen.getByRole("button", { name: /connect with the simulator/i }));
     await screen.findByText("Connected to Simulator");
     await openSection("Read");
@@ -181,7 +181,7 @@ describe("the Share dialog on a run in the Library", () => {
       })),
     );
     await storage.stopRun(run.id, 2000);
-    renderApp(<App support={CHROME} />, createTestService(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage));
     await openTab("Library");
     await userEvent.click(await screen.findByRole("button", { name: "Share" }));
     const dialog = await screen.findByRole("dialog", { name: "Share this run's summary" });
@@ -236,7 +236,11 @@ async function sharedFragment(data: ScanShareData = SHARED): Promise<string> {
 describe("a shared link when the database cannot be used", () => {
   it("says why the link cannot be saved, using the problem the database reports", async () => {
     window.location.hash = await sharedFragment();
-    renderApp(<App support={CHROME} />, createTestService(), unavailableSession("unsupported"));
+    await renderApp(
+      <App support={CHROME} />,
+      createTestService(),
+      unavailableSession("unsupported"),
+    );
     await screen.findByRole("table", { name: "Shared scan" });
     expect(
       await screen.findByText(
@@ -256,7 +260,7 @@ describe("a shared link with automatic saving off", () => {
     window.location.hash = await sharedFragment();
     const storage = new MemoryStorage();
     const service = createTestService(storage);
-    renderApp(<App support={CHROME} />, service, sessionOver(storage));
+    await renderApp(<App support={CHROME} />, service, sessionOver(storage));
 
     expect(await screen.findByRole("heading", { name: "Shared data" })).toBeInTheDocument();
     expect(screen.getByText("From a link, not your adapter")).toBeInTheDocument();
@@ -281,7 +285,7 @@ describe("a shared link with automatic saving off", () => {
   it("stores the scan as a shared report on Save and clears the address", async () => {
     window.location.hash = await sharedFragment();
     const storage = new MemoryStorage();
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     await screen.findByRole("table", { name: "Shared scan" });
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Save this scan" })).toBeEnabled();
@@ -308,7 +312,7 @@ describe("a shared link with automatic saving off", () => {
   it("writes nothing on Dismiss and clears the address", async () => {
     window.location.hash = await sharedFragment();
     const storage = new MemoryStorage();
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     await screen.findByRole("table", { name: "Shared scan" });
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(window.location.hash).toBe("");
@@ -367,7 +371,7 @@ describe("a shared link with automatic saving off", () => {
     if (!encoded.ok) throw new Error(encoded.error.message);
     window.location.hash = encoded.value.fragment;
     const storage = new MemoryStorage();
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
 
     expect(await screen.findByRole("heading", { name: "Shared data" })).toBeInTheDocument();
     expect(screen.getByText("From a link, not your adapter")).toBeInTheDocument();
@@ -400,7 +404,7 @@ describe("a shared link with automatic saving off", () => {
 
   it("says why a link that is not valid cannot be opened", async () => {
     window.location.hash = "share=1.AAAA";
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/This link cannot be opened/);
     expect(screen.queryByRole("button", { name: "Save this scan" })).not.toBeInTheDocument();
   });
@@ -442,7 +446,7 @@ describe("a shared link with automatic saving off", () => {
     if (!result.ok) throw new Error(result.error.message);
     window.location.hash = result.value.fragment;
     const storage = new MemoryStorage();
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     const table = await screen.findByRole("table", { name: "Shared run signals" });
     expect(table).toHaveTextContent("engine speed (rpm)");
     expect(within(table).getByRole("img", { name: "Trend of engine speed" })).toBeInTheDocument();
@@ -480,7 +484,7 @@ describe("a shared link with automatic saving off", () => {
   it("decodes a shared capture with the profile chosen in the selector, live, and writes nothing", async () => {
     window.location.hash = await captureFragment(await simulatedCapture());
     const storage = new MemoryStorage();
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     const summary = await screen.findByRole("status", { name: "Decoding summary" });
     await waitFor(() => {
       expect(summary).toHaveTextContent(
@@ -527,7 +531,7 @@ describe("a shared link with automatic saving off", () => {
       importedAt: 0,
       document: jsonSchema.parse(engineOnly),
     });
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     await screen.findByRole("status", { name: "Decoding summary" });
     await pickProfile("w211-engine-only", "Decode with");
     await waitFor(() => {
@@ -545,7 +549,7 @@ describe("a shared link with automatic saving off", () => {
     const capture = await simulatedCapture();
     window.location.hash = await captureFragment(capture);
     const storage = new MemoryStorage();
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     await screen.findByRole("status", { name: "Decoding summary" });
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Save this capture" })).toBeEnabled();
@@ -610,15 +614,15 @@ async function fragmentOf(envelope: ShareEnvelope): Promise<string> {
   return result.value.fragment;
 }
 
-function openLink(fragment: string, storage: MemoryStorage): void {
+async function openLink(fragment: string, storage: MemoryStorage): Promise<void> {
   window.location.hash = fragment;
-  renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+  await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
 }
 
 describe("a shared link with the default setting", () => {
   it("saves a scan once, marked shared, and keeps the viewer open with a status", async () => {
     const storage = new MemoryStorage();
-    openLink(await sharedFragment(), storage);
+    await openLink(await sharedFragment(), storage);
     expect(await screen.findByText("Saved to this device, marked as shared.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Shared data" })).toBeInTheDocument();
     expect(screen.queryByText(/nothing in it has been saved/i)).not.toBeInTheDocument();
@@ -646,7 +650,7 @@ describe("a shared link with the default setting", () => {
       },
     };
     const obdStorage = new MemoryStorage();
-    openLink(await fragmentOf(obd), obdStorage);
+    await openLink(await fragmentOf(obd), obdStorage);
     await screen.findByText("Saved to this device, marked as shared.");
     expect(await obdStorage.listScanReports({})).toMatchObject([
       { label: "Shared OBD-II read", origin: "shared" },
@@ -654,14 +658,14 @@ describe("a shared link with the default setting", () => {
     cleanup();
 
     const runStorage = new MemoryStorage();
-    openLink(await fragmentOf(AUTO_RUN), runStorage);
+    await openLink(await fragmentOf(AUTO_RUN), runStorage);
     await screen.findByText("Saved to this device, marked as shared.");
     expect(await runStorage.listRuns({})).toMatchObject([{ origin: "shared" }]);
     cleanup();
 
     const capture = await simulatedCapture();
     const captureStorage = new MemoryStorage();
-    openLink(await captureFragment(capture), captureStorage);
+    await openLink(await captureFragment(capture), captureStorage);
     await screen.findByText("Saved to this device, marked as shared.");
     expect(await captureStorage.listCaptures({})).toMatchObject([
       { id: capture.id, origin: "shared" },
@@ -671,12 +675,12 @@ describe("a shared link with the default setting", () => {
   it("does not save the same link again when it is opened again", async () => {
     const fragment = await fragmentOf(AUTO_RUN);
     const storage = new MemoryStorage();
-    openLink(fragment, storage);
+    await openLink(fragment, storage);
     await screen.findByText("Saved to this device, marked as shared.");
     cleanup();
 
     window.location.hash = "";
-    openLink(fragment, storage);
+    await openLink(fragment, storage);
     expect(await screen.findByText(/Already saved to this device earlier/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save again" })).toBeEnabled();
     expect(await storage.listRuns({})).toHaveLength(1);
@@ -690,7 +694,7 @@ describe("a shared link with the default setting", () => {
         Array.from({ length: AUTO_SAVED_LIMIT }, (_, index) => `old-${String(index)}`),
       ),
     );
-    openLink(await fragmentOf(AUTO_RUN), storage);
+    await openLink(await fragmentOf(AUTO_RUN), storage);
     await screen.findByText("Saved to this device, marked as shared.");
     const kept: unknown = JSON.parse(localStorage.getItem("obd-read.auto-saved-links") ?? "[]");
     expect(Array.isArray(kept) && kept.length).toBe(AUTO_SAVED_LIMIT);
@@ -701,7 +705,7 @@ describe("a shared link with the default setting", () => {
     const capture = await simulatedCapture();
     const storage = new MemoryStorage();
     await storage.saveCapture(capture, "shared");
-    openLink(await captureFragment(capture), storage);
+    await openLink(await captureFragment(capture), storage);
     expect(await screen.findByText(/Already saved to this device earlier/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Saved" })).toBeDisabled();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -716,7 +720,7 @@ describe("a shared link with the default setting", () => {
       throw new Error("blocked");
     });
     const storage = new MemoryStorage();
-    openLink(await fragmentOf(AUTO_RUN), storage);
+    await openLink(await fragmentOf(AUTO_RUN), storage);
     expect(await screen.findByText("Saved to this device, marked as shared.")).toBeInTheDocument();
     expect(await storage.listRuns({})).toHaveLength(1);
   });
@@ -724,7 +728,7 @@ describe("a shared link with the default setting", () => {
 
 describe("the setting Save received links automatically", () => {
   it("is on by default, is stored when turned off, and then a link waits for Save", async () => {
-    const view = renderApp(<App support={CHROME} />);
+    const view = await renderApp(<App support={CHROME} />);
     await openTab("Settings");
     const toggle = screen.getByRole("switch", { name: "Save received links automatically" });
     expect(toggle).toBeChecked();
@@ -734,7 +738,7 @@ describe("the setting Save received links automatically", () => {
     view.unmount();
 
     const storage = new MemoryStorage();
-    openLink(await fragmentOf(AUTO_RUN), storage);
+    await openLink(await fragmentOf(AUTO_RUN), storage);
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Save this run" })).toBeEnabled();
     });

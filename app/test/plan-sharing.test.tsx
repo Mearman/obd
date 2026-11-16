@@ -247,7 +247,7 @@ describe("My plans", () => {
   it("creates, duplicates and deletes plans in the database", async () => {
     const storage = new MemoryStorage();
     await keepPlan(storage, pedalPlan(), "local", "a");
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     await userEvent.click(screen.getByRole("tab", { name: "Guide" }));
     const list = await screen.findByRole("list", { name: "My plans" });
     expect(await within(list).findByText(/revision 2, [0-9a-f]{12}, 2 phases/)).toBeVisible();
@@ -276,7 +276,7 @@ describe("a plan link", () => {
   it("shows the plan read-only and opens it in Guide ready to record", async () => {
     const storage = new MemoryStorage();
     window.location.hash = await fragmentOf(planEnvelope(pedalPlan(), T0));
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     expect(await screen.findByText("From a link, not your adapter")).toBeVisible();
     const card = (await screen.findByText(/Plan pedal-check, revision 2, /)).closest("section");
     expect(
@@ -296,7 +296,7 @@ describe("a plan link", () => {
     localStorage.setItem("obd-read.auto-save-shared", "off");
     const storage = new MemoryStorage();
     window.location.hash = await fragmentOf(planEnvelope(pedalPlan(), T0));
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     await screen.findByText(/Plan pedal-check, revision 2, /);
     expect(await storage.listPlans()).toEqual([]);
     await userEvent.click(await screen.findByRole("button", { name: "Save to my plans" }));
@@ -319,7 +319,7 @@ describe("a plan link", () => {
       },
       streamShareCodec,
     );
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     const problems = await screen.findByRole("list", { name: "Problems in the link" });
     expect(problems).toHaveTextContent("unknown value engine-sped");
     expect(problems).toHaveTextContent("Unrecognized key");
@@ -343,7 +343,7 @@ describe("a results link", () => {
       T0,
     );
     window.location.hash = await fragmentOf(envelope);
-    renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     expect(await screen.findByText("Results of Accelerator pedal check")).toBeVisible();
     const phases = screen.getByRole("table", { name: "Phases of the shared result" });
     expect(within(phases).getByText("Press the pedal")).toBeVisible();

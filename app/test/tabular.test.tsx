@@ -80,7 +80,7 @@ describe("downloads of a saved report", () => {
       label: "Own scan",
       report: sharedScanReport(SCAN),
     });
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await userEvent.click(await screen.findByRole("row", { name: /^Open report / }));
     const opened = await screen.findByLabelText("Saved report");
@@ -116,7 +116,7 @@ describe("downloads of a decoded capture", () => {
       text: JSON.stringify(capture),
       name: "capture.obdcap.json",
     });
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await userEvent.click(await screen.findByRole("row", { name: `Open capture ${summary.id}` }));
     const exchanges = await screen.findByRole("button", { name: "Download raw exchanges CSV" });
@@ -167,7 +167,7 @@ describe("runs as CSV and TSV", () => {
         value: 50,
       },
     ]);
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     expect(await screen.findByRole("button", { name: "Export CSV" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Export JSON" })).toBeVisible();
@@ -182,7 +182,7 @@ describe("runs as CSV and TSV", () => {
 
   it("imports a picked CSV as an imported run and refuses a file with another header", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     const input = await screen.findByLabelText("Capture, saved scan, transcript or run file");
 
@@ -202,7 +202,7 @@ describe("runs as CSV and TSV", () => {
 
   it("imports a TSV dropped on the import area", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     const area = await screen.findByRole("heading", { level: 1, name: "Library" });
     const file = new File([CSV.replaceAll(",", "\t").replaceAll("\r\n", "\n")], "run.tsv");

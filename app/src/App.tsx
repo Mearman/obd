@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SCREEN_NAMES as SCREENS, type ScreenName } from "./router/search";
 import { useAppLocation } from "./screens/useAppLocation";
 import { detectBrowserSupport, type BrowserSupport } from "./connect/support";
 import { DatabaseNotice } from "./database/DatabaseNotice";
@@ -17,9 +18,6 @@ import { useSharedLink } from "./share/useSharedLink";
 import { THEME_PREFERENCES } from "./theme/preference";
 import { useTheme } from "./theme/ThemeProvider";
 import { Badge, Button, Tabs, TabsContent, TabsList, TabsTrigger, Toast, Tooltip } from "./ui";
-
-const SCREENS = ["session", "library", "guide", "settings"] as const;
-type ScreenName = (typeof SCREENS)[number];
 
 const TITLES: Readonly<Record<ScreenName, string>> = {
   session: "Session",
@@ -53,7 +51,7 @@ function ThemeButton() {
 
 /** The application shell: header, the screens and the navigation between them. */
 export function App({ support = detectBrowserSupport() }: { readonly support?: BrowserSupport }) {
-  const [{ screen, opened }, navigate] = useAppLocation<ScreenName>(SCREENS, "session");
+  const [{ screen, opened }, navigate] = useAppLocation();
   const setScreen = (next: ScreenName): void => {
     navigate({ screen: next });
   };

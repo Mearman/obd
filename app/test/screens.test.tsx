@@ -37,8 +37,8 @@ const SAFARI_IPHONE: BrowserSupport = {
 };
 
 describe("Connect screen", () => {
-  it("disables hardware adapters with the reason on an iPhone, and still offers the simulator", () => {
-    renderApp(<App support={SAFARI_IPHONE} />);
+  it("disables hardware adapters with the reason on an iPhone, and still offers the simulator", async () => {
+    await renderApp(<App support={SAFARI_IPHONE} />);
     const bluetooth = screen.getByRole("button", { name: /connect with bluetooth le/i });
     expect(bluetooth).toBeDisabled();
     expect(bluetooth).toHaveAccessibleDescription(/every iOS browser uses Safari/);
@@ -47,7 +47,7 @@ describe("Connect screen", () => {
 
   it("opens the Bluetooth picker on the page first, and reports a connection that fails", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("button", { name: /connect with bluetooth le/i }));
     expect(service.devices.prepare).toHaveBeenCalledWith("webbluetooth://vLinker");
     expect(await screen.findByRole("alert")).toHaveTextContent(/no transport host serves/);
@@ -55,7 +55,7 @@ describe("Connect screen", () => {
 
   it("lists every nearby device when asked to", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(
       screen.getByRole("switch", { name: /list every nearby bluetooth device/i }),
     );
@@ -65,21 +65,21 @@ describe("Connect screen", () => {
 
   it("hands a chosen serial port to the service before connecting", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("button", { name: /connect with usb or serial/i }));
     expect(service.devices.chooseSerial).toHaveBeenCalledOnce();
     expect(await screen.findByRole("alert")).toHaveTextContent(/no transport host serves/);
   });
 
   it("connects the simulator and labels the data as simulated", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await userEvent.click(screen.getByRole("button", { name: /connect with the simulator/i }));
     expect(await screen.findByText("Connected to Simulator")).toBeInTheDocument();
     expect(screen.getAllByText("Simulated data").length).toBeGreaterThan(0);
   });
 
   it("opens the browser support dialog", async () => {
-    renderApp(<App support={SAFARI_IPHONE} />);
+    await renderApp(<App support={SAFARI_IPHONE} />);
     await userEvent.click(screen.getByRole("button", { name: "Which browsers work?" }));
     expect(await screen.findByRole("dialog", { name: "Browser support" })).toBeInTheDocument();
   });
@@ -103,7 +103,7 @@ async function openTab(name: "Library" | "Settings"): Promise<void> {
 describe("Updates while something runs", () => {
   it("waits for a collection run to stop before it applies a new version", async () => {
     const tab = openFakeTab(APP_VERSION);
-    renderApp(<App support={CHROME} />, undefined, undefined, undefined, tab);
+    await renderApp(<App support={CHROME} />, undefined, undefined, undefined, tab);
     await connectSimulator();
     await openSection("Live");
     await userEvent.click(screen.getByRole("button", { name: "Start collecting" }));
@@ -123,7 +123,7 @@ describe("Updates while something runs", () => {
 
 describe("Scan", () => {
   it("scans with the simulator once connected", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await openSection("Read");
     expect(screen.getByRole("button", { name: "Start scan" })).toBeDisabled();
     await openSection("Connection");
@@ -136,7 +136,7 @@ describe("Scan", () => {
 
   it("clears a unit's codes only after the second step", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await connectSimulator("mercedes-w211");
     await openSection("Read");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
@@ -159,7 +159,7 @@ describe("Scan", () => {
 
   it("sends nothing when the request is cancelled, and frees the adapter", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await connectSimulator("mercedes-w211");
     await openSection("Read");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
@@ -173,7 +173,7 @@ describe("Scan", () => {
   });
 
   it("shows the guard's refusal of a request that is not a write", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await connectSimulator("mercedes-w211");
     await openSection("Advanced");
     await userEvent.type(screen.getByLabelText("Write request (hexadecimal)"), "10 03");
@@ -190,7 +190,7 @@ describe("Live values and Runs", () => {
     const request = vi.fn(() => Promise.resolve({ release, released: false }));
     Object.defineProperty(navigator, "wakeLock", { value: { request }, configurable: true });
     try {
-      renderApp(<App support={CHROME} />);
+      await renderApp(<App support={CHROME} />);
       await openSection("Live");
       expect(screen.getByRole("button", { name: "Start collecting" })).toBeDisabled();
       await openSection("Connection");
@@ -229,7 +229,7 @@ describe("Live values and Runs", () => {
     });
     // The earlier page and its collector are gone; the stored run is not.
     const later = createTestService(storage);
-    renderApp(<App support={CHROME} />, later);
+    await renderApp(<App support={CHROME} />, later);
     await openSection("Live");
     expect(await screen.findByText("engine speed")).toBeInTheDocument();
     expect(await later.client.runs.status({ runId: run.id })).toMatchObject({
@@ -245,14 +245,14 @@ describe("Live values and Runs", () => {
       adapter: "webbluetooth://vLinker",
       startedAt: 1_700_000_000_000,
     });
-    renderApp(<App support={CHROME} />, createTestService(storage));
+    await renderApp(<App support={CHROME} />, createTestService(storage));
     await openTab("Library");
     expect(await screen.findByRole("button", { name: "Resume" })).toBeInTheDocument();
     expect(screen.getByText("Open")).toBeInTheDocument();
   });
 
   it("says when there are no runs", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await openTab("Library");
     expect(await screen.findByText(/^Nothing here yet\./)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("combobox", { name: "Kind" }));
@@ -263,7 +263,7 @@ describe("Live values and Runs", () => {
 
 describe("Settings screen", () => {
   it("imports a valid profile file and rejects an invalid one with its problems", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
     const input = screen.getByLabelText("Profile file");
 
@@ -279,7 +279,7 @@ describe("Settings screen", () => {
   });
 
   it("applies the chosen colour scheme to the document", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
     await userEvent.click(screen.getByRole("combobox", { name: "Colour scheme" }));
     await userEvent.click(await screen.findByRole("option", { name: "Dark" }));
@@ -293,7 +293,7 @@ describe("Settings screen", () => {
 
 describe("Generic OBD-II (no profile)", () => {
   it("is the first option and the default, with a line saying what it can and cannot do", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     const select = screen.getByRole("button", { name: /Vehicle profile/ });
     expect(select).toHaveTextContent("Generic OBD-II (no profile)");
     expect(screen.getByText(/It cannot address one control unit/)).toBeInTheDocument();
@@ -308,7 +308,7 @@ describe("Generic OBD-II (no profile)", () => {
   });
 
   it("narrows the list as the user types and says when nothing matches", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await userEvent.click(screen.getByRole("button", { name: /Vehicle profile/ }));
     await userEvent.type(screen.getByRole("searchbox", { name: "Search profiles" }), "w211");
     const options = await screen.findAllByRole("option");
@@ -321,14 +321,14 @@ describe("Generic OBD-II (no profile)", () => {
 
   it("connects the simulator without a profile and names the connection as generic", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await connectSimulator();
     expect(screen.getByText(/Profile: Generic OBD-II \(no profile\)/)).toBeInTheDocument();
     expect(await service.client.link.status()).toMatchObject({ profile: null, simulated: true });
   });
 
   it("scans the legislated services and shows the OBD report in the existing table", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await connectSimulator();
     await openSection("Read");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
@@ -342,7 +342,7 @@ describe("Generic OBD-II (no profile)", () => {
   });
 
   it("disables every unit-level action with the reason, and leaves the emissions clear enabled", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await connectSimulator();
     await openSection("Read");
     await userEvent.click(screen.getByRole("button", { name: "Start scan" }));
@@ -368,7 +368,7 @@ describe("Generic OBD-II (no profile)", () => {
 
   it("clears every emissions code only after the second step", async () => {
     const service = createTestService();
-    renderApp(<App support={CHROME} />, service);
+    await renderApp(<App support={CHROME} />, service);
     await connectSimulator();
     await openSection("Advanced");
     await userEvent.click(
@@ -383,7 +383,7 @@ describe("Generic OBD-II (no profile)", () => {
   });
 
   it("collects the legislated values in a run listed under the generic name", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await connectSimulator();
     await openSection("Live");
     expect(screen.getByText(/This connection has no profile/)).toBeInTheDocument();
@@ -397,7 +397,7 @@ describe("Generic OBD-II (no profile)", () => {
   });
 
   it("shows the fault codes a run read, on Live while it collects and under Fault codes on Runs", async () => {
-    renderApp(<App support={CHROME} />);
+    await renderApp(<App support={CHROME} />);
     await connectSimulator();
     await openSection("Live");
     await userEvent.click(screen.getByRole("button", { name: "Start collecting" }));

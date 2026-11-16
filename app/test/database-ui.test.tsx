@@ -8,7 +8,7 @@ import { createTestService, renderApp } from "./render";
 
 describe("the database notice", () => {
   it("says nothing while the database is usable", async () => {
-    renderApp(<DatabaseNotice />);
+    await renderApp(<DatabaseNotice />);
     await act(async () => {
       await Promise.resolve();
     });
@@ -17,7 +17,7 @@ describe("the database notice", () => {
 
   it("tells a tab that cannot share why, and retries on request", async () => {
     const restart = vi.fn(() => readySession());
-    renderApp(<DatabaseNotice />, createTestService(), unavailableSession("in-use"), restart);
+    await renderApp(<DatabaseNotice />, createTestService(), unavailableSession("in-use"), restart);
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /cannot be used because obd-read is open in another tab or window that cannot share/,
     );
@@ -30,7 +30,7 @@ describe("the database notice", () => {
   });
 
   it("explains an unsupported browser without offering a retry that cannot help", async () => {
-    renderApp(<DatabaseNotice />, createTestService(), unavailableSession("unsupported"));
+    await renderApp(<DatabaseNotice />, createTestService(), unavailableSession("unsupported"));
     expect(await screen.findByRole("alert")).toHaveTextContent(/cannot store data/);
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
@@ -38,13 +38,13 @@ describe("the database notice", () => {
 
 describe("the stored data card", () => {
   it("describes the database", async () => {
-    renderApp(<DatabaseCard />);
+    await renderApp(<DatabaseCard />);
     expect(await screen.findByText(/SQLite 3\.0\.0 on fake-vfs/)).toBeVisible();
     expect(screen.getByText(/may clear this data/)).toBeVisible();
   });
 
   it("disables export and import while the database is unavailable", async () => {
-    renderApp(<DatabaseCard />, createTestService(), unavailableSession("in-use"));
+    await renderApp(<DatabaseCard />, createTestService(), unavailableSession("in-use"));
     await screen.findByText(
       "The database cannot be used because obd-read is open in another tab or window that cannot share its stored data with this one.",
     );
@@ -54,7 +54,7 @@ describe("the stored data card", () => {
 
   it("asks before replacing the data, then imports the chosen file", async () => {
     const control = fakeControl();
-    renderApp(<DatabaseCard />, createTestService(), readySession(control));
+    await renderApp(<DatabaseCard />, createTestService(), readySession(control));
     await screen.findByText(/SQLite 3\.0\.0/);
 
     const file = new File([new Uint8Array([1, 2, 3])], "copy.sqlite");
@@ -72,7 +72,7 @@ describe("the stored data card", () => {
   it("cancelling leaves the data alone, and a refused file shows the reason", async () => {
     const control = fakeControl();
     const before = control.file;
-    renderApp(<DatabaseCard />, createTestService(), readySession(control));
+    await renderApp(<DatabaseCard />, createTestService(), readySession(control));
     await screen.findByText(/SQLite 3\.0\.0/);
 
     await userEvent.upload(

@@ -6,8 +6,8 @@ import { REPOSITORY_URL, releaseUrl } from "../src/release/release";
 import { renderApp } from "./render";
 
 describe("the version in the top bar", () => {
-  it("links the injected version to its GitHub release", () => {
-    renderApp(<App />);
+  it("links the injected version to its GitHub release", async () => {
+    await renderApp(<App />);
     const link = screen.getByRole("link", { name: "Release notes for version 9.8.7-test" });
     expect(link).toHaveTextContent("v9.8.7-test");
     expect(link).toHaveAttribute("href", "https://github.com/Mearman/obd/releases/tag/v9.8.7-test");
@@ -15,8 +15,8 @@ describe("the version in the top bar", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("is inside the header", () => {
-    renderApp(<App />);
+  it("is inside the header", async () => {
+    await renderApp(<App />);
     expect(screen.getByRole("banner")).toContainElement(screen.getByRole("link"));
   });
 });

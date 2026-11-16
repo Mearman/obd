@@ -1,3 +1,4 @@
+import { RouterProvider } from "@tanstack/react-router";
 import { render } from "@testing-library/react";
 import {
   MemoryStorage,
@@ -21,6 +22,7 @@ import { ActivityProvider } from "../src/pwa/ActivityProvider";
 import { UpdatesProvider } from "../src/pwa/UpdatesProvider";
 import { APP_VERSION } from "../src/release/release";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
+import { createAppRouter } from "../src/router/router";
 import { ToastProvider, TooltipProvider } from "../src/ui";
 import { readySession } from "./fake-database";
 import { openFakeTab, type FakeTab } from "./fake-updates";
@@ -63,13 +65,16 @@ export function createTestService(
 }
 
 /** Renders `ui` inside every provider the app has, over a fresh simulated service unless one is given, a ready in-memory database unless a session is, and an updater on a fake service worker registration unless a tab is given. */
-export function renderApp(
+export async function renderApp(
   ui: ReactElement,
   service: AppService = createTestService(),
   database: DatabaseSession = readySession(),
   restart: () => DatabaseSession = readySession,
   tab: FakeTab = openFakeTab(APP_VERSION),
 ) {
+  const router = createAppRouter(() => ui);
+  // The router reads the address before it renders, so the page is there when this resolves.
+  await router.load();
   return render(
     <ThemeProvider>
       <TooltipProvider>
@@ -78,7 +83,9 @@ export function renderApp(
             <UpdatesProvider updater={tab.updater}>
               <DatabaseProvider initial={database} start={restart}>
                 <ProfilesProvider client={service.client}>
-                  <DiagnosticsProvider service={service}>{ui}</DiagnosticsProvider>
+                  <DiagnosticsProvider service={service}>
+                    <RouterProvider router={router} />
+                  </DiagnosticsProvider>
                 </ProfilesProvider>
               </DatabaseProvider>
             </UpdatesProvider>
