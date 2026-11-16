@@ -309,12 +309,9 @@ describe("the Guide screen", () => {
     expect(tab.worker.activate).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Abort the plan" }));
     await advanceUntil(clock, () => hasText(/The plan was aborted/));
-    await waitFor(
-      () => {
-        expect(tab.worker.activate).toHaveBeenCalledTimes(1);
-      },
-      { timeout: 5_000 },
-    );
+    await waitFor(() => {
+      expect(tab.worker.activate).toHaveBeenCalledTimes(1);
+    });
     expect(tab.page.reloads()).toBe(1);
   });
 
