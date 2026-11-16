@@ -100,7 +100,7 @@ export function checkProfile(data: unknown, where: string): string[] {
     problems.push(`name ${pythonRepr(profile.name)} must be lower-case words joined by hyphens`);
   }
   if (profile.description.trim() === "") problems.push("description is blank");
-  if (profile.vin !== undefined && profile.vin.source.trim() === "") {
+  if (profile.vin?.source.trim() === "") {
     problems.push("[vin]: source is blank, so the identifiers cannot be traced");
   }
 

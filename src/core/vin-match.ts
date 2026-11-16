@@ -21,9 +21,7 @@ const VIN = /^[A-HJ-NPR-Z0-9]{17}$/;
 export function vinMatch(profile: Pick<Profile, "vin">, vin: string): VinMatch | undefined {
   const read = vin.trim().toUpperCase();
   const hint = profile.vin;
-  if (!VIN.test(read) || hint === undefined || !hint.wmi.includes(read.slice(0, 3))) {
-    return undefined;
-  }
+  if (!VIN.test(read) || !hint?.wmi.includes(read.slice(0, 3))) return undefined;
   if (hint.models.length === 0) return "maker";
   const descriptor = read.slice(3);
   return hint.models.some((model) => descriptor.startsWith(model)) ? "model" : undefined;
