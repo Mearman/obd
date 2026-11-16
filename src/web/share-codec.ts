@@ -1,8 +1,9 @@
-import type { InflateResult, ShareCodec } from "../core/share.js";
+import { deflateRaw } from "pako";
+import { SHARE_DEFLATE_LEVEL, type InflateResult, type ShareCodec } from "../core/share.js";
 
 /** Writes `bytes` into a transform stream, closes it and gathers what comes out, stopping once more than `maxBytes` has. */
 async function through(
-  stream: CompressionStream | DecompressionStream,
+  stream: DecompressionStream,
   bytes: Uint8Array<ArrayBuffer>,
   maxBytes: number,
 ): Promise<{ readonly chunks: Uint8Array[]; readonly size: number; readonly exceeded: boolean }> {
@@ -38,16 +39,11 @@ function joined(chunks: readonly Uint8Array[], size: number): Uint8Array {
 }
 
 /**
- * A {@link ShareCodec} over the web-standard `CompressionStream` and `DecompressionStream` (raw deflate), which browsers and Node both provide. Inflation is cancelled the moment its output passes the limit.
+ * A {@link ShareCodec} for the browser, which runs in Node too. It compresses with `pako`, a port of zlib, at {@link SHARE_DEFLATE_LEVEL}, because `CompressionStream` has no level and its default makes longer links than the CLI; the bytes are those `node:zlib` writes. It inflates through the web-standard `DecompressionStream` (raw deflate), cancelled the moment its output passes the limit.
  */
 export const streamShareCodec: ShareCodec = {
-  async deflate(bytes: Uint8Array): Promise<Uint8Array> {
-    const out = await through(
-      new CompressionStream("deflate-raw"),
-      new Uint8Array(bytes),
-      Number.MAX_SAFE_INTEGER,
-    );
-    return joined(out.chunks, out.size);
+  deflate(bytes: Uint8Array): Promise<Uint8Array> {
+    return Promise.resolve(deflateRaw(bytes, { level: SHARE_DEFLATE_LEVEL }));
   },
 
   async inflate(bytes: Uint8Array, maxBytes: number): Promise<InflateResult> {

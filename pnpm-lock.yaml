@@ -197,6 +197,9 @@ importers:
       mqtt:
         specifier: 5.16.1
         version: 5.16.1(supports-color@7.2.0)
+      pako:
+        specifier: 3.0.3
+        version: 3.0.3
       serialport:
         specifier: 13.0.0
         version: 13.0.0(supports-color@7.2.0)
@@ -4586,6 +4589,9 @@ packages:
   p-try@1.0.0:
     resolution: {integrity: sha512-U1etNYuMJoIz3ZXSrrySFjsXQTWOx2/jdi86L+2pRvph/qMKL6sbcCYdH23fqsbm8TH2Gn0OybpT4eSFlCVHww==}
     engines: {node: '>=4'}
+
+  pako@3.0.3:
+    resolution: {integrity: sha512-tmrebBBYI5FOw8QICGwJNqE8fotC8R+gwcxOvoFNv+GKehOI6Lc6YBolNcQNnC4v96l1wt7rh102ifD4kVeZAQ==}
 
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
@@ -9958,6 +9964,8 @@ snapshots:
   p-timeout@6.1.4: {}
 
   p-try@1.0.0: {}
+
+  pako@3.0.3: {}
 
   parent-module@1.0.1:
     dependencies:
