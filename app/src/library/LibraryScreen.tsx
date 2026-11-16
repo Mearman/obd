@@ -6,28 +6,35 @@ import {
   type Run,
   type ScanReport,
 } from "obd-read";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { CaptureViewer } from "../captures/CaptureViewer";
 import { failureMessage } from "../diagnostics/client";
 import { useDatabase } from "../database/DatabaseProvider";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { FaultHistory } from "../faults/FaultHistory";
 import { OriginBadge } from "../origin/OriginBadge";
-import { ALL_ORIGINS, ORIGIN_FILTER_OPTIONS } from "../origin/origins";
-import { profileTitle } from "../profiles/generic";
+import { ORIGIN_FILTER_OPTIONS } from "../origin/origins";
 import { RunGraphs } from "../screens/RunGraphs";
 import { error, muted, page, row } from "../screens/screen.css";
 import { ScreenHeading } from "../screens/ScreenHeading";
 import { ShareDialog } from "../share/ShareDialog";
-import { Badge, Button, DataTable, Dialog, Select, download, type Column } from "../ui";
 import {
-  ALL_KINDS,
+  Badge,
+  Button,
+  DataTable,
+  Dialog,
+  GroupedDataTable,
+  Select,
+  TextField,
+  download,
+  type Column,
+} from "../ui";
+import {
   KIND_FILTER_OPTIONS,
   KIND_LABELS,
   emptyNote,
   itemKey,
   kindShown,
-  newestFirst,
   type LibraryItem,
   type LibraryKind,
   type LibraryOpen,
@@ -36,6 +43,20 @@ import { ImportNotes, LibraryImport, useLibraryImport } from "./LibraryImport";
 import { runEnvelope } from "./run-envelope";
 import { SavedReportView } from "./SavedReportView";
 import { useCaptureItems, useReportItems, useRunItems } from "./sources";
+import {
+  GROUPING_OPTIONS,
+  NO_GROUPING,
+  groupItems,
+  groupingChoice,
+  kindChoice,
+  originChoice,
+  profileText,
+  shownItems,
+  sortItems,
+  toggleSort,
+  type LibraryView,
+  type SortColumn,
+} from "./view";
 
 /** A moment as the Library shows it, in UTC so it reads the same wherever it was recorded. */
 function when(at: number): string {
@@ -47,6 +68,37 @@ function counted(count: number, one: string, many: string): string {
   return `${String(count)} ${count === 1 ? one : many}`;
 }
 
+/**
+ * The search field's text, kept here while the person types so the field never waits on the address, with what to call as it changes and as it loses focus. The first change of an edit adds a history entry and the rest replace it, so Back undoes the whole edit; a search the address changes to from elsewhere, as Back does, replaces the text.
+ */
+function useSearchText(
+  search: string,
+  write: (text: string, replace: boolean) => void,
+): { readonly text: string; readonly change: (text: string) => void; readonly end: () => void } {
+  const [text, setText] = useState(search);
+  // The values this edit wrote, whose return through the address is not a change from elsewhere.
+  const written = useRef(new Set<string>());
+  const editing = useRef(false);
+  useEffect(() => {
+    if (written.current.has(search)) return;
+    written.current.clear();
+    setText(search);
+  }, [search]);
+  return {
+    text,
+    change: (next) => {
+      setText(next);
+      written.current.add(next);
+      write(next, editing.current);
+      editing.current = true;
+    },
+    end: () => {
+      editing.current = false;
+      written.current.clear();
+    },
+  };
+}
+
 /** What the open item's viewer needs beyond its id: the run or the report read from the service. */
 type Viewed = { readonly for: string } & (
   | { readonly kind: "run"; readonly run: Run }
@@ -54,23 +106,34 @@ type Viewed = { readonly for: string } & (
 );
 
 /**
- * Library: every stored run, capture and saved report in one list, newest first, filtered by kind and origin, with one import control and each kind's own viewer.
+ * Library: every stored run, capture and saved report in one list, filtered by kind, origin, a search and a date range, sorted by any column and optionally grouped, with one import control and each kind's own viewer.
  *
  * @param open The item the viewer shows, held by the shell so it stays open when the person looks at another screen and comes back, and so another screen can open one here.
  * @param onOpen Opens an item in the viewer, or closes the viewer with undefined.
+ * @param view How the list is filtered, sorted and grouped, held by the shell in the address so a view has a link of its own.
+ * @param onView Moves to another view, replacing the current history entry when `replace` is true.
  */
 export function LibraryScreen({
   open,
   onOpen,
+  view,
+  onView,
 }: {
   readonly open: LibraryOpen | undefined;
   readonly onOpen: (open: LibraryOpen | undefined) => void;
+  readonly view: LibraryView;
+  readonly onView: (view: LibraryView, replace: boolean) => void;
 }) {
   const { service, collection, resumeCollection, stopCollection } = useDiagnostics();
   const { client } = service;
   const { revision } = useDatabase();
-  const [kinds, setKinds] = useState(ALL_KINDS);
-  const [origins, setOrigins] = useState(ALL_ORIGINS);
+  const { kind: kinds, origin: origins } = view;
+  const change = (part: Partial<LibraryView>): void => {
+    onView({ ...view, ...part }, false);
+  };
+  const search = useSearchText(view.search, (text, replace) => {
+    onView({ ...view, search: text }, replace);
+  });
   // Changes when the Library itself adds or removes an item, so every list is read again.
   const [version, setVersion] = useState(0);
   const [problem, setProblem] = useState<string | undefined>(undefined);
@@ -91,7 +154,8 @@ export function LibraryScreen({
   const reports = useReportItems(query("report"));
   const listings = [runs, captures, reports];
   const loaded = listings.every((listing) => listing.items !== undefined);
-  const items = newestFirst(listings.map((listing) => listing.items ?? []));
+  const stored = listings.flatMap((listing) => listing.items ?? []);
+  const items = sortItems(shownItems(stored, view), view.sort);
   const listProblem = listings.find((listing) => listing.problem !== undefined)?.problem;
 
   const onImported = useCallback(
@@ -258,20 +322,37 @@ export function LibraryScreen({
     }
   }
 
-  const columns: readonly Column<LibraryItem>[] = [
-    { header: "Kind", render: (item) => <Badge>{KIND_LABELS[item.kind]}</Badge> },
-    { header: "Date", render: (item) => when(item.at) },
-    {
-      header: "Profile",
-      render: (item) =>
-        item.kind === "capture" && item.profile === null
-          ? "no profile"
-          : profileTitle(item.profile),
-    },
+  const columns: readonly Column<LibraryItem, SortColumn>[] = [
+    { header: "Kind", sortKey: "kind", render: (item) => <Badge>{KIND_LABELS[item.kind]}</Badge> },
+    { header: "Date", sortKey: "date", render: (item) => when(item.at) },
+    { header: "Profile", sortKey: "profile", render: profileText },
     { header: "Details", render: details },
-    { header: "Origin", render: (item) => <OriginBadge origin={item.origin} /> },
+    {
+      header: "Origin",
+      sortKey: "origin",
+      render: (item) => <OriginBadge origin={item.origin} />,
+    },
     { header: "Actions", render: actions },
   ];
+  const table = {
+    label: "Library",
+    columns,
+    rowKey: itemKey,
+    onOpen: {
+      label: (item: LibraryItem) => `Open ${item.kind} ${item.id}`,
+      open: (item: LibraryItem) => {
+        setProblem(undefined);
+        onOpen({ kind: item.kind, id: item.id });
+      },
+    },
+    sorting: {
+      key: view.sort.column,
+      direction: view.sort.direction,
+      onSort: (column: SortColumn) => {
+        change({ sort: toggleSort(view.sort, column) });
+      },
+    },
+  };
 
   // The last item read belongs to the item it was read for, so another item reads as loading at once.
   const shownViewed = open !== undefined && viewed?.for === itemKey(open) ? viewed : undefined;
@@ -289,7 +370,7 @@ export function LibraryScreen({
       }}
     >
       <ScreenHeading
-        simulated={items.some((item) => item.kind === "run" && isSimulatorUrl(item.run.adapter))}
+        simulated={stored.some((item) => item.kind === "run" && isSimulatorUrl(item.run.adapter))}
       >
         Library
       </ScreenHeading>
@@ -302,10 +383,10 @@ export function LibraryScreen({
       {open === undefined && (
         <>
           <p className={muted}>
-            Every collection run, raw capture and saved report kept on this device, newest first. A
-            capture keeps every raw request and reply, so it can be decoded with any profile, a
-            newer version of one, or none; it holds the VIN and fault history. Nothing here leaves
-            this device unless you export or share it.
+            Every collection run, raw capture and saved report kept on this device. A capture keeps
+            every raw request and reply, so it can be decoded with any profile, a newer version of
+            one, or none; it holds the VIN and fault history. Nothing here leaves this device unless
+            you export or share it.
           </p>
           <LibraryImport
             outcome={outcome}
@@ -314,37 +395,63 @@ export function LibraryScreen({
             }}
           />
           <div className={row}>
+            <TextField
+              label="Search"
+              value={search.text}
+              onValueChange={search.change}
+              onBlur={search.end}
+            />
             <Select
               label="Kind"
               value={kinds}
               options={KIND_FILTER_OPTIONS}
-              onValueChange={setKinds}
+              onValueChange={(value) => {
+                change({ kind: kindChoice(value) });
+              }}
             />
             <Select
               label="Origin"
               value={origins}
               options={ORIGIN_FILTER_OPTIONS}
-              onValueChange={setOrigins}
+              onValueChange={(value) => {
+                change({ origin: originChoice(value) });
+              }}
+            />
+            <TextField
+              label="From (UTC)"
+              type="date"
+              value={view.from ?? ""}
+              onValueChange={(value) => {
+                change({ from: value === "" ? undefined : value });
+              }}
+            />
+            <TextField
+              label="To (UTC)"
+              type="date"
+              value={view.to ?? ""}
+              onValueChange={(value) => {
+                change({ to: value === "" ? undefined : value });
+              }}
+            />
+            <Select
+              label="Group by"
+              value={view.group ?? NO_GROUPING}
+              options={GROUPING_OPTIONS}
+              onValueChange={(value) => {
+                change({ group: groupingChoice(value) });
+              }}
             />
           </div>
           {!loaded ? (
             <p className={muted}>Loading the library…</p>
-          ) : items.length === 0 ? (
+          ) : stored.length === 0 ? (
             <p className={muted}>{emptyNote(kinds, origins)}</p>
+          ) : items.length === 0 ? (
+            <p className={muted}>Nothing matches the search or the dates.</p>
+          ) : view.group === undefined ? (
+            <DataTable {...table} rows={items} />
           ) : (
-            <DataTable
-              label="Library"
-              columns={columns}
-              rows={items}
-              rowKey={itemKey}
-              onOpen={{
-                label: (item) => `Open ${item.kind} ${item.id}`,
-                open: (item) => {
-                  setProblem(undefined);
-                  onOpen({ kind: item.kind, id: item.id });
-                },
-              }}
-            />
+            <GroupedDataTable {...table} groups={groupItems(items, view.group, view.sort)} />
           )}
         </>
       )}

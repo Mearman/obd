@@ -128,6 +128,7 @@ for (const viewport of VIEWPORTS) {
         await page.getByRole("combobox", { name: "Kind" }).click();
         await page.getByRole("option", { name: "Runs" }).click();
         await expect.poll(() => kindsListed(page)).toEqual(["Run"]);
+        await expect(page).toHaveURL(/[?&]kind=run(&|$)/);
         await page
           .getByRole("row", { name: /^Open run / })
           .getByRole("cell")

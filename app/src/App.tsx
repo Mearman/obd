@@ -51,7 +51,7 @@ function ThemeButton() {
 
 /** The application shell: header, the screens and the navigation between them. */
 export function App({ support = detectBrowserSupport() }: { readonly support?: BrowserSupport }) {
-  const [{ screen, opened }, navigate] = useAppLocation();
+  const [{ screen, opened, view }, navigate] = useAppLocation();
   const setScreen = (next: ScreenName): void => {
     navigate({ screen: next });
   };
@@ -164,7 +164,14 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
             </TabsContent>
             <TabsContent value="library">
               <ScreenBoundary screen="library" onGoToConnect={goConnect}>
-                <LibraryScreen open={opened} onOpen={setOpened} />
+                <LibraryScreen
+                  open={opened}
+                  onOpen={setOpened}
+                  view={view}
+                  onView={(next, replace) => {
+                    navigate({ screen: "library", view: next, replace });
+                  }}
+                />
               </ScreenBoundary>
             </TabsContent>
             <TabsContent value="guide">

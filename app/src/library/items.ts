@@ -15,6 +15,13 @@ export const KIND_LABELS: Readonly<Record<LibraryKind, string>> = {
   report: "Report",
 };
 
+/** How each kind reads where it names many of them, as a filter choice or a group's heading. */
+export const KIND_PLURALS: Readonly<Record<LibraryKind, string>> = {
+  run: "Runs",
+  capture: "Captures",
+  report: "Reports",
+};
+
 /** What a row of every kind shows: when it was taken, where it came from and which profile read it. */
 interface ItemBase {
   readonly id: string;
@@ -43,9 +50,7 @@ export const ALL_KINDS = "all";
 /** The choices of the kind filter: every kind, then each one. */
 export const KIND_FILTER_OPTIONS: readonly SelectOption[] = [
   { value: ALL_KINDS, label: "All" },
-  { value: "run", label: "Runs" },
-  { value: "capture", label: "Captures" },
-  { value: "report", label: "Reports" },
+  ...LIBRARY_KINDS.map((kind) => ({ value: kind, label: KIND_PLURALS[kind] })),
 ];
 
 /** What the Library says when the kind filter's value finds nothing of any origin. */
@@ -75,18 +80,6 @@ export function kindShown(shown: string, kind: LibraryKind): boolean {
 /** A key unique across kinds, since ids are only unique within one. */
 export function itemKey(item: Pick<LibraryItem, "kind" | "id">): string {
   return `${item.kind}:${item.id}`;
-}
-
-/** Every kind's items in one list, newest first; items taken at the same moment keep the order of {@link LIBRARY_KINDS}, then of their ids. */
-export function newestFirst(lists: readonly (readonly LibraryItem[])[]): LibraryItem[] {
-  return lists
-    .flat()
-    .sort(
-      (a, b) =>
-        b.at - a.at ||
-        LIBRARY_KINDS.indexOf(a.kind) - LIBRARY_KINDS.indexOf(b.kind) ||
-        a.id.localeCompare(b.id),
-    );
 }
 
 /** A run as a Library row. */

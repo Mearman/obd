@@ -1,5 +1,5 @@
 import { openSection } from "./ui-helpers";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   CAPTURE_FORMAT,
@@ -112,6 +112,10 @@ async function seeded(): Promise<{
   ]);
   await service.storage.stopRun(run.id, Date.UTC(2026, 10, 16, 8, 0, 1));
   return { service, runId: run.id, captureId: capture.id, reportId: report.id };
+}
+
+function reset(path: string): void {
+  window.history.replaceState(null, "", path);
 }
 
 async function openLibrary(service: TestService): Promise<HTMLElement> {
@@ -428,6 +432,124 @@ describe("the Library", () => {
     if (stored === undefined) throw new Error("a capture expected");
     expect(await screen.findByText(`Capture ${stored.id}`)).toBeVisible();
     expect(screen.getByRole("tab", { name: "Library" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("writes the kind and origin filters into the address, and reads them back on a reload", async () => {
+    const { service } = await seeded();
+    await openLibrary(service);
+    await choose("Kind", "Runs");
+    await choose("Origin", "Shared");
+    await waitFor(() => {
+      expect(window.location.search).toBe("?screen=library&kind=run&origin=shared");
+    });
+    cleanup();
+    await openLibrary(service);
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Run"]);
+    });
+    expect(screen.getByRole("combobox", { name: "Kind" })).toHaveTextContent("Runs");
+    expect(screen.getByRole("combobox", { name: "Origin" })).toHaveTextContent("Shared");
+  });
+
+  it("searches what the rows show, with one history entry for the typing", async () => {
+    const { service } = await seeded();
+    await openLibrary(service);
+    await waitFor(() => {
+      expect(kindsListed()).toHaveLength(3);
+    });
+    const search = screen.getByRole("textbox", { name: "Search" });
+    await userEvent.type(search, "own scan");
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Report"]);
+    });
+    expect(new URLSearchParams(window.location.search).get("q")).toBe("own scan");
+    await userEvent.tab();
+    await userEvent.type(search, "x");
+    expect(await screen.findByText("Nothing matches the search or the dates.")).toBeVisible();
+    window.history.back();
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Report"]);
+    });
+    expect(search).toHaveValue("own scan");
+    window.history.back();
+    await waitFor(() => {
+      expect(kindsListed()).toHaveLength(3);
+    });
+    expect(search).toHaveValue("");
+    expect(window.location.search).toBe("?screen=library");
+  });
+
+  it("keeps the items of a UTC date range", async () => {
+    const { service } = await seeded();
+    reset("/?screen=library&from=2026-11-15&to=2026-11-15");
+    await openLibrary(service);
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Capture"]);
+    });
+    expect(screen.getByLabelText("From (UTC)")).toHaveValue("2026-11-15");
+    fireEvent.change(screen.getByLabelText("From (UTC)"), { target: { value: "2026-11-14" } });
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Capture", "Report"]);
+    });
+    expect(new URLSearchParams(window.location.search).get("from")).toBe("2026-11-14");
+  });
+
+  it("sorts by a column's header button, and Back undoes it", async () => {
+    const { service } = await seeded();
+    await openLibrary(service);
+    const date = await screen.findByRole("columnheader", { name: "Date" });
+    expect(date).toHaveAttribute("aria-sort", "descending");
+    await userEvent.click(screen.getByRole("button", { name: "Kind" }));
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Capture", "Report", "Run"]);
+    });
+    expect(screen.getByRole("columnheader", { name: "Kind" })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+    expect(date).not.toHaveAttribute("aria-sort");
+    expect(window.location.search).toBe("?screen=library&sort=kind");
+    await userEvent.click(screen.getByRole("button", { name: "Kind" }));
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Run", "Report", "Capture"]);
+    });
+    expect(window.location.search).toBe("?screen=library&sort=-kind");
+    window.history.back();
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Capture", "Report", "Run"]);
+    });
+  });
+
+  it("groups by kind in groups that collapse, and keeps the view when an item opens and closes", async () => {
+    const { service, runId } = await seeded();
+    await openLibrary(service);
+    await choose("Group by", "Kind");
+    const runs = await screen.findByRole("table", { name: "Library, Runs" });
+    expect(screen.getByRole("table", { name: "Library, Captures" })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Library, Reports" })).toBeInTheDocument();
+    expect(window.location.search).toBe("?screen=library&group=kind");
+    await userEvent.click(screen.getByRole("button", { name: "Runs (1)" }));
+    expect(screen.queryByRole("table", { name: "Library, Runs" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Runs (1)" }));
+    await userEvent.click(
+      await within(await screen.findByRole("table", { name: "Library, Runs" })).findByRole("row", {
+        name: `Open run ${runId}`,
+      }),
+    );
+    expect(runs).not.toBeInTheDocument();
+    expect(new URLSearchParams(window.location.search).get("item")).toBe(`run:${runId}`);
+    await userEvent.click(await screen.findByRole("button", { name: "Close graphs" }));
+    expect(await screen.findByRole("table", { name: "Library, Runs" })).toBeInTheDocument();
+    expect(window.location.search).toBe("?screen=library&group=kind");
+  });
+
+  it("ignores a view in the address that is not valid", async () => {
+    const { service } = await seeded();
+    reset("/?screen=library&kind=lorry&sort=-weight&group=colour&from=yesterday");
+    await openLibrary(service);
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Run", "Capture", "Report"]);
+    });
   });
 
   it("puts the Library between Session and Guide in the tab bar, with no Runs or Captures tab", async () => {
