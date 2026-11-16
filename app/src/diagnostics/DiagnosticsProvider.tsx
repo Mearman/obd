@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { appendRolling, type RollingHistory } from "../charts";
 import { adapterUrl, type ConnectOptions } from "../connect/adapters";
 import { useActivity } from "../pwa/ActivityProvider";
 import { DiagnosticsError, type AdapterKind, type AppService } from "./client";
@@ -25,6 +26,8 @@ export interface CollectionView {
   readonly lastError: string | null;
   /** The newest reading of each signal, ordered by name. */
   readonly latest: readonly Sample[];
+  /** The last {@link TREND_READINGS} numeric readings of each signal, for the Live values trend; kept here so it outlives the screen showing it. */
+  readonly history: RollingHistory;
   /** The value the collector is requesting now, or null before its first request. */
   readonly progress: {
     readonly position: number;
@@ -84,9 +87,13 @@ const IDLE: CollectionView = {
   state: undefined,
   lastError: null,
   latest: [],
+  history: new Map(),
   progress: null,
   stopping: false,
 };
+
+/** How many readings of each value the Live values trend keeps. */
+const TREND_READINGS = 120;
 
 const STATUS_POLL_MS = 1000;
 
@@ -236,6 +243,7 @@ export function DiagnosticsProvider({
           setCollection((view) => ({
             ...view,
             latest: [...latest.values()].sort((a, b) => a.signal.localeCompare(b.signal)),
+            history: appendRolling(view.history, [sample], TREND_READINGS),
           }));
         }
       } catch {
