@@ -466,16 +466,17 @@ describe("the Library", () => {
     await userEvent.tab();
     await userEvent.type(search, "x");
     expect(await screen.findByText("Nothing matches the search or the dates.")).toBeVisible();
+    // The list follows the address as it renders and the field one effect later, so each wait covers both.
     window.history.back();
     await waitFor(() => {
       expect(kindsListed()).toEqual(["Report"]);
+      expect(search).toHaveValue("own scan");
     });
-    expect(search).toHaveValue("own scan");
     window.history.back();
     await waitFor(() => {
       expect(kindsListed()).toHaveLength(3);
+      expect(search).toHaveValue("");
     });
-    expect(search).toHaveValue("");
     expect(window.location.search).toBe("?screen=library");
   });
 
