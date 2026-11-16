@@ -86,11 +86,14 @@ function wrapChannel(raw: unknown): SocketCanChannel {
 }
 
 /**
- * Opens a channel through the `socketcan` package. The package loads on first use, so importing
- * `obd-read/node` never needs it.
+ * The command that builds the `socketcan` native addon on Linux, run once from the repository root with a C++ toolchain present. The workspace denies the package's install script, and pnpm skips a plain `pnpm rebuild socketcan` for a denied package, so the script it names allows that one build for the rebuild alone.
+ */
+export const SOCKETCAN_BUILD_COMMAND = "pnpm build:socketcan";
+
+/**
+ * Opens a channel through the `socketcan` package. The package loads on first use, so importing `obd-read/node` never needs it.
  *
- * @throws TransportError when the package is missing or its native addon was not built (pnpm skips
- * install scripts here: run `pnpm rebuild socketcan` on Linux), or the interface cannot be opened.
+ * @throws TransportError when the package is missing or its native addon was not built (see {@link SOCKETCAN_BUILD_COMMAND}), or the interface cannot be opened.
  */
 export const openSystemSocketCanChannel: SocketCanChannelFactory = async (interfaceName) => {
   // A variable specifier keeps the Linux-only optional dependency out of the type graph, so
@@ -101,7 +104,7 @@ export const openSystemSocketCanChannel: SocketCanChannelFactory = async (interf
     loaded = await import(specifier);
   } catch (error) {
     throw new TransportError(
-      `the socketcan package is not usable here (it is Linux only and must be built: pnpm rebuild socketcan): ${errorText(error)}`,
+      `the socketcan package is not usable here (it is Linux only and must be built: ${SOCKETCAN_BUILD_COMMAND}): ${errorText(error)}`,
       { cause: error },
     );
   }

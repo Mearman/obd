@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   CanFrame,
   DiagProtocol,
@@ -11,6 +13,7 @@ import {
   permit,
 } from "../src/core/index.js";
 import {
+  SOCKETCAN_BUILD_COMMAND,
   SocketCanLink,
   openSystemSocketCanChannel,
   socketcanTransportFor,
@@ -194,6 +197,20 @@ describe("the socketcan adapter URL", () => {
 });
 
 describe("the socketcan package", () => {
+  // pnpm skips `pnpm rebuild socketcan` for a package whose build the workspace denies, so the command the tool tells people to run has to allow that one build itself.
+  it("is built by the command the tool names, which allows the build the workspace denies", () => {
+    const workspace = readFileSync(new URL("../pnpm-workspace.yaml", import.meta.url), "utf8");
+    expect(workspace).toMatch(/^ {2}socketcan: false$/m);
+    const { scripts } = z
+      .object({ scripts: z.record(z.string(), z.string()) })
+      .parse(JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")));
+    const script = /^pnpm (\S+)$/.exec(SOCKETCAN_BUILD_COMMAND)?.[1];
+    if (script === undefined) throw new Error(`not a pnpm script: ${SOCKETCAN_BUILD_COMMAND}`);
+    expect(scripts[script]).toBe(`PNPM_CONFIG_ALLOW_BUILDS='{"socketcan":true}' pnpm rebuild socketcan`);
+    const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+    expect(readme).toContain(`\`${SOCKETCAN_BUILD_COMMAND}\``);
+  });
+
   it("is reported as a TransportError where it is absent, unbuilt or has no such interface", async () => {
     await expect(openSystemSocketCanChannel("obdread-no-such-interface")).rejects.toBeInstanceOf(
       TransportError,
