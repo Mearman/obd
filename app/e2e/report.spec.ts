@@ -44,8 +44,9 @@ test("a failing screen is contained, and its report carries nothing from the ses
   await failScan(page);
 
   await expect(page.getByRole("heading", { name: "Read could not be shown" })).toBeVisible();
-  // The rest of the app is still up: the shell, the connection and the other sections.
-  await expect(page.getByRole("banner").getByText("Simulator", { exact: true })).toBeVisible();
+  // The rest of the app is still up: the shell, the connection in the Session screen's bar and the other sections.
+  await expect(page.getByRole("banner")).toBeVisible();
+  await expect(page.getByText("Connected to Simulator")).toBeVisible();
   await openSection(page, "Live");
   await expect(page.getByRole("button", { name: "Start collecting" })).toBeVisible();
   await openSection(page, "Read");
