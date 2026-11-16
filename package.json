@@ -47,6 +47,7 @@
     "test": "vitest run",
     "test:parity": "vitest run test/parity",
     "build": "tsc -p tsconfig.build.json",
+    "build:socketcan": "PNPM_CONFIG_ALLOW_BUILDS='{\"socketcan\":true}' pnpm rebuild socketcan",
     "prepare": "husky",
     "storage:generate": "drizzle-kit generate && node scripts/embed-migrations.ts"
   },
