@@ -1,7 +1,8 @@
 /**
  * The Bluetooth LE radio through `@stoprocent/noble`: a thin wrapper that only translates between
- * noble's objects and the {@link BleCentral} interface. It is not exercised by the test suite,
- * which has no radio; the behaviour above it is tested against a fake peripheral.
+ * noble's objects and the {@link BleCentral} interface. The test suite has no radio: it checks the
+ * scan and the release of the radio against a double of the noble module, and the behaviour above
+ * this wrapper against a fake peripheral.
  */
 
 import type { Characteristic, Noble, Peripheral } from "@stoprocent/noble";
