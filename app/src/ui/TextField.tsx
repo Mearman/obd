@@ -9,7 +9,11 @@ export interface TextFieldProps {
   readonly placeholder?: string;
   /** Inputmode hint for the on-screen keyboard. */
   readonly inputMode?: "text" | "numeric";
+  /** The kind of input: free text, or a day picked from the browser's calendar as `YYYY-MM-DD`. */
+  readonly type?: "text" | "date";
   readonly disabled?: boolean;
+  /** Called when the field loses focus. */
+  readonly onBlur?: () => void;
 }
 
 /** A labelled single-line text input with a 44 px touch target. */
@@ -19,7 +23,9 @@ export function TextField({
   onValueChange,
   placeholder,
   inputMode = "text",
+  type = "text",
   disabled,
+  onBlur,
 }: TextFieldProps) {
   const id = useId();
   return (
@@ -30,6 +36,7 @@ export function TextField({
       <input
         id={id}
         className={input}
+        type={type}
         value={value}
         inputMode={inputMode}
         autoComplete="off"
@@ -37,6 +44,7 @@ export function TextField({
         spellCheck={false}
         {...(placeholder === undefined ? {} : { placeholder })}
         {...(disabled === undefined ? {} : { disabled })}
+        {...(onBlur === undefined ? {} : { onBlur })}
         onChange={(event) => {
           onValueChange(event.currentTarget.value);
         }}
