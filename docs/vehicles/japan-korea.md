@@ -261,6 +261,40 @@ Latest Wayback Machine snapshot found for each cited page. Pages with no snapsho
 - https://www.quantexlab.com/en/develop/elm327.html (http://web.archive.org/web/20260711113833/https://quantexlab.com/en/develop/elm327.html)
 - https://www.scantool.net/scantool/downloads/103/elm327dsh.pdf (http://web.archive.org/web/20260816193921/https://www.scantool.net/scantool/downloads/103/elm327dsh.pdf)
 - https://www.scribd.com/document/902944802/GitHub-AutotronicCommunity-ArduinoHondaOBD (http://web.archive.org/web/20251102194123/https://www.scribd.com/document/902944802/GitHub-AutotronicCommunity-ArduinoHondaOBD)
+- https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Honda-CR-V/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134522/https://github.com/OBDb/Honda-CR-V/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Mazda-CX-3/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145904/https://github.com/OBDb/Mazda-CX-3/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145615/https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145937/https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json)
+- https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py (https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py)
+- https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py (https://web.archive.org/web/20261115135151/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py)
+- https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py (https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py)
+- https://globalassets.hunter.com/download/assets/AH08640-00_SecureGateway-Handout_(RevA_07-26).pdf/cfce70107aeb11f1b2450a4934c9f094 (https://web.archive.org/web/20261115134223/https://globalassets.hunter.com/download/assets/AH08640-00_SecureGateway-Handout_(RevA_07-26).pdf/cfce70107aeb11f1b2450a4934c9f094)
+- https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA/edit#gid=660740603 (https://web.archive.org/web/20261115134254/https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA/edit#gid=660740603)
+- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_kianiroev/src/vehicle_kianiroev.cpp (https://web.archive.org/web/20261115134340/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_kianiroev/src/vehicle_kianiroev.cpp)
+- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_kiasoulev/src/vehicle_kiasoulev.cpp (https://web.archive.org/web/20261115134510/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_kiasoulev/src/vehicle_kiasoulev.cpp)
+- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_hyundai_ioniqvfl/src/vehicle_hyundai_ioniqvfl.cpp (https://web.archive.org/web/20261115134721/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_hyundai_ioniqvfl/src/vehicle_hyundai_ioniqvfl.cpp)
+- https://github.com/OBDb/Hyundai-Kona-Electric/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134911/https://github.com/OBDb/Hyundai-Kona-Electric/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Hyundai-IONIQ-5/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135002/https://github.com/OBDb/Hyundai-IONIQ-5/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Hyundai-IONIQ-Electric/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135117/https://github.com/OBDb/Hyundai-IONIQ-Electric/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Kia-Ceed/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135302/https://github.com/OBDb/Kia-Ceed/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Hyundai-Tucson/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135331/https://github.com/OBDb/Hyundai-Tucson/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Genesis-G80/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135527/https://github.com/OBDb/Genesis-G80/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Genesis-GV60/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135556/https://github.com/OBDb/Genesis-GV60/blob/main/signalsets/v3/default.json)
+- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_hyundai_ioniq5/src/vehicle_hyundai_ioniq5.cpp (https://web.archive.org/web/20261115135725/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_hyundai_ioniq5/src/vehicle_hyundai_ioniq5.cpp)
+- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle/vehicle_common.h (https://web.archive.org/web/20261115135926/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle/vehicle_common.h)
+- https://github.com/commaai/opendbc/blob/master/opendbc/car/hyundai/fingerprints.py (https://web.archive.org/web/20261115140017/https://github.com/commaai/opendbc/blob/master/opendbc/car/hyundai/fingerprints.py)
+- https://github.com/commaai/opendbc/blob/master/opendbc/car/hyundai/values.py (https://web.archive.org/web/20261115133051/https://github.com/commaai/opendbc/blob/master/opendbc/car/hyundai/values.py)
+- https://github.com/OBDb/Kia-Niro-EV/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115140216/https://github.com/OBDb/Kia-Niro-EV/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Kia-EV6/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115140402/https://github.com/OBDb/Kia-EV6/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Kia-Soul-EV/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115140456/https://github.com/OBDb/Kia-Soul-EV/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Hyundai-i30/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115140551/https://github.com/OBDb/Hyundai-i30/blob/main/signalsets/v3/default.json)
+- https://github.com/OBDb/Kia-Sportage/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115140645/https://github.com/OBDb/Kia-Sportage/blob/main/signalsets/v3/default.json)
 
 No snapshot found:
 
@@ -306,19 +340,6 @@ No snapshot found:
 - https://relatedrepos.com/gh/fridlington/K11Consult
 - https://www.hackster.io/jvarner4/obd-ii-information-logger-and-diagnostics-reader-952dd9
 - https://www.hpacademy.com/es/foro/ajuste-de-inyeccion-electronica-de-combustible/show/setting-up-rom-raider/
-- https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134434/https://github.com/OBDb/Honda-Civic/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Honda-CR-V/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134522/https://github.com/OBDb/Honda-CR-V/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Mazda-CX-3/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145904/https://github.com/OBDb/Mazda-CX-3/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145615/https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261116145937/https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json)
-- https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py (https://web.archive.org/web/20261115134702/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/fingerprints.py)
-- https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py (https://web.archive.org/web/20261115135151/https://github.com/commaai/opendbc/blob/master/opendbc/car/honda/values.py)
-- https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py (https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py)
 - https://www.manualslib.com/manual/1602765/Mitsubishi-Mut-Ii.html
 - https://www.priuschat.com/goto/post?id=1754304
 - https://www.priuschat.com/goto/post?id=2241649
@@ -326,28 +347,6 @@ No snapshot found:
 - https://www.tindie.com/products/opendiag/opendiag-open-source-obd2-interface/
 
 Snapshots saved on request for the Hyundai, Kia and Genesis profile, with the 14-digit Wayback Machine timestamp in each address. The Kona sheet snapshot is of the sheet's first tab. The OBDb pages for Hyundai-i10, Hyundai-i20 and Kia-Niro were read as raw files only and have no snapshot.
-
-- https://globalassets.hunter.com/download/assets/AH08640-00_SecureGateway-Handout_(RevA_07-26).pdf/cfce70107aeb11f1b2450a4934c9f094 (https://web.archive.org/web/20261115134223/https://globalassets.hunter.com/download/assets/AH08640-00_SecureGateway-Handout_(RevA_07-26).pdf/cfce70107aeb11f1b2450a4934c9f094)
-- https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA/edit#gid=660740603 (https://web.archive.org/web/20261115134254/https://docs.google.com/spreadsheets/d/1-9jZafV9eZeBUnPQo7qQHbX2-_4qZfWfRVpidoF1owA/edit#gid=660740603)
-- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_kianiroev/src/vehicle_kianiroev.cpp (https://web.archive.org/web/20261115134340/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_kianiroev/src/vehicle_kianiroev.cpp)
-- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_kiasoulev/src/vehicle_kiasoulev.cpp (https://web.archive.org/web/20261115134510/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_kiasoulev/src/vehicle_kiasoulev.cpp)
-- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_hyundai_ioniqvfl/src/vehicle_hyundai_ioniqvfl.cpp (https://web.archive.org/web/20261115134721/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_hyundai_ioniqvfl/src/vehicle_hyundai_ioniqvfl.cpp)
-- https://github.com/OBDb/Hyundai-Kona-Electric/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115134911/https://github.com/OBDb/Hyundai-Kona-Electric/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Hyundai-IONIQ-5/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135002/https://github.com/OBDb/Hyundai-IONIQ-5/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Hyundai-IONIQ-Electric/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135117/https://github.com/OBDb/Hyundai-IONIQ-Electric/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Kia-Ceed/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135302/https://github.com/OBDb/Kia-Ceed/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Hyundai-Tucson/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135331/https://github.com/OBDb/Hyundai-Tucson/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Genesis-G80/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135527/https://github.com/OBDb/Genesis-G80/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Genesis-GV60/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115135556/https://github.com/OBDb/Genesis-GV60/blob/main/signalsets/v3/default.json)
-- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_hyundai_ioniq5/src/vehicle_hyundai_ioniq5.cpp (https://web.archive.org/web/20261115135725/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_hyundai_ioniq5/src/vehicle_hyundai_ioniq5.cpp)
-- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle/vehicle_common.h (https://web.archive.org/web/20261115135926/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle/vehicle_common.h)
-- https://github.com/commaai/opendbc/blob/master/opendbc/car/hyundai/fingerprints.py (https://web.archive.org/web/20261115140017/https://github.com/commaai/opendbc/blob/master/opendbc/car/hyundai/fingerprints.py)
-- https://github.com/commaai/opendbc/blob/master/opendbc/car/hyundai/values.py (https://web.archive.org/web/20261115133051/https://github.com/commaai/opendbc/blob/master/opendbc/car/hyundai/values.py)
-- https://github.com/OBDb/Kia-Niro-EV/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115140216/https://github.com/OBDb/Kia-Niro-EV/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Kia-EV6/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115140402/https://github.com/OBDb/Kia-EV6/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Kia-Soul-EV/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115140456/https://github.com/OBDb/Kia-Soul-EV/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Hyundai-i30/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115140551/https://github.com/OBDb/Hyundai-i30/blob/main/signalsets/v3/default.json)
-- https://github.com/OBDb/Kia-Sportage/blob/main/signalsets/v3/default.json (https://web.archive.org/web/20261115140645/https://github.com/OBDb/Kia-Sportage/blob/main/signalsets/v3/default.json)
 
 ## Links that did not load when checked
 
