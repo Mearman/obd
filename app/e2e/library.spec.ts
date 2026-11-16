@@ -104,6 +104,8 @@ async function fillLibrary(page: Page): Promise<void> {
   await expect(page.getByText("Imported run.csv as a stopped run.")).toBeVisible();
   await importFile(page, "adapter.log", TRANSCRIPT);
   await expect(page.getByRole("status", { name: "Decoding summary" })).toBeVisible();
+  // The capture's viewer opens on import in place of the list; close it to see the list.
+  await page.getByRole("button", { name: "Close" }).first().click();
   // The scan is from now, the transcript from January and the run from November, so the scan's report leads.
   await expect.poll(() => kindsListed(page)).toEqual(["Report", "Run", "Capture"]);
 }
@@ -118,8 +120,6 @@ for (const viewport of VIEWPORTS) {
 
       test("the Library lists every kind it imported and fits the screen", async ({ page }) => {
         await fillLibrary(page);
-        // The capture's viewer opened on import; close it to check the list on its own first.
-        await page.getByRole("button", { name: "Close" }).first().click();
         await fits(page, "the Library");
         const base = `screenshots/library-${viewport.name}-${scheme}`;
         await page.screenshot({ path: `${base}.png` });
@@ -128,7 +128,7 @@ for (const viewport of VIEWPORTS) {
         await page.getByRole("combobox", { name: "Kind" }).click();
         await page.getByRole("option", { name: "Runs" }).click();
         await expect.poll(() => kindsListed(page)).toEqual(["Run"]);
-        await page.getByRole("button", { name: "View graphs" }).click();
+        await page.getByRole("row", { name: /^Open run / }).click();
         await expect(page.getByRole("group", { name: "Run playback" })).toBeVisible();
         await fits(page, "the Library with a run's graphs");
         await page.screenshot({ path: `${base}-run.png`, fullPage: true });

@@ -335,8 +335,7 @@ describe("the Library", () => {
     expect(window.location.search).toBe("?screen=library");
 
     await userEvent.click(
-      (await screen.findByRole("table", { name: "Library" })) &&
-        screen.getByRole("button", { name: `Fault codes of run ${runId}` }),
+      await screen.findByRole("button", { name: `Fault codes of run ${runId}` }),
     );
     expect(await screen.findByRole("dialog", { name: "Fault codes" })).toBeVisible();
     await userEvent.keyboard("{Escape}");
