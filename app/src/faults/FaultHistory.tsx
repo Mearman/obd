@@ -1,7 +1,15 @@
-import { FAULT_SIGNALS, faultEvents, type FaultEvent, type FaultList } from "obd-read";
+import {
+  FAULT_SIGNALS,
+  faultEvents,
+  runFaultEventTable,
+  type FaultEvent,
+  type FaultList,
+  type Run,
+} from "obd-read";
 import { useEffect, useState } from "react";
 import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
-import { error, muted, stack } from "../screens/screen.css";
+import { error, muted, row, stack } from "../screens/screen.css";
+import { TableDownloads } from "../tabular/TableDownloads";
 import { DataTable, type Column } from "../ui";
 
 const LIST_NAMES: Readonly<Record<FaultList, string>> = {
@@ -28,21 +36,22 @@ const COLUMNS: readonly Column<FaultEvent>[] = [
 ];
 
 /**
- * The changes in a run's fault codes: when each stored, pending or permanent code was first seen and when it was gone. A run records the lists when it starts, every so often and when it stops, so a time is when a poll saw the change, not when the car set or cleared the code.
+ * The changes in a run's fault codes: when each stored, pending or permanent code was first seen and when it was gone, with buttons to download them as the run's fault code events table. A run records the lists when it starts, every so often and when it stops, so a time is when a poll saw the change, not when the car set or cleared the code.
  *
  * @param refresh Changes whenever the run may have recorded new samples, so the history is read again.
  */
 export function FaultHistory({
   client,
-  runId,
+  run,
   refresh,
 }: {
   readonly client: DiagnosticsClient;
-  readonly runId: string;
+  readonly run: Pick<Run, "id" | "startedAt">;
   readonly refresh?: unknown;
 }) {
   const [events, setEvents] = useState<readonly FaultEvent[] | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  const runId = run.id;
 
   useEffect(() => {
     const live = { active: true };
@@ -77,14 +86,24 @@ export function FaultHistory({
         </p>
       )}
       {events !== undefined && events.length > 0 && (
-        <DataTable
-          label="Fault code changes"
-          columns={COLUMNS}
-          rows={events}
-          rowKey={(event) =>
-            `${String(event.timestamp)}-${event.list}-${event.code}-${event.change}`
-          }
-        />
+        <>
+          <DataTable
+            label="Fault code changes"
+            columns={COLUMNS}
+            rows={events}
+            rowKey={(event) =>
+              `${String(event.timestamp)}-${event.list}-${event.code}-${event.change}`
+            }
+          />
+          <span className={row}>
+            <TableDownloads
+              label="fault code changes"
+              filename={`obd-read-run-${runId}-fault-events`}
+              spec={runFaultEventTable(run.startedAt)}
+              rows={events}
+            />
+          </span>
+        </>
       )}
     </div>
   );

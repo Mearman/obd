@@ -411,6 +411,28 @@ describe("Generic OBD-II (no profile)", () => {
     expect(
       await within(dialog).findByRole("table", { name: "Fault code changes" }),
     ).toHaveTextContent("P0420");
+    const blobs: Blob[] = [];
+    const names: string[] = [];
+    Object.assign(URL, {
+      createObjectURL: vi.fn((file: Blob) => {
+        blobs.push(file);
+        return "blob:test";
+      }),
+      revokeObjectURL: vi.fn(),
+    });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      names.push(this.download);
+    });
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Download fault code changes CSV" }),
+    );
+    click.mockRestore();
+    expect(names).toEqual([expect.stringMatching(/^obd-read-run-.+-fault-events\.csv$/)]);
+    const text = await blobs[0]?.text();
+    expect(text).toMatch(/^time,elapsed \(s\),list,code,change,at start\r\n/);
+    expect(text).toMatch(/\r\n[^,]+,\d+\.\d{3},stored,P0420,appeared,yes\r\n/);
   });
 
   it("renders a profile-only refusal as one line, never a crash", async () => {

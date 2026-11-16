@@ -212,7 +212,7 @@ export function LivePanel() {
         >
           <FaultHistory
             client={service.client}
-            runId={collection.run.id}
+            run={collection.run}
             refresh={collection.latest
               .filter((sample) => sample.signal.endsWith("fault codes"))
               .map((sample) => sample.timestamp)
