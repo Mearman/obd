@@ -27,17 +27,14 @@ async function collectedRun(): Promise<MemoryStorage> {
     profile: "mercedes-w211",
     adapter: simulatorUrl("mercedes-w211"),
   });
-  await waitFor(
-    async () => {
-      // The fault code lists are text samples taken when a list changes, so they are few.
-      const counts = (await service.client.runs.aggregate({ runId: run.id })).filter(
-        ({ signal }) => !signal.endsWith("fault codes"),
-      );
-      expect(counts.length).toBeGreaterThan(0);
-      expect(Math.min(...counts.map(({ count }) => count))).toBeGreaterThan(3);
-    },
-    { timeout: 10_000 },
-  );
+  await waitFor(async () => {
+    // The fault code lists are text samples taken when a list changes, so they are few.
+    const counts = (await service.client.runs.aggregate({ runId: run.id })).filter(
+      ({ signal }) => !signal.endsWith("fault codes"),
+    );
+    expect(counts.length).toBeGreaterThan(0);
+    expect(Math.min(...counts.map(({ count }) => count))).toBeGreaterThan(3);
+  });
   await service.client.runs.stop({ runId: run.id });
   return storage;
 }
@@ -102,10 +99,7 @@ describe("LineChart", () => {
   });
 });
 
-/** A test collects a run from the simulator first, which takes longer on a busy machine. */
-const SLOW = 30_000;
-
-describe("Run graphs", { timeout: SLOW }, () => {
+describe("Run graphs", () => {
   it("opens a stored simulator run as a chart per signal with a table of values", async () => {
     await openGraphs();
     const charts = screen.getAllByRole("figure");
@@ -144,12 +138,9 @@ describe("Run graphs", { timeout: SLOW }, () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Play" }));
     const scrubber = screen.getByRole("slider", { name: "Position in the run" });
-    await waitFor(
-      () => {
-        expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
-      },
-      { timeout: 10_000 },
-    );
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+    });
     expect(Number(scrubber.getAttribute("max"))).toBeGreaterThan(0);
     expect(scrubber).toHaveValue(scrubber.getAttribute("max"));
   });

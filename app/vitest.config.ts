@@ -14,5 +14,10 @@ export default defineConfig({
     include: ["test/**/*.test.{ts,tsx}"],
     setupFiles: ["test/setup.ts"],
     css: false,
+    // Each worker is a process of its own, so the processor time the work budget in test/setup.ts reads is one test's.
+    pool: "forks",
+    // Elapsed-time limits fail correct tests on a busy machine; the work budget in test/setup.ts limits each test and its hooks instead.
+    testTimeout: 0,
+    hookTimeout: 0,
   },
 });
