@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import type { BrowserSupport } from "../src/connect/support";
 import { LineChart } from "../src/charts";
+import { RunSeriesReader } from "../src/screens/run-series";
 import { createTestService, renderApp } from "./render";
 
 const CHROME: BrowserSupport = {
@@ -99,6 +100,52 @@ describe("LineChart", () => {
   });
 });
 
+describe("RunSeriesReader", () => {
+  it("reads on from where it stopped, including readings stored later at the last time read", async () => {
+    const storage = new MemoryStorage();
+    const { client } = createTestService(storage);
+    const run = await storage.createRun({ profile: "p", adapter: "a", startedAt: 1_000 });
+    const reading = (timestamp: number, signal: string, value: number) => ({
+      runId: run.id,
+      signal,
+      unit: "",
+      timestamp,
+      value,
+    });
+    await storage.appendSamples([reading(1_000, "a", 1), reading(2_000, "a", 2)]);
+    const reader = new RunSeriesReader(client, run);
+    const first = await reader.read();
+    expect(first.series.map(({ signal, points }) => [signal, points])).toEqual([
+      [
+        "a",
+        [
+          { t: 0, v: 1 },
+          { t: 1_000, v: 2 },
+        ],
+      ],
+    ]);
+    expect(first.domain).toEqual([0, 1_000]);
+
+    // A cycle's readings share its time, and the rest of one can be stored after a read.
+    await storage.appendSamples([reading(2_000, "b", 20), reading(3_000, "a", 3)]);
+    const second = await reader.read();
+    expect(second.series.map(({ signal, points }) => [signal, points])).toEqual([
+      [
+        "a",
+        [
+          { t: 0, v: 1 },
+          { t: 1_000, v: 2 },
+          { t: 2_000, v: 3 },
+        ],
+      ],
+      ["b", [{ t: 1_000, v: 20 }]],
+    ]);
+    expect(second.domain).toEqual([0, 2_000]);
+    expect(second.summaries.get("a\u0000")?.readings).toBe(3);
+    expect(first.series[0]?.points).toHaveLength(2);
+  });
+});
+
 describe("Run graphs", () => {
   it("opens a stored simulator run as a chart per signal with a table of values", async () => {
     await openGraphs();
@@ -172,6 +219,31 @@ describe("Run graphs", () => {
     const [, row] = within(table).getAllByRole("row");
     if (row === undefined) throw new Error("no signal row");
     expect(within(row).getAllByRole("cell")[1]).not.toHaveTextContent("-");
+  });
+
+  it("follows a run still collecting, keeping a cursor at the end at the end", async () => {
+    const service = createTestService();
+    const run = await service.client.runs.start({
+      profile: "mercedes-w211",
+      adapter: simulatorUrl("mercedes-w211"),
+    });
+    await waitFor(async () => {
+      const counts = await service.client.runs.aggregate({ runId: run.id });
+      expect(counts.length).toBeGreaterThan(0);
+    });
+    await renderApp(<App support={CHROME} />, service);
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    await userEvent.click(await screen.findByRole("row", { name: /^Open run / }));
+    const scrubber = await screen.findByRole("slider", { name: "Position in the run" });
+    const end = (): number => Number(scrubber.getAttribute("max"));
+    const opened = end();
+    fireEvent.change(scrubber, { target: { value: String(opened) } });
+
+    await waitFor(() => {
+      expect(end()).toBeGreaterThan(opened);
+      expect(scrubber).toHaveValue(String(end()));
+    });
+    await service.client.runs.stop({ runId: run.id });
   });
 
   it("closes the graphs", async () => {
