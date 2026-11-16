@@ -4,6 +4,7 @@
  * A generic run polls the legislated stored (mode 03), pending (07) and permanent (0A) codes beside its live values. Each list is one signal, stored as a text sample whenever the list changes, and always once when collection starts, so a code that was present from the beginning is told apart from one that appeared later. The value is the codes, sorted and separated by spaces, or {@link NO_CODES} when there are none. Because the samples are ordinary samples, the exports, the live table and the share link carry them with no change to storage. This module is platform-free.
  */
 
+import { z } from "zod";
 import type { Sample } from "./storage.js";
 
 /** The kinds of fault code list a run records. */
@@ -38,16 +39,19 @@ export function faultListOf(signal: string): FaultList | undefined {
   return FAULT_LISTS.find((list) => FAULT_SIGNALS[list] === signal);
 }
 
-/** One change in a run's fault codes. */
-export interface FaultEvent {
+/** One change in a run's fault codes, as a run's JSON export lists it. */
+export const faultEventSchema = z.object({
   /** When the change was seen: the time of the poll that found it, not of the fault. */
-  readonly timestamp: number;
-  readonly list: FaultList;
-  readonly code: string;
-  readonly change: "appeared" | "disappeared";
+  timestamp: z.number(),
+  list: z.enum(FAULT_LISTS),
+  code: z.string(),
+  change: z.enum(["appeared", "disappeared"]),
   /** True for a code present at the first poll of its list, so it was there before collection began. */
-  readonly atStart: boolean;
-}
+  atStart: z.boolean(),
+});
+
+/** One change in a run's fault codes. */
+export type FaultEvent = Readonly<z.output<typeof faultEventSchema>>;
 
 /**
  * The changes in a run's fault code lists, oldest first, from its samples in time order.

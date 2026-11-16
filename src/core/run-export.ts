@@ -1,11 +1,14 @@
 /**
  * Exporting a stored run as CSV, TSV or JSON, and reading a CSV or TSV export back.
  *
- * The CSV has the layout of the live log the Python tool wrote: a `time` column (ISO 8601 with milliseconds, UTC), an `elapsed (s)` column counted from the run's start, then one column per signal titled `signal (unit)`, in the order the signals first appear. A row holds the readings that share a timestamp, and a signal with no reading there is left empty. It goes through {@link CsvLog}, so it is written the way every other log is, in either delimited dialect. The whole layout is {@link runTable}, so a table added to the export later (events beside the readings) has one place to join. This module is platform-free.
+ * The CSV has the layout of the live log the Python tool wrote: a `time` column (ISO 8601 with milliseconds, UTC), an `elapsed (s)` column counted from the run's start, then one column per signal titled `signal (unit)`, in the order the signals first appear. A row holds the readings that share a timestamp, and a signal with no reading there is left empty. It goes through {@link CsvLog}, so it is written the way every other log is, in either delimited dialect. The whole layout is {@link runTable}.
+ *
+ * A run's fault code changes ({@link faultEvents}) are exported beside the readings, never in their place: the JSON export lists them as `faultEvents`, and {@link runFaultEventTable} lays them out as a table of their own, timed like the readings table, while the readings table keeps each fault code list as the text column it records. This module is platform-free.
  */
 
 import { CsvLog, type CsvSink } from "./csvlog.js";
-import { parseTable, type Dialect } from "./tabular.js";
+import { faultEventSchema, faultEvents, type FaultEvent } from "./fault-history.js";
+import { parseTable, type Dialect, type TableSpec } from "./tabular.js";
 import {
   StorageError,
   runSchema,
@@ -17,12 +20,13 @@ import {
 } from "./storage.js";
 import { z } from "zod";
 
-/** The JSON export of a run: the run record and every sample in time order. An export written before runs recorded their origin has none. */
+/** The JSON export of a run: the run record, every sample in time order and the fault code changes those samples hold ({@link faultEvents}). An export written before runs recorded their origin has none, and one written before exports listed the fault code changes has no `faultEvents`. */
 export const runExportSchema = z.object({
   format: z.literal("obd-read-run"),
   version: z.literal(1),
   run: runSchema.partial({ origin: true }),
   samples: z.array(sampleSchema),
+  faultEvents: z.array(faultEventSchema).optional(),
 });
 
 /** The JSON export of a run. */
@@ -46,18 +50,18 @@ async function* samplesOf(storage: Storage, runId: string): AsyncGenerator<Sampl
 }
 
 /**
- * A run and all its samples as one JSON-serialisable document.
+ * A run, all its samples and its fault code changes as one JSON-serialisable document.
  *
  * @throws StorageError `not-found` for an unknown run.
  */
 export async function exportRunJson(
   storage: Storage,
   runId: string,
-): Promise<RunExport & { readonly run: Run }> {
+): Promise<RunExport & { readonly run: Run; readonly faultEvents: FaultEvent[] }> {
   const run = await loadRun(storage, runId);
   const samples: Sample[] = [];
   for await (const sample of samplesOf(storage, runId)) samples.push(sample);
-  return { format: "obd-read-run", version: 1, run, samples };
+  return { format: "obd-read-run", version: 1, run, samples, faultEvents: faultEvents(samples) };
 }
 
 function columnTitle(sample: Pick<Sample, "signal" | "unit">): string {
@@ -71,6 +75,34 @@ function cell(value: SampleValue): string {
 
 /** The two columns every run table starts with, before one column per signal. */
 export const RUN_FIXED_COLUMNS = ["time", "elapsed (s)"] as const;
+
+/** An instant as the run tables write it: ISO 8601 with milliseconds, UTC. */
+function timeCell(timestamp: number): string {
+  return new Date(timestamp).toISOString();
+}
+
+/** Seconds since the run's start to the millisecond, as the run tables write them. */
+function elapsedCell(startedAt: number, timestamp: number): string {
+  return ((timestamp - startedAt) / 1000).toFixed(3);
+}
+
+/**
+ * The table of a run's fault code changes: {@link RUN_FIXED_COLUMNS}, written as the readings table writes them, then `list` (`stored`, `pending` or `permanent`), `code`, `change` (`appeared` or `disappeared`) and `at start` (`yes` for a code present at the first poll of its list, else `no`). One row per {@link FaultEvent}, in the order given.
+ *
+ * @param startedAt The run's start, which `elapsed (s)` counts from.
+ */
+export function runFaultEventTable(startedAt: number): TableSpec<FaultEvent> {
+  return {
+    columns: [
+      { header: RUN_FIXED_COLUMNS[0], cell: (event) => timeCell(event.timestamp) },
+      { header: RUN_FIXED_COLUMNS[1], cell: (event) => elapsedCell(startedAt, event.timestamp) },
+      { header: "list", cell: (event) => event.list },
+      { header: "code", cell: (event) => event.code },
+      { header: "change", cell: (event) => event.change },
+      { header: "at start", cell: (event) => (event.atStart ? "yes" : "no") },
+    ],
+  };
+}
 
 /** A run's readings laid out as a table: the header, then one row per timestamp. */
 export interface RunTable {
@@ -97,8 +129,8 @@ export function runTable(startedAt: number, samples: readonly Sample[]): RunTabl
   const flush = (): void => {
     if (rowTime === undefined) return;
     rows.push([
-      new Date(rowTime).toISOString(),
-      ((rowTime - startedAt) / 1000).toFixed(3),
+      timeCell(rowTime),
+      elapsedCell(startedAt, rowTime),
       ...row.map((value) => value ?? ""),
     ]);
     row = [];
@@ -296,10 +328,12 @@ export async function importRunTable(
 export function runTableDocument(text: string, details: ImportedRunDetails): RunExport {
   const parsed = parseRunTable(text);
   const stoppedAt = Math.max(parsed.startedAt, ...parsed.samples.map((sample) => sample.timestamp));
+  const samples = parsed.samples.map((sample) => ({ ...sample, runId: "imported" }));
   return {
     format: "obd-read-run",
     version: 1,
     run: { id: "imported", ...details, startedAt: parsed.startedAt, stoppedAt, origin: "imported" },
-    samples: parsed.samples.map((sample) => ({ ...sample, runId: "imported" })),
+    samples,
+    faultEvents: faultEvents(samples),
   };
 }

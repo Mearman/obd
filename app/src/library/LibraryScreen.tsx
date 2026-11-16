@@ -276,7 +276,7 @@ export function LibraryScreen({
               title="Fault codes"
               description="When each fault code appeared or disappeared while this run collected."
             >
-              <FaultHistory client={client} runId={run.id} />
+              <FaultHistory client={client} run={run} />
             </Dialog>
             <ShareDialog
               label="Share"
