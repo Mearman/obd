@@ -198,3 +198,60 @@ describe("a profile read on the scripted adapter", () => {
     },
   );
 });
+
+describe("the Honda and Acura rows from every archived OBDb file", () => {
+  /** The OBDb Honda and Acura repositories whose archived signal sets the profile cites. */
+  const HONDA_REPOS = [
+    "Honda-Accord",
+    "Honda-Accord-Hybrid",
+    "Honda-Civic",
+    "Honda-Clarity",
+    "Honda-CR-V",
+    "Honda-Fit",
+    "Honda-Insight",
+    "Honda-Pilot",
+    "Honda-Ridgeline",
+    "Honda-ZR-V",
+    "Acura-Integra",
+    "Acura-RDX",
+    "Acura-TLX",
+  ] as const;
+
+  function archivedFile(repo: string): RegExp {
+    return new RegExp(
+      `archived https://web\\.archive\\.org/web/\\d{14}/https://github\\.com/OBDb/${repo}/blob/main/signalsets/v3/default\\.json`,
+    );
+  }
+
+  it("no row says an OBDb file it relies on went unarchived", () => {
+    for (const unit of loadBuiltinProfile("honda-acura-29bit").units.values()) {
+      expect(unit.source).not.toMatch(/not archived|one was archived/);
+    }
+  });
+
+  it.each(HONDA_REPOS)("some row cites the archived OBDb %s file", (repo) => {
+    const sources = [...loadBuiltinProfile("honda-acura-29bit").units.values()].map(
+      (unit) => unit.source,
+    );
+    expect(sources.some((source) => archivedFile(repo).test(source))).toBe(true);
+  });
+
+  it.each([
+    { unit: "charger", target: 0x15 },
+    { unit: "battery-16", target: 0x16 },
+  ])("$unit is the Clarity's 18DAxxF1 row, cited from its archived file", ({ unit, target }) => {
+    const row = loadBuiltinProfile("honda-acura-29bit").units.get(unit);
+    expect([row?.requestId, row?.responseId]).toEqual([
+      honda29(target).request,
+      honda29(target).response,
+    ]);
+    expect(row?.source).toMatch(archivedFile("Honda-Clarity"));
+  });
+
+  it("leaves out DBEF, which OBDb gives no reply identifier", () => {
+    const requests = [...loadBuiltinProfile("honda-acura-29bit").units.values()].map(
+      (unit) => unit.requestId,
+    );
+    expect(requests).not.toContain(0x18dbeff1);
+  });
+});
