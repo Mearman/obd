@@ -65,7 +65,7 @@ async function openCollectedRunGraphs(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Stop" }).click();
   await expect(page.getByText("Stopped", { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "View graphs" }).click();
+  await page.getByRole("row", { name: /^Open run / }).click();
   await expect(page.getByRole("group", { name: "Run playback" })).toBeVisible();
 }
 
