@@ -217,6 +217,8 @@ The five Renault Alliance profiles are `renault-zoe-ph1`, `renault-zoe-ph2` (11-
 
 `mercedes-mra` covers the C-Class W205, E-Class W213 and S-Class W222 on 11-bit CAN with UDS: the brake unit on 0x7E2, the engine and transmission on 0x7E0 and 0x7E1, and a battery-reading unit on 0x7E5, from OBDb's response records for cars of those chassis. That these units speak UDS is inferred from their replies, not read in a source. Every row is unconfirmed until read from a car; [docs/vehicles/mercedes-benz.md](docs/vehicles/mercedes-benz.md) gives the records.
 
+`jaguar-i-pace` covers the Jaguar I-PACE on 11-bit CAN with UDS: the high-voltage battery, charger, HVAC, tyre pressure, telematics, gear shift and powertrain units, each placed at the same address by OBDb and by the Open Vehicle Monitoring System's I-PACE module. The units only OVMS names are left out. Every row is unconfirmed until read from a car; [docs/vehicles/europe-other.md](docs/vehicles/europe-other.md) gives the sources and what each does not show.
+
 ## Home Assistant and MQTT
 
 `mqtt` reads the same values as `live` and publishes each one to an MQTT broker every `--interval` seconds, together with the adapter's own voltage reading unless `--no-voltage` is given. It sends no request that `live` does not, and every request still passes the guard.
