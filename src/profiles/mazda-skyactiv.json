@@ -1,5 +1,5 @@
 {
-  "notes": "Mazda SkyActiv cars: the Mazda3, Mazda6, CX-5 and CX-9 that opendbc lists and the 3, CX-5, CX-30, CX-50, CX-60 and MX-5 that OBDb has repositories for. No source names the Mazda2 or CX-3, which may share the layout, read over the OBD-II socket's 11-bit CAN at 500 kbit/s with UDS service 22.\n\nEvery row is an address pair and nothing more: no data identifier or scaling is shipped, because the only sources are other projects' signal definitions, which this repository does not copy. The units answer the standard identification and fault-code reads once `obd-read probe` shows them present. OBDb gives no unit type for any address except the engine, transmission and CX-60 motor, so most rows are named by address. opendbc names four of the addresses (steering 0x730, ABS 0x760, forward radar 0x764 and forward camera 0x706) from the firmware queries comma.ai's driver-assistance software sends to those units.\n\nWhere the two sources differ: OBDb has rows for 0x730 and 0x760 and none for 0x764 or 0x706, so the radar and camera rest on opendbc alone, with the reply identifier inferred as request plus 8; OBDb replies for 0x7D0 come from 0x7DA, not 0x7D8, the one pair that breaks the plus-8 pattern; OBDb lists 0x7D2 with the same reply identifier 0x7DA as 0x7D0, which a profile cannot carry twice, so 0x7D2 is left out. Rows seen in only one OBDb repository and in no opendbc list are left out (0x723, 0x725, 0x733, 0x737, 0x747, 0x775, 0x7D2, 0x7E3 and 0x7E6, all from the CX-30, CX-50 and CX-60 repositories, which were read but not archived). Mazda's body modules sit partly on a slower bus (MS-CAN) that a plain adapter on the OBD-II socket may not reach, so some rows may stay silent. Treat every row as unconfirmed until `obd-read probe` shows it answering. The default session, which every UDS unit must accept, is the one opened.",
+  "notes": "Mazda SkyActiv cars: the Mazda3, Mazda6, CX-5 and CX-9 that opendbc lists and the Mazda 2, Mazda 3, CX-3, CX-30, CX-5, CX-50, CX-60 and MX-5 that OBDb has repositories for, read over the OBD-II socket's 11-bit CAN at 500 kbit/s with UDS service 22.\n\nEvery row is an address pair and nothing more: no data identifier or scaling is shipped, because the only sources are other projects' signal definitions, which this repository does not copy. Each row cites every archived OBDb repository that lists its pair. The units answer the standard identification and fault-code reads once `obd-read probe` shows them present. OBDb gives no unit type for any address except the engine, transmission and CX-60 motor, so most rows are named by address. opendbc names four of the addresses (steering 0x730, ABS 0x760, forward radar 0x764 and forward camera 0x706) from the firmware queries comma.ai's driver-assistance software sends to those units.\n\nWhere the two sources differ: OBDb has rows for 0x730 and 0x760 and none for 0x764 or 0x706, so the radar and camera rest on opendbc alone, with the reply identifier inferred as request plus 8. Some OBDb pairs break the plus-8 pattern: 0x7D0 replies from 0x7DA, and the Mazda 2's 0x600, 0x620 and 0x621 reply from 0x680, 0x6A0 and 0x6A1. OBDb's CX-50 lists 0x7D2 with the same reply identifier 0x7DA as 0x7D0, which a profile cannot carry twice, so 0x7D2 is left out. OBDb sends to 0x750 with the extended address 0x2A first and does not say which address byte its replies start with; the adapter layer accepts only replies that start with the tester address 0xF1, as for the BMW units, which for this unit is an inference. Several rows rest on one repository (0x600, 0x620 and 0x621 on the Mazda 2, 0x725 and 0x747 on the CX-50, 0x775 and the 0x7E3 motor on the CX-60, 0x7E6 on the CX-30), and the CX-3 file lists only the engine, transmission and 0x720. Mazda's body modules sit partly on a slower bus (MS-CAN) that a plain adapter on the OBD-II socket may not reach, so some rows may stay silent. Treat every row as unconfirmed until `obd-read probe` shows it answering. The default session, which every UDS unit must accept, is the one opened.",
   "name": "mazda-skyactiv",
   "description": "Mazda SkyActiv cars, UDS service 22 over 11-bit CAN",
   "status": "unconfirmed",
@@ -16,97 +16,164 @@
       "description": "Engine control unit (OBDb type engine)",
       "request": 2016,
       "response": 2024,
-      "source": "OBDb signal set, header 7E0 and replies from 7E8, which the OBDb repositories for the Mazda 3, CX-30, CX-5, CX-50, CX-60 and MX-5 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for engine at 0x7e0 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT"
+      "source": "OBDb signal sets, header 7E0 and replies from 7E8, in the Mazda 2, Mazda 3, CX-3, CX-30, CX-5, CX-50, CX-60 and MX-5 repositories (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json; Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-3 https://github.com/OBDb/Mazda-CX-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145904/https://github.com/OBDb/Mazda-CX-3/blob/main/signalsets/v3/default.json; CX-30 https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145615/https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json; CX-5 https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json; CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json; MX-5 https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145937/https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for engine at 0x7e0 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT"
     },
     "transmission": {
       "description": "Transmission control unit (OBDb type transmission)",
       "request": 2017,
       "response": 2025,
-      "source": "OBDb signal set, header 7E1 and replies from 7E9, which the OBDb repositories for the Mazda 3, CX-30, CX-5, CX-50, CX-60 and MX-5 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for transmission at 0x7e1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT"
+      "source": "OBDb signal sets, header 7E1 and replies from 7E9, in the Mazda 2, Mazda 3, CX-3, CX-30, CX-5, CX-50, CX-60 and MX-5 repositories (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json; Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-3 https://github.com/OBDb/Mazda-CX-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145904/https://github.com/OBDb/Mazda-CX-3/blob/main/signalsets/v3/default.json; CX-30 https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145615/https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json; CX-5 https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json; CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json; MX-5 https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145937/https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for transmission at 0x7e1 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT"
+    },
+    "motor": {
+      "description": "Motor control unit (OBDb type motor)",
+      "request": 2019,
+      "response": 2027,
+      "source": "OBDb signal set, header 7E3 and replies from 7EB, in the CX-60 repository (CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-600": {
+      "description": "Unit at 0x600 (function not stated by the source)",
+      "request": 1536,
+      "response": 1664,
+      "source": "OBDb signal set, header 600 and replies from 680, in the Mazda 2 repository (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-620": {
+      "description": "Unit at 0x620 (function not stated by the source)",
+      "request": 1568,
+      "response": 1696,
+      "source": "OBDb signal set, header 620 and replies from 6A0, in the Mazda 2 repository (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-621": {
+      "description": "Unit at 0x621 (function not stated by the source)",
+      "request": 1569,
+      "response": 1697,
+      "source": "OBDb signal set, header 621 and replies from 6A1, in the Mazda 2 repository (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
     },
     "ecu-700": {
       "description": "Unit at 0x700 (function not stated by the source)",
       "request": 1792,
       "response": 1800,
-      "source": "OBDb signal set, header 700 and replies from 708, which the OBDb repositories for the Mazda 3 and CX-50 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
-    },
-    "ecu-720": {
-      "description": "Unit at 0x720 (function not stated by the source)",
-      "request": 1824,
-      "response": 1832,
-      "source": "OBDb signal set, header 720 and replies from 728, which the OBDb repositories for the Mazda 3, CX-30, CX-5, CX-50, CX-60 and MX-5 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
-    },
-    "ecu-726": {
-      "description": "Unit at 0x726 (function not stated by the source)",
-      "request": 1830,
-      "response": 1838,
-      "source": "OBDb signal set, header 726 and replies from 72E, which the OBDb repositories for the Mazda 3, CX-30, CX-5, CX-50, CX-60 and MX-5 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
-    },
-    "eps": {
-      "description": "Electric power steering (opendbc name for 0x730)",
-      "request": 1840,
-      "response": 1848,
-      "source": "opendbc firmware query list for eps at 0x730 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT; the reply identifier 738 is the request plus 8, opendbc's default offset, because no archived OBDb file names it (for 0x730 the OBDb CX-60 repository, read but not archived, gives the same 738)"
-    },
-    "ecu-750": {
-      "description": "Unit at 0x750 (function not stated by the source)",
-      "request": 1872,
-      "response": 1880,
-      "source": "OBDb signal set, header 750 and replies from 758, which the OBDb repositories for the Mazda 3 and CX-50 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
-    },
-    "abs": {
-      "description": "ABS and stability control (opendbc name for 0x760)",
-      "request": 1888,
-      "response": 1896,
-      "source": "OBDb signal set, header 760 and replies from 768, which the OBDb repositories for the Mazda CX-30, CX-5 and CX-60 also use but only this one was archived (https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for abs at 0x760 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT"
-    },
-    "ecu-761": {
-      "description": "Unit at 0x761 (function not stated by the source)",
-      "request": 1889,
-      "response": 1897,
-      "source": "OBDb signal set, header 761 and replies from 769, which the OBDb repositories for the Mazda 3 and CX-5 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
-    },
-    "ecu-793": {
-      "description": "Unit at 0x793 (function not stated by the source)",
-      "request": 1939,
-      "response": 1947,
-      "source": "OBDb signal set, header 793 and replies from 79B, which the OBDb repositories for the Mazda 3 and CX-5 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
-    },
-    "ecu-7b0": {
-      "description": "Unit at 0x7B0 (function not stated by the source)",
-      "request": 1968,
-      "response": 1976,
-      "source": "OBDb signal set, header 7B0 and replies from 7B8, which the OBDb repositories for the Mazda 3 and CX-50 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
-    },
-    "ecu-7b3": {
-      "description": "Unit at 0x7B3 (function not stated by the source)",
-      "request": 1971,
-      "response": 1979,
-      "source": "OBDb signal set, header 7B3 and replies from 7BB, which the OBDb repositories for the Mazda 3 and CX-50 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
-    },
-    "ecu-7c0": {
-      "description": "Unit at 0x7C0 (function not stated by the source)",
-      "request": 1984,
-      "response": 1992,
-      "source": "OBDb signal set, header 7C0 and replies from 7C8, which the OBDb repositories for the Mazda 3 and CX-50 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
-    },
-    "ecu-7d0": {
-      "description": "Unit at 0x7D0 (function not stated by the source)",
-      "request": 2000,
-      "response": 2010,
-      "source": "OBDb signal set, header 7D0 and replies from 7DA, which the OBDb repositories for the Mazda 3 and CX-50 also use but only this one was archived (https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
-    },
-    "radar": {
-      "description": "Forward radar (opendbc name for 0x764)",
-      "request": 1892,
-      "response": 1900,
-      "source": "opendbc firmware query list for fwdRadar at 0x764 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT; the reply identifier 76C is the request plus 8, opendbc's default offset, because no archived OBDb file names it (for 0x730 the OBDb CX-60 repository, read but not archived, gives the same 738)"
+      "source": "OBDb signal sets, header 700 and replies from 708, in the Mazda 3 and CX-50 repositories (Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
     },
     "camera": {
       "description": "Forward camera (opendbc name for 0x706)",
       "request": 1798,
       "response": 1806,
-      "source": "opendbc firmware query list for fwdCamera at 0x706 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT; the reply identifier 70E is the request plus 8, opendbc's default offset, because no archived OBDb file names it (for 0x730 the OBDb CX-60 repository, read but not archived, gives the same 738)"
+      "source": "opendbc firmware query list for fwdCamera at 0x706 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT; the reply identifier 70E is the request plus 8, opendbc's default offset, because no OBDb repository cited here names it"
+    },
+    "ecu-720": {
+      "description": "Unit at 0x720 (function not stated by the source)",
+      "request": 1824,
+      "response": 1832,
+      "source": "OBDb signal sets, header 720 and replies from 728, in the Mazda 2, Mazda 3, CX-3, CX-30, CX-5, CX-50, CX-60 and MX-5 repositories (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json; Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-3 https://github.com/OBDb/Mazda-CX-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145904/https://github.com/OBDb/Mazda-CX-3/blob/main/signalsets/v3/default.json; CX-30 https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145615/https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json; CX-5 https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json; CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json; MX-5 https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145937/https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-723": {
+      "description": "Unit at 0x723 (function not stated by the source)",
+      "request": 1827,
+      "response": 1835,
+      "source": "OBDb signal sets, header 723 and replies from 72B, in the CX-30, CX-50 and CX-60 repositories (CX-30 https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145615/https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json; CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-725": {
+      "description": "Unit at 0x725 (function not stated by the source)",
+      "request": 1829,
+      "response": 1837,
+      "source": "OBDb signal set, header 725 and replies from 72D, in the CX-50 repository (CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-726": {
+      "description": "Unit at 0x726 (function not stated by the source)",
+      "request": 1830,
+      "response": 1838,
+      "source": "OBDb signal sets, header 726 and replies from 72E, in the Mazda 2, Mazda 3, CX-30, CX-5, CX-50, CX-60 and MX-5 repositories (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json; Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-30 https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145615/https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json; CX-5 https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json; CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json; MX-5 https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145937/https://github.com/OBDb/Mazda-MX-5/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "eps": {
+      "description": "Electric power steering (opendbc name for 0x730)",
+      "request": 1840,
+      "response": 1848,
+      "source": "OBDb signal sets, header 730 and replies from 738, in the Mazda 2 and CX-60 repositories (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json; CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for eps at 0x730 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT"
+    },
+    "ecu-733": {
+      "description": "Unit at 0x733 (function not stated by the source)",
+      "request": 1843,
+      "response": 1851,
+      "source": "OBDb signal sets, header 733 and replies from 73B, in the Mazda 2 and CX-60 repositories (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json; CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-737": {
+      "description": "Unit at 0x737 (function not stated by the source)",
+      "request": 1847,
+      "response": 1855,
+      "source": "OBDb signal sets, header 737 and replies from 73F, in the Mazda 2 and CX-60 repositories (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json; CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-747": {
+      "description": "Unit at 0x747 (function not stated by the source)",
+      "request": 1863,
+      "response": 1871,
+      "source": "OBDb signal set, header 747 and replies from 74F, in the CX-50 repository (CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-750": {
+      "description": "Unit at 0x750, extended address 0x2A (function not stated by the source)",
+      "request": 1872,
+      "response": 1880,
+      "extended_address": 42,
+      "source": "OBDb signal sets, header 750, extended address 2A and replies from 758, in the Mazda 3 and CX-50 repositories (Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "abs": {
+      "description": "ABS and stability control (opendbc name for 0x760)",
+      "request": 1888,
+      "response": 1896,
+      "source": "OBDb signal sets, header 760 and replies from 768, in the Mazda 2, CX-30, CX-5 and CX-60 repositories (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json; CX-30 https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145615/https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json; CX-5 https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json; CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only; opendbc firmware query list for abs at 0x760 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT"
+    },
+    "ecu-761": {
+      "description": "Unit at 0x761 (function not stated by the source)",
+      "request": 1889,
+      "response": 1897,
+      "source": "OBDb signal sets, header 761 and replies from 769, in the Mazda 3 and CX-5 repositories (Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-5 https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "radar": {
+      "description": "Forward radar (opendbc name for 0x764)",
+      "request": 1892,
+      "response": 1900,
+      "source": "opendbc firmware query list for fwdRadar at 0x764 (https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py, archived https://web.archive.org/web/20261115135011/https://github.com/commaai/opendbc/blob/master/opendbc/car/mazda/fingerprints.py), MIT; the reply identifier 76C is the request plus 8, opendbc's default offset, because no OBDb repository cited here names it"
+    },
+    "ecu-775": {
+      "description": "Unit at 0x775 (function not stated by the source)",
+      "request": 1909,
+      "response": 1917,
+      "source": "OBDb signal set, header 775 and replies from 77D, in the CX-60 repository (CX-60 https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145802/https://github.com/OBDb/Mazda-CX-60/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-793": {
+      "description": "Unit at 0x793 (function not stated by the source)",
+      "request": 1939,
+      "response": 1947,
+      "source": "OBDb signal sets, header 793 and replies from 79B, in the Mazda 2, Mazda 3 and CX-5 repositories (Mazda 2 https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145833/https://github.com/OBDb/Mazda-2/blob/main/signalsets/v3/default.json; Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-5 https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134243/https://github.com/OBDb/Mazda-CX-5/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-7b0": {
+      "description": "Unit at 0x7B0 (function not stated by the source)",
+      "request": 1968,
+      "response": 1976,
+      "source": "OBDb signal sets, header 7B0 and replies from 7B8, in the Mazda 3 and CX-50 repositories (Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-7b3": {
+      "description": "Unit at 0x7B3 (function not stated by the source)",
+      "request": 1971,
+      "response": 1979,
+      "source": "OBDb signal sets, header 7B3 and replies from 7BB, in the Mazda 3 and CX-50 repositories (Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-7c0": {
+      "description": "Unit at 0x7C0 (function not stated by the source)",
+      "request": 1984,
+      "response": 1992,
+      "source": "OBDb signal sets, header 7C0 and replies from 7C8, in the Mazda 3 and CX-50 repositories (Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-7d0": {
+      "description": "Unit at 0x7D0 (function not stated by the source)",
+      "request": 2000,
+      "response": 2010,
+      "source": "OBDb signal sets, header 7D0 and replies from 7DA, in the Mazda 3 and CX-50 repositories (Mazda 3 https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261115134154/https://github.com/OBDb/Mazda-3/blob/main/signalsets/v3/default.json; CX-50 https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145648/https://github.com/OBDb/Mazda-CX-50/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
+    },
+    "ecu-7e6": {
+      "description": "Unit at 0x7E6 (function not stated by the source)",
+      "request": 2022,
+      "response": 2030,
+      "source": "OBDb signal set, header 7E6 and replies from 7EE, in the CX-30 repository (CX-30 https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json, archived https://web.archive.org/web/20261116145615/https://github.com/OBDb/Mazda-CX-30/blob/main/signalsets/v3/default.json), CC-BY-SA-4.0, the address pair only"
     }
   }
 }
