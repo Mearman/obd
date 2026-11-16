@@ -5,7 +5,7 @@ import { formatReadingWithUnit } from "../format/reading";
 import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { Button, Card, DataTable } from "../ui";
 import { charts, clock, controls, scrubber, speeds, transport } from "./RunGraphs.css";
-import { loadRunSeries, type RunSeries } from "./run-series";
+import { RunSeriesReader, type RunSeries } from "./run-series";
 import { error, muted } from "./screen.css";
 
 /** The playback speeds on offer, as multiples of real time. */
@@ -29,17 +29,27 @@ function withUnit(value: number | undefined, unit: string): string {
   return formatReadingWithUnit(value, unit);
 }
 
-/** Moves a cursor across `[0, end]` at `speed` times real time while `playing`, and stops at the end. */
+/** Moves a cursor across `[0, end]` at `speed` times real time while `playing`, and stops at the end. When `end` grows, as it does for a run still collecting, a paused cursor resting at the old end moves to the new one, so it stays on the newest reading; anywhere else it stays where it is. */
 function usePlayback(end: number) {
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<Speed>(1);
   const at = useRef(0);
+  const [shownEnd, setShownEnd] = useState(end);
 
   const move = useCallback((time: number) => {
     at.current = time;
     setCursor(time);
   }, []);
+
+  // Adjusted while rendering, as React advises for state that follows a changing input.
+  if (shownEnd !== end) {
+    setShownEnd(end);
+    if (!playing && cursor >= shownEnd) {
+      at.current = end;
+      setCursor(end);
+    }
+  }
 
   useEffect(() => {
     if (!playing) return;
@@ -171,7 +181,7 @@ export function RunPlayer({
 /**
  * The graphs of one stored run: a chart per signal on a shared time axis, a cursor that moves across all of them with its value written beside each, playback with a scrubber and 1x, 2x and 4x speed, and the values at the cursor as a table, which is also the text alternative to the drawings.
  *
- * Samples are read a page at a time and thinned as they arrive, so a long run never puts more than a bounded number of points in memory or in the document.
+ * Samples are read a page at a time and thinned as they arrive, so a long run never puts more than a bounded number of points in memory or in the document. The graphs of a run still open follow it: each reading the run collects prompts a read of the samples stored since the last one, and the shared time axis grows to the newest reading.
  */
 export function RunGraphs({ client, run, onClose }: RunGraphsProps) {
   // The result belongs to the run it was read for, so a different run reads as loading at once.
@@ -182,11 +192,28 @@ export function RunGraphs({ client, run, onClose }: RunGraphsProps) {
 
   useEffect(() => {
     const live = { active: true };
-    loadRunSeries(client, run).then(
-      (data) => {
-        if (live.active) setResult({ run, loaded: { status: "ready", data } });
-      },
-      (caught: unknown) => {
+    // A function, so the narrowing of `live.active` does not outlive an await.
+    const active = (): boolean => live.active;
+    const reader = new RunSeriesReader(client, run);
+    // Whether samples have arrived since the last read began, and what wakes the reading loop when they do.
+    const pending: { due: boolean; wake: (() => void) | undefined } = {
+      due: true,
+      wake: undefined,
+    };
+    void (async () => {
+      try {
+        while (live.active) {
+          if (!pending.due) {
+            await new Promise<void>((resolve) => {
+              pending.wake = resolve;
+            });
+            continue;
+          }
+          pending.due = false;
+          const data = await reader.read();
+          if (active()) setResult({ run, loaded: { status: "ready", data } });
+        }
+      } catch (caught) {
         if (live.active) {
           setResult({
             run,
@@ -196,10 +223,27 @@ export function RunGraphs({ client, run, onClose }: RunGraphsProps) {
             },
           });
         }
-      },
-    );
+      }
+    })();
+    // A run still open may be collecting: each new reading asks for one more read, however many arrive while one is under way.
+    const stream = run.stoppedAt === null ? client.live.samples({ runId: run.id }) : undefined;
+    void (async () => {
+      if (stream === undefined) return;
+      try {
+        const samples = await stream;
+        while (live.active && (await samples.next()).done !== true) {
+          pending.due = true;
+          pending.wake?.();
+          pending.wake = undefined;
+        }
+      } catch {
+        // The stream ends when the run stops collecting; the graphs keep what was read.
+      }
+    })();
     return () => {
       live.active = false;
+      pending.wake?.();
+      void stream?.then((iterator) => iterator.return());
     };
   }, [client, run]);
 
