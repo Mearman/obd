@@ -23,6 +23,7 @@ const GROUP_BY_PREFIX: ReadonlyMap<string, string> = new Map([
   ["ford", "Ford"],
   ["honda", "Honda and Acura"],
   ["hyundai", "Hyundai, Kia and Genesis"],
+  ["jaguar", "Jaguar"],
   ["mazda", "Mazda"],
   ["mercedes", "Mercedes-Benz"],
   ["mitsubishi", "Mitsubishi"],

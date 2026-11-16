@@ -153,6 +153,27 @@ Known community CAN-ID collections: iDoka's list links Land Rover Freelander 2, 
 
 What can be stated: JLR mid-2000s to 2017 cars have a standard OBD-II HS-CAN on pins 6 and 14 and, per the pin-pair evidence above, an MS-CAN pair on pins 3 and 11 (the bus speed and the modules on it are unconfirmed for JLR). Later DoIP vehicles need an Ethernet interface, which an ELM327 cannot provide. JLR MS-CAN module IDs, K-line init addresses for X-type, S-type and Freelander 1 are not documented in any source found and are unconfirmed.
 
+### The I-PACE (`jaguar-i-pace`)
+
+The `jaguar-i-pace` profile covers the I-PACE (X590, 2018 to 2024) on the OBD socket's 11-bit 500 kbit/s CAN with UDS. It rests on two open sources and carries only the units both place at the same address; every row is unconfirmed until read from a car.
+
+- **OBDb** ([Jaguar-I-PACE](https://github.com/OBDb/Jaguar-I-PACE), CC-BY-SA-4.0): the [signalset](https://github.com/OBDb/Jaguar-I-PACE/blob/main/signalsets/v3/default.json) ([archived](https://web.archive.org/web/20261116145404/https://github.com/OBDb/Jaguar-I-PACE/blob/main/signalsets/v3/default.json)) and the response records in `tests/test_cases/<year>/command_support.yaml` for model years 2019, 2020, 2021, 2023 and 2024 ([2020](https://github.com/OBDb/Jaguar-I-PACE/blob/main/tests/test_cases/2020/command_support.yaml), [archived](https://web.archive.org/web/20261116145418/https://github.com/OBDb/Jaguar-I-PACE/blob/main/tests/test_cases/2020/command_support.yaml), and the other years beside it). Only each command's request header and service are taken; no signal definition is copied. The signalset reads service 22 on 0x732, 0x733, 0x751, 0x754, 0x7E4 and 0x7E5 and gives no response header; the records add 0x7E0 answering the legislated service 01 requests.
+- **OVMS** (the Open Vehicle Monitoring System's `vehicle_jaguaripace` module, MIT, written by one developer): [ipace_obd_pids.h](https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_jaguaripace/src/ipace_obd_pids.h) ([archived](https://web.archive.org/web/20261116145437/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_jaguaripace/src/ipace_obd_pids.h)) names the car's modules with their request identifiers, and [vehicle_jaguaripace.cpp](https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_jaguaripace/src/vehicle_jaguaripace.cpp) ([archived](https://web.archive.org/web/20261116145630/https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3/blob/master/vehicle/OVMS.V3/components/vehicle_jaguaripace/src/vehicle_jaguaripace.cpp)) polls five of them with service 22 on a 500 kbit/s bus, each reply on the request identifier with bit 0x8 set, opening no session.
+
+| Unit           | Request, reply | OBDb                         | OVMS              |
+| -------------- | -------------- | ---------------------------- | ----------------- |
+| powertrain     | 0x7E0, 0x7E8   | records: service 01 answered | named, not polled |
+| gear-shift     | 0x732, 0x73A   | service 22                   | named, not polled |
+| hvac           | 0x733, 0x73B   | service 22                   | polled            |
+| tpms           | 0x751, 0x759   | service 22                   | polled            |
+| telematics     | 0x754, 0x75C   | service 22, 2020 record only | polled            |
+| battery-energy | 0x7E4, 0x7EC   | service 22                   | polled            |
+| charger        | 0x7E5, 0x7ED   | service 22, 2020 record only | named, not polled |
+
+**Inferred, unconfirmed.** The reply for the units OVMS does not poll is OVMS's rule applied, not a reading. UDS and its default session follow from both sources using service 22 without opening a session. Neither source reads fault codes, so service 19 on these units has no source. The 2021 and 2023 records list the HVAC unit's ambient temperature identifier as unsupported where the 2019 and 2020 records show it answering, which may be a model-year change or a unit that was asleep.
+
+**Left out.** The other units named only in `ipace_obd_pids.h`, among them the body control and gateway module at 0x726 that OVMS polls for the vehicle speed, the brake booster at 0x7E2, the ABS at 0x7E6, the front and rear inverters at 0x747 and 0x746 and the DC to DC converter at 0x753, because no second source places them. The sources also disagree on which unit answers some identifiers (OBDb reads the speed on 0x7E4 where OVMS reads it on 0x726, and the cabin temperature on 0x733 where OVMS reads it on 0x7E4); the profile carries units, not identifiers, so this does not change a row. The DoIP listing above for the I-PACE is a search summary; OBDb's records show these units answering on the CAN pins.
+
 ## Saab
 
 Saab data was searched because it was in the brief. Older Saabs (9-3 9400 and 9-5 9600) used proprietary buses behind the DLC: the 2002 9-3 WIS page describes the diagnostic tool calling DICE, which relays over the I-bus to MIU, which relays over the P-bus to the TCM, with the TC/ABS module reached over K-line and pin 7 and pin 8 as communication leads for specific modules: https://saabwisonline.com/9-3-9400/2002/3-electrical-system/bus-and-diagnostics-communication/technical-description/diagnostics-communication. A Trionic T5 page says the control module talks via pin 33 and a K-lead through the MIU: https://saabwisonline.com/9-3-9400/1998/2-engine/trionic-t5-obdii/technical-description/diagnostics-communication.
@@ -177,6 +198,8 @@ Coding, adaptations, key and immobiliser programming, security-access seed and k
 
 ## Sources read and their limits
 
+Opened and read for the I-PACE profile: OBDb's Jaguar-I-PACE signalset, `generations.yaml` and every model-year response record, and the OVMS `vehicle_jaguaripace` module's `ipace_obd_pids.h`, `vehicle_jaguaripace.cpp` and documentation page, listed under "The I-PACE".
+
 Opened and read for the PSA profiles: the arduino-psa-diag `ECU_LIST.md`, README and both sketches, the PyPSADiag README, ident files and ECU model files, and one forum post, listed under "PSA profiles". Opened and read: the Elm Electronics ELM327 datasheet (via local PDF text), the MultiECUScan user guide (via local PDF text), the Volvo networks training PDF (via local PDF text, partly garbled), arduino-psa-diag README, pyren-OBD2 README, ddt4all README (cedricp), Jones's Volvo 850 pages, the Volvo VIDA reverse-engineering blog pages, the French car forum 207 posts, FORScan MS-CAN page, talking-with-cars Fiat 500 notes, the C30 CAN-bus page, Saab WIS 2002 9-3 and 2011 9-5 pages, the Fiat forum threads, klavkarr SGW pages, the iDoka CAN-ID index.
 
 Opened later and now read: the Snap-on XC60 article (https://www.vehicleservicepros.com/service-repair/the-garage/blogs/blog/21238728/snapon-diagnostics-mid-speed-can-bus-failure-on-a-volvo-xc60 confirms pins 3 and 11 as the mid-speed CAN at about 125 kbit/s, and does not name the high-speed pins), the OBDLink support table (https://support.obdlink.com/support/solutions/articles/43000713351 lists MS-CAN on the MX+ and EX, SW-CAN on the MX+ only, and neither on the CX and LX), and the remainder of the Volvo 850 diagnostic page (it confirms tester address 13, ATSH 83 51 13 style headers and that OBDLink devices use ATKW rather than ATBD to verify slow init).
@@ -192,6 +215,8 @@ Latest Wayback Machine snapshot found for each cited page. Pages with no snapsho
 - https://automotivetechinfo.com/wp-content/uploads/2021/01/Understanding-Volvo-Networks-and-Wiring.pdf (http://web.archive.org/web/20240901042314/https://automotivetechinfo.com/wp-content/uploads/2021/01/Understanding-Volvo-Networks-and-Wiring.pdf)
 - https://cdn.sparkfun.com/assets/4/e/5/0/2/ELM327_AT_Commands.pdf (http://web.archive.org/web/20261013183901/https://cdn.sparkfun.com/assets/4/e/5/0/2/ELM327_AT_Commands.pdf)
 - https://cliosport.net/threads/clio182-obdii-port.174830 (http://web.archive.org/web/20210117190842/https://cliosport.net/threads/clio182-obdii-port.174830/)
+- https://github.com/OBDb/Jaguar-I-PACE (snapshots of the specific files read are under "The I-PACE")
+- https://github.com/openvehicles/Open-Vehicle-Monitoring-System-3 (snapshots of the specific files read are under "The I-PACE")
 - https://github.com/P1kachu/talking-with-cars/blob/master/notes/fiat-500.txt (http://web.archive.org/web/20260222183059/https://github.com/P1kachu/talking-with-cars/blob/master/notes/fiat-500.txt)
 - https://github.com/cedricp/ddt4all (http://web.archive.org/web/20260915080933/https://github.com/cedricp/ddt4all)
 - https://github.com/emtee40/pyren-OBD2 (http://web.archive.org/web/20240818100647/https://github.com/emtee40/pyren-OBD2)
