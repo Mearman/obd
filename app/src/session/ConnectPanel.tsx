@@ -48,6 +48,7 @@ export function ConnectPanel({ support }: { readonly support: BrowserSupport }) 
   const { connection, connect, profile, setProfile } = useDiagnostics();
   const { builtin, imported } = useProfiles();
   const [showAll, setShowAll] = useState(false);
+  const [codeChanges, setCodeChanges] = useState(false);
   const [busy, setBusy] = useState<AdapterKind | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
   const availability = adapterAvailability(support.capabilities, support.family);
@@ -56,7 +57,7 @@ export function ConnectPanel({ support }: { readonly support: BrowserSupport }) 
     setBusy(kind);
     setProblem(undefined);
     try {
-      await connect(kind, showAll);
+      await connect(kind, { showAllBluetoothDevices: showAll, simulatedCodeChanges: codeChanges });
     } catch (caught) {
       setProblem(failureMessage(caught, "The connection failed."));
     } finally {
@@ -145,6 +146,11 @@ export function ConnectPanel({ support }: { readonly support: BrowserSupport }) 
           label="List every nearby Bluetooth device, not only known adapter names"
           checked={showAll}
           onCheckedChange={setShowAll}
+        />
+        <Switch
+          label="Give the simulator a pending fault code that appears, then clears, as a recording plan reads the codes"
+          checked={codeChanges}
+          onCheckedChange={setCodeChanges}
         />
       </Card>
 

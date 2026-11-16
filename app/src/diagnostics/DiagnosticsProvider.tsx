@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { adapterUrl } from "../connect/adapters";
+import { adapterUrl, type ConnectOptions } from "../connect/adapters";
 import { useActivity } from "../pwa/ActivityProvider";
 import { DiagnosticsError, type AdapterKind, type AppService } from "./client";
 import { collectedElsewhere, runClaims } from "./run-claims";
@@ -51,7 +51,7 @@ export interface DiagnosticsContextValue {
   readonly profile: string | undefined;
   readonly setProfile: (profile: string | undefined) => void;
   /** Opens a connection from a click; rejects with a message fit to show. */
-  readonly connect: (kind: AdapterKind, showAllBluetoothDevices: boolean) => Promise<void>;
+  readonly connect: (kind: AdapterKind, options: ConnectOptions) => Promise<void>;
   /** Stops any collection run, then closes the connection. */
   readonly disconnect: () => Promise<void>;
   readonly collection: CollectionView;
@@ -253,8 +253,8 @@ export function DiagnosticsProvider({
   }, [client, runId]);
 
   const connect = useCallback(
-    async (kind: AdapterKind, showAll: boolean) => {
-      const adapter = adapterUrl(kind, profile, showAll);
+    async (kind: AdapterKind, options: ConnectOptions) => {
+      const adapter = adapterUrl(kind, profile, options);
       // The picker needs the click's user activation, so it is the first await.
       if (kind === "webbluetooth") await service.devices.prepare(adapter);
       if (kind === "webserial") await client.adapters.grant(await service.devices.chooseSerial());

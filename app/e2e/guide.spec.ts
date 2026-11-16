@@ -132,3 +132,58 @@ for (const viewport of VIEWPORTS) {
     });
   }
 }
+
+/** A plan that waits for a pending code to appear, then for it to clear, reading nothing else. */
+const CODES_PLAN = JSON.stringify({
+  format: "obd-read-plan",
+  version: 1,
+  name: "e2e-codes",
+  title: "Pending code end-to-end plan",
+  description: "Waits for a pending code to appear and then to clear.",
+  source: "The end-to-end tests.",
+  needs: { values: ["engine-speed"] },
+  phases: [
+    {
+      id: "appear",
+      title: "Appear",
+      instruction: "Leave the engine idling.",
+      end: { when: { kind: "code-appears", list: "pending" }, timeout: 120 },
+    },
+    {
+      id: "clear",
+      title: "Clear",
+      instruction: "Leave the engine idling.",
+      end: { when: { kind: "code-clears", list: "pending" }, timeout: 120 },
+    },
+  ],
+});
+
+test("a plan on the simulator sees a pending code appear and clear, with a timestamped notice for each", async ({
+  page,
+}) => {
+  // The plan reads the code lists every DEFAULT_CODE_WATCH_INTERVAL_S seconds, and the code clears on the fourth read.
+  test.setTimeout(240_000);
+  await page.goto("/");
+  await page.getByRole("switch", { name: /pending fault code that appears, then clears/ }).click();
+  await page.getByRole("button", { name: /connect with the simulator/i }).click();
+  await expect(page.getByText("Connected to Simulator")).toBeVisible();
+  await page.getByRole("tab", { name: "Guide" }).click();
+  await page.getByLabel("Plan file").setInputFiles({
+    name: "codes.obdplan.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(CODES_PLAN),
+  });
+  await page.getByRole("button", { name: "Start the plan" }).click();
+
+  const notices = page.getByRole("list", { name: "Notices" });
+  await expect(notices.getByText(/^.+: P0300 appeared in the pending codes\.$/)).toBeVisible({
+    timeout: 60_000,
+  });
+  await expect(notices.getByText(/^.+: P0300 cleared from the pending codes\.$/)).toBeVisible({
+    timeout: 90_000,
+  });
+  await expect(page.getByText("The plan finished.")).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Phases of the plan" }).getByText("completed"),
+  ).toHaveCount(2);
+});
