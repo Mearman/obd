@@ -131,6 +131,15 @@ export function LibraryImport({
         Import a file
       </Button>
       <p className={muted}>Or drop the file anywhere on this screen.</p>
+      <ImportNotes outcome={outcome} />
+    </Card>
+  );
+}
+
+/** What the last import left to say: a note, the lines it could not recover and any problem. Shown with the Library's list and with an item the import opened. */
+export function ImportNotes({ outcome }: { readonly outcome: ImportOutcome }) {
+  return (
+    <>
       {outcome.note !== undefined && <p role="status">{outcome.note}</p>}
       {outcome.unrecovered.length > 0 && (
         <div role="status">
@@ -147,6 +156,6 @@ export function LibraryImport({
           {outcome.problem}
         </p>
       )}
-    </Card>
+    </>
   );
 }

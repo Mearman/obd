@@ -4,6 +4,10 @@ import { afterEach } from "vitest";
 import { installMatchMedia, setWideLayout } from "./media";
 
 afterEach(cleanup);
+// The address names the active screen, so a test must not start on the previous test's.
+afterEach(() => {
+  if (typeof window !== "undefined") window.history.replaceState(null, "", "/");
+});
 
 // jsdom lacks the pointer-capture, scrolling and resize APIs Radix uses.
 class ResizeObserverStub {

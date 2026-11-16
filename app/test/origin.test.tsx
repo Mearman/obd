@@ -74,7 +74,7 @@ describe("the origin of stored data", () => {
       within(screen.getByRole("table", { name: "Library" })).queryByText("Read here"),
     ).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: `View capture ${capture.id}` }));
+    await userEvent.click(screen.getByRole("row", { name: `Open capture ${capture.id}` }));
     const viewer = await screen.findByText(`Capture ${capture.id}`);
     const card = viewer.closest("section") ?? document.body;
     await waitFor(() => {
@@ -120,7 +120,7 @@ describe("the origin of stored data", () => {
     await waitFor(() => {
       expect(within(shared).getByText("Shared scan")).toBeInTheDocument();
     });
-    await userEvent.click(within(shared).getByRole("button", { name: /^View report / }));
+    await userEvent.click(within(shared).getByRole("row", { name: /^Open report / }));
     const opened = await screen.findByLabelText("Saved report");
     expect(
       within(opened).getByText("Shared data from a link, not read from your adapter."),
@@ -157,7 +157,7 @@ describe("the origin of stored data", () => {
     });
     renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
-    await userEvent.click(await screen.findByRole("button", { name: /^View report / }));
+    await userEvent.click(await screen.findByRole("row", { name: /^Open report / }));
     const opened = await screen.findByLabelText("Saved report");
     await userEvent.click(within(opened).getByRole("button", { name: "Download JSON" }));
     expect(names).toHaveLength(1);

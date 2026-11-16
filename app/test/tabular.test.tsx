@@ -82,7 +82,7 @@ describe("downloads of a saved report", () => {
     });
     renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
-    await userEvent.click(await screen.findByRole("button", { name: /^View report / }));
+    await userEvent.click(await screen.findByRole("row", { name: /^Open report / }));
     const opened = await screen.findByLabelText("Saved report");
 
     await userEvent.click(within(opened).getByRole("button", { name: "Download fault codes CSV" }));
@@ -118,9 +118,7 @@ describe("downloads of a decoded capture", () => {
     });
     renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
-    await userEvent.click(
-      await screen.findByRole("button", { name: `View capture ${summary.id}` }),
-    );
+    await userEvent.click(await screen.findByRole("row", { name: `Open capture ${summary.id}` }));
     const exchanges = await screen.findByRole("button", { name: "Download raw exchanges CSV" });
 
     await userEvent.click(exchanges);
