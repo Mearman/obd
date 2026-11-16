@@ -11,6 +11,7 @@ export * from "./kwp2000.js";
 export * from "./uds.js";
 export * from "./profile.js";
 export * from "./profile-check.js";
+export * from "./vin-match.js";
 export * from "./codenames.js";
 export * from "./definitions.js";
 export * from "./scancompare.js";

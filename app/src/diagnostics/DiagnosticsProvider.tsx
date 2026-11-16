@@ -50,6 +50,10 @@ export interface DiagnosticsContextValue {
   /** The profile the next connection is made with, or undefined for a generic OBD-II connection. */
   readonly profile: string | undefined;
   readonly setProfile: (profile: string | undefined) => void;
+  /** The VIN the latest generic OBD-II read on the open connection reported, or undefined before one, after one that reported none, or once the connection changes. */
+  readonly readVin: string | undefined;
+  /** Records the VIN a generic read on the open connection reported; does nothing when disconnected. */
+  readonly noteVin: (vin: string) => void;
   /** Opens a connection from a click; rejects with a message fit to show. */
   readonly connect: (kind: AdapterKind, showAllBluetoothDevices: boolean) => Promise<void>;
   /** Stops any collection run, then closes the connection. */
@@ -106,6 +110,10 @@ export function DiagnosticsProvider({
   const { client } = service;
   const [connection, setConnection] = useState<Connection | undefined>(undefined);
   const [profile, setProfile] = useState<string | undefined>(undefined);
+  // Held with the connection it was read on, so a later connection never shows another car's VIN.
+  const [vinRead, setVinRead] = useState<
+    { readonly connection: Connection; readonly vin: string } | undefined
+  >(undefined);
   const [collection, setCollection] = useState<CollectionView>(IDLE);
   const [runsVersion, setRunsVersion] = useState(0);
   const [guided, setGuided] = useState<GuidedPlan | undefined>(undefined);
@@ -314,12 +322,22 @@ export function DiagnosticsProvider({
     [claims, client, service, track],
   );
 
+  const noteVin = useCallback(
+    (vin: string) => {
+      if (connection !== undefined) setVinRead({ connection, vin });
+    },
+    [connection],
+  );
+  const readVin = vinRead?.connection === connection ? vinRead?.vin : undefined;
+
   const value = useMemo(
     () => ({
       service,
       connection,
       profile,
       setProfile,
+      readVin,
+      noteVin,
       connect,
       disconnect,
       collection,
@@ -336,6 +354,8 @@ export function DiagnosticsProvider({
       service,
       connection,
       profile,
+      readVin,
+      noteVin,
       connect,
       disconnect,
       collection,

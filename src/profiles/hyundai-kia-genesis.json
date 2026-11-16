@@ -3,6 +3,28 @@
   "name": "hyundai-kia-genesis",
   "description": "Hyundai, Kia and Genesis cars (electric, hybrid and petrol or diesel), UDS and service 21 over CAN",
   "status": "unconfirmed",
+  "vin": {
+    "wmi": [
+      "KMH",
+      "KM8",
+      "KMT",
+      "KMU",
+      "KND",
+      "TMA",
+      "TMC",
+      "U5Y",
+      "U6Y",
+      "NLH",
+      "MAL",
+      "5NP",
+      "5NM",
+      "5XX",
+      "5XY",
+      "3KP",
+      "KNA"
+    ],
+    "source": "The WMIs are the makers' car and SUV identifiers in the world manufacturer identifier table of the Wikipedia article Vehicle identification number, which cites the Kraftfahrt-Bundesamt manufacturer list SV 3.2 (https://en.wikipedia.org/wiki/Vehicle_identification_number, archived https://web.archive.org/web/20261102120229/https://en.wikipedia.org/wiki/Vehicle_identification_number), and KNA from NHTSA vPIC's world manufacturer identifiers for Kia (https://vpic.nhtsa.dot.gov/api/vehicles/GetWMIsForManufacturer/kia?format=json, archived https://web.archive.org/web/20261116164452/https://vpic.nhtsa.dot.gov/api/vehicles/GetWMIsForManufacturer/kia?format=json). A WMI names the maker and plant, not the model, so a match only says the car is of a make this profile covers."
+  },
   "bus": {
     "id_bits": 11,
     "bitrate": 500000

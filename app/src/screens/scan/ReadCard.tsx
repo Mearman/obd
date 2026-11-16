@@ -7,6 +7,7 @@ import {
 } from "obd-read";
 import { useDiagnostics } from "../../diagnostics/DiagnosticsProvider";
 import { PROFILE_REQUIRED_REASON, profileTitle } from "../../profiles/generic";
+import { ProfileSuggestions } from "../../profiles/ProfileSuggestions";
 import { ShareDialog } from "../../share/ShareDialog";
 import { Button, Card, type Column } from "../../ui";
 import { GuardedOperation } from "../GuardedOperation";
@@ -112,6 +113,7 @@ export function ReadCard({ stopRunHint }: { readonly stopRunHint: string }) {
           />
         </div>
       )}
+      <ProfileSuggestions />
       {obd !== null && <ObdReport scan={obd} />}
     </>
   );
