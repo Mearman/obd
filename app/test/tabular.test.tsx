@@ -1,9 +1,17 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { sharedScanReport, type ScanShareData } from "obd-read";
+import {
+  GENERIC_PROFILE,
+  sharedObdReportDocument,
+  sharedScanReport,
+  type ObdScan,
+  type ScanShareData,
+} from "obd-read";
+import { builtinProfileData } from "obd-read/profiles";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import type { BrowserSupport } from "../src/connect/support";
+import { sessionOver } from "./fake-database";
 import { createTestService, renderApp } from "./render";
 import { simulatedCapture } from "./simulated-capture";
 
@@ -37,6 +45,28 @@ const SCAN: ScanShareData = {
       freeze_frames: {},
     },
   ],
+};
+
+/** A generic OBD-II read with one stored and one pending code. */
+const OBD_READ: ObdScan = {
+  vin: "",
+  units: [
+    {
+      sender: "7E8",
+      lampOn: true,
+      codeCount: 1,
+      stored: ["P0420"],
+      pending: ["P0171"],
+      permanent: null,
+      readiness: { compressionIgnition: false, complete: [], incomplete: [] },
+      freezeFrame: null,
+      misfire: [],
+      calibrationIds: [],
+    },
+  ],
+  values: [],
+  monitorResults: [],
+  notes: [],
 };
 
 /** The files the page offered to save, by name, with their text. */
@@ -85,7 +115,9 @@ describe("downloads of a saved report", () => {
     await userEvent.click(await screen.findByRole("row", { name: /^Open report / }));
     const opened = await screen.findByLabelText("Saved report");
 
-    await userEvent.click(within(opened).getByRole("button", { name: "Download fault codes CSV" }));
+    await userEvent.click(
+      await within(opened).findByRole("button", { name: "Download fault codes CSV" }),
+    );
     expect(await savedFile(`${row.id}-fault-codes.csv`)).toBe(
       "unit,code,status,description\r\nengine,P0420,2F,\r\n",
     );
@@ -105,6 +137,68 @@ describe("downloads of a saved report", () => {
     expect(await savedFile(`${row.id}-identification.tsv`)).toContain("engine\tPart number");
     // The existing JSON download is still there.
     expect(within(opened).getByRole("button", { name: "Download JSON" })).toBeVisible();
+  });
+
+  it("describes a generic OBD-II read's codes with the generic titles, as the command line does", async () => {
+    const service = createTestService();
+    const row = await service.storage.saveScanReport({
+      profile: GENERIC_PROFILE,
+      adapter: "simulator://generic",
+      takenAt: Date.UTC(2026, 10, 15, 9, 0, 0),
+      label: "",
+      report: sharedObdReportDocument({
+        taken: "2026-11-15T09:00:00+00:00",
+        adapter: { label: "ELM327 v1.5" },
+        redacted: true,
+        obd: OBD_READ,
+      }),
+    });
+    await renderApp(<App support={CHROME} />, service);
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    await userEvent.click(await screen.findByRole("row", { name: /^Open report / }));
+    const opened = await screen.findByLabelText("Saved report");
+
+    await userEvent.click(
+      await within(opened).findByRole("button", { name: "Download fault codes CSV" }),
+    );
+    expect(await savedFile(`${row.id}-fault-codes.csv`)).toBe(
+      [
+        "unit,code,status,description",
+        "7E8,P0420,stored,Catalyst System Efficiency Below Threshold Bank 1",
+        "7E8,P0171,pending,System Too Lean Bank 1",
+        "",
+      ].join("\r\n"),
+    );
+  });
+
+  it("describes a scan's codes with the names its imported profile gives them", async () => {
+    const service = createTestService();
+    const shipped = builtinProfileData("mercedes-w211");
+    if (typeof shipped !== "object" || shipped === null) throw new Error("no shipped W211 profile");
+    const named = {
+      ...shipped,
+      name: "w211-with-names",
+      codes: { engine: { P0420: { text: "Catalyst below threshold", source: "workshop notes" } } },
+    };
+    await service.client.profiles.import({ json: JSON.stringify(named) });
+    const row = await service.storage.saveScanReport({
+      profile: "w211-with-names",
+      adapter: "simulator://mercedes-w211",
+      takenAt: Date.UTC(2026, 10, 15, 9, 0, 0),
+      label: "Named scan",
+      report: sharedScanReport({ ...SCAN, profile: { name: "w211-with-names" } }),
+    });
+    await renderApp(<App support={CHROME} />, service, sessionOver(service.storage));
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    await userEvent.click(await screen.findByRole("row", { name: /^Open report / }));
+    const opened = await screen.findByLabelText("Saved report");
+
+    await userEvent.click(
+      await within(opened).findByRole("button", { name: "Download fault codes CSV" }),
+    );
+    expect(await savedFile(`${row.id}-fault-codes.csv`)).toBe(
+      "unit,code,status,description\r\nengine,P0420,2F,Catalyst below threshold\r\n",
+    );
   });
 });
 

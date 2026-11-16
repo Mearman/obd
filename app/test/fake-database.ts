@@ -26,15 +26,23 @@ export function fakeControl(
   return control;
 }
 
-/** A session whose database opens straight away on memory storage. */
-export function readySession(control: DatabaseControl = fakeControl()): DatabaseSession {
+/** A session whose database opens straight away on `storage`, fresh memory storage by default. */
+export function readySession(
+  control: DatabaseControl = fakeControl(),
+  storage: MemoryStorage = new MemoryStorage(),
+): DatabaseSession {
   return {
-    connection: Promise.resolve({ storage: new MemoryStorage(), control }),
+    connection: Promise.resolve({ storage, control }),
     subscribe: () => () => undefined,
     busy: () => false,
     subscribeBusy: () => () => undefined,
     close: () => undefined,
   };
+}
+
+/** A session whose database opens straight away on `storage`: the one the test's service stores into, as the app's database and service share one. */
+export function sessionOver(storage: MemoryStorage): DatabaseSession {
+  return readySession(fakeControl(), storage);
 }
 
 /** A session whose database cannot be used, as when a tab that cannot share holds it. */

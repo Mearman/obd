@@ -19,11 +19,10 @@ import { streamShareCodec } from "obd-read/web";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import type { BrowserSupport } from "../src/connect/support";
-import type { DatabaseSession } from "../src/database/session";
 import { CONDITION_CHOICES } from "../src/guide/ConditionEditor";
 import { keepPlan } from "../src/guide/my-plans";
 import { PlanEditor, blankPlan, revised } from "../src/guide/PlanEditor";
-import { fakeControl } from "./fake-database";
+import { sessionOver } from "./fake-database";
 import { createTestService, renderApp } from "./render";
 
 const CHROME: BrowserSupport = {
@@ -44,16 +43,6 @@ afterEach(() => {
   localStorage.clear();
   window.history.replaceState(null, "", "/");
 });
-
-function sessionOver(storage: MemoryStorage): DatabaseSession {
-  return {
-    connection: Promise.resolve({ storage, control: fakeControl() }),
-    subscribe: () => () => undefined,
-    busy: () => false,
-    subscribeBusy: () => () => undefined,
-    close: () => undefined,
-  };
-}
 
 function pedalPlan(): Plan {
   return parsePlan(

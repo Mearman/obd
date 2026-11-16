@@ -4,6 +4,7 @@
  * Every view is a {@link TableSpec} plus a function that turns the data into its rows; {@link renderTable} writes it as CSV, TSV or JSON. Times are ISO 8601 with milliseconds in UTC, byte strings are upper-case hexadecimal, and a cell with nothing to say is empty.
  */
 
+import { CodeNameError, type CodeNames } from "./codenames.js";
 import type { Exchange } from "./exchange.js";
 import type { ObdScan } from "./obd-scan.js";
 import type { DecodedCaptureData, UnitReportData } from "./service.js";
@@ -11,6 +12,20 @@ import type { TableSpec } from "./tabular.js";
 
 /** A fault code's explanation: the text for `code` as `unit` reported it, or `undefined` when none is known. */
 export type CodeDescriber = (unit: string, code: string) => string | undefined;
+
+/**
+ * The describer every fault code table is written with, on the command line and in the app: a code's text from the generic OBD-II titles when `generic` (a generic OBD-II read), else from `names` as `unit` reported it (the profile's table, then imported names). A code with no known text, or one that is not a valid code, has none.
+ */
+export function describerOf(names: CodeNames, generic: boolean): CodeDescriber {
+  return (unit, code) => {
+    try {
+      return (generic ? names.genericCode(code) : names.unitCode(unit, code))?.text;
+    } catch (error) {
+      if (error instanceof CodeNameError) return undefined;
+      throw error;
+    }
+  };
+}
 
 /** One stored fault code. */
 export interface FaultCodeRow {

@@ -17,8 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import { AUTO_SAVED_LIMIT } from "../src/share/auto-saved";
 import type { BrowserSupport } from "../src/connect/support";
-import type { DatabaseSession } from "../src/database/session";
-import { fakeControl, unavailableSession } from "./fake-database";
+import { sessionOver, unavailableSession } from "./fake-database";
 import { createTestService, renderApp } from "./render";
 import { captureFragment, simulatedCapture } from "./simulated-capture";
 
@@ -43,16 +42,6 @@ afterEach(() => {
   Reflect.deleteProperty(navigator, "clipboard");
   Reflect.deleteProperty(navigator, "share");
 });
-
-function sessionOver(storage: MemoryStorage): DatabaseSession {
-  return {
-    connection: Promise.resolve({ storage, control: fakeControl() }),
-    subscribe: () => () => undefined,
-    busy: () => false,
-    subscribeBusy: () => () => undefined,
-    close: () => undefined,
-  };
-}
 
 async function openTab(name: string): Promise<void> {
   await userEvent.click(screen.getByRole("tab", { name }));
