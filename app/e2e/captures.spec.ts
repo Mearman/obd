@@ -2,11 +2,6 @@ import { chooseProfile } from "./profile";
 import { openSection } from "./session";
 import { expect, test, type Page } from "@playwright/test";
 
-async function openScreen(page: Page, name: string): Promise<void> {
-  await page.getByRole("tab", { name }).click();
-  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
-}
-
 /** The viewer's summary line once it says `pattern`. */
 async function expectSummary(page: Page, pattern: RegExp): Promise<void> {
   await expect(page.getByRole("status", { name: "Decoding summary" })).toHaveText(pattern);
