@@ -270,8 +270,8 @@ describe("the Library", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await upload("adapter.log", TRANSCRIPT);
     expect(await screen.findByRole("status", { name: "Decoding summary" })).toBeVisible();
-    await waitFor(() => {
-      expect(kindsListed()).toEqual(["Capture"]);
+    await waitFor(async () => {
+      expect(await service.storage.listCaptures()).toHaveLength(1);
     });
     expect(await service.storage.listRuns()).toEqual([]);
   });
@@ -324,24 +324,28 @@ describe("the Library", () => {
   it("opens and closes a run's graphs, shows its fault codes, shares and exports it", async () => {
     const { service, runId } = await seeded();
     const table = await openLibrary(service);
-    await userEvent.click(await within(table).findByRole("button", { name: "View graphs" }));
+    await userEvent.click(await within(table).findByRole("row", { name: `Open run ${runId}` }));
     expect(await screen.findByRole("group", { name: "Run playback" })).toBeVisible();
-    await userEvent.click(within(table).getByRole("button", { name: "View graphs" }));
+    expect(screen.queryByRole("table", { name: "Library" })).toBeNull();
+    expect(window.location.search).toBe(`?screen=library&item=run%3A${runId}`);
+    await userEvent.click(screen.getByRole("button", { name: "Close graphs" }));
     await waitFor(() => {
       expect(screen.queryByRole("group", { name: "Run playback" })).toBeNull();
     });
+    expect(window.location.search).toBe("?screen=library");
 
     await userEvent.click(
-      within(table).getByRole("button", { name: `Fault codes of run ${runId}` }),
+      (await screen.findByRole("table", { name: "Library" })) &&
+        screen.getByRole("button", { name: `Fault codes of run ${runId}` }),
     );
     expect(await screen.findByRole("dialog", { name: "Fault codes" })).toBeVisible();
     await userEvent.keyboard("{Escape}");
 
-    await userEvent.click(within(table).getByRole("button", { name: "Share" }));
+    await userEvent.click(screen.getByRole("button", { name: "Share" }));
     expect(await screen.findByRole("dialog", { name: "Share this run's summary" })).toBeVisible();
     await userEvent.keyboard("{Escape}");
 
-    await userEvent.click(within(table).getByRole("button", { name: "Export CSV" }));
+    await userEvent.click(screen.getByRole("button", { name: "Export CSV" }));
     await waitFor(() => {
       expect(saved).toContain(`obd-read-run-${runId}.csv`);
     });
@@ -351,11 +355,12 @@ describe("the Library", () => {
     const { service, captureId } = await seeded();
     const table = await openLibrary(service);
     await userEvent.click(
-      await within(table).findByRole("button", { name: `View capture ${captureId}` }),
+      await within(table).findByRole("row", { name: `Open capture ${captureId}` }),
     );
     expect(await screen.findByText(`Capture ${captureId}`)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
     await userEvent.click(
-      within(table).getByRole("button", { name: `Delete capture ${captureId}` }),
+      await screen.findByRole("button", { name: `Delete capture ${captureId}` }),
     );
     await waitFor(() => {
       expect(kindsListed()).toEqual(["Run", "Report"]);
@@ -368,7 +373,7 @@ describe("the Library", () => {
     const { service, reportId } = await seeded();
     const table = await openLibrary(service);
     await userEvent.click(
-      await within(table).findByRole("button", { name: `View report ${reportId}` }),
+      await within(table).findByRole("row", { name: `Open report ${reportId}` }),
     );
     const opened = await screen.findByLabelText("Saved report");
     expect(within(opened).getByRole("table", { name: "Saved fault codes" })).toHaveTextContent(
@@ -380,16 +385,32 @@ describe("the Library", () => {
     expect(screen.queryByLabelText("Saved report")).toBeNull();
   });
 
-  it("keeps the open viewer when the person looks at another screen and comes back", async () => {
+  it("returns to the open item with Back after another screen, and opens one from the address", async () => {
     const { service, captureId } = await seeded();
     const table = await openLibrary(service);
     await userEvent.click(
-      await within(table).findByRole("button", { name: `View capture ${captureId}` }),
+      await within(table).findByRole("row", { name: `Open capture ${captureId}` }),
     );
     expect(await screen.findByText(`Capture ${captureId}`)).toBeVisible();
     await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
-    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    expect(screen.queryByText(`Capture ${captureId}`)).toBeNull();
+    window.history.back();
+    await waitFor(() => {
+      expect(window.location.search).toBe(`?screen=library&item=capture%3A${captureId}`);
+    });
     expect(await screen.findByText(`Capture ${captureId}`)).toBeVisible();
+  });
+
+  it("does not open a row from a click on a button inside it", async () => {
+    const { service, captureId } = await seeded();
+    const table = await openLibrary(service);
+    await userEvent.click(
+      await within(table).findByRole("button", { name: `Delete capture ${captureId}` }),
+    );
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Run", "Report"]);
+    });
+    expect(window.location.search).toBe("?screen=library");
   });
 
   it("opens a capture taken on the Session screen in the Library's viewer", async () => {

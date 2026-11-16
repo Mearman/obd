@@ -54,6 +54,14 @@ export const row = style({
   },
 });
 
+export const openable = style({
+  cursor: "pointer",
+  selectors: {
+    "&:hover": { background: vars.color.border },
+    "&:focus-visible": { outline: `2px solid ${vars.color.border}`, outlineOffset: "-2px" },
+  },
+});
+
 export const headRow = style({ display: "table-row" });
 
 export const headerCell = style({

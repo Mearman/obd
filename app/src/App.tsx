@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAppLocation } from "./screens/useAppLocation";
 import { detectBrowserSupport, type BrowserSupport } from "./connect/support";
 import { DatabaseNotice } from "./database/DatabaseNotice";
 import { useDiagnostics } from "./diagnostics/DiagnosticsProvider";
@@ -52,7 +53,10 @@ function ThemeButton() {
 
 /** The application shell: header, the screens and the navigation between them. */
 export function App({ support = detectBrowserSupport() }: { readonly support?: BrowserSupport }) {
-  const [screen, setScreen] = useState<ScreenName>("session");
+  const [{ screen, opened }, navigate] = useAppLocation<ScreenName>(SCREENS, "session");
+  const setScreen = (next: ScreenName): void => {
+    navigate({ screen: next });
+  };
   const { connection } = useDiagnostics();
   const shared = useSharedLink();
   const [saved, setSaved] = useState<SavedShare | undefined>(undefined);
@@ -62,17 +66,17 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
     setScreen("session");
     setConnectRequest((count) => count + 1);
   };
-  // Held here, so the Library's viewer stays open when the user looks at another screen and comes back.
-  const [opened, setOpened] = useState<LibraryOpen | undefined>(undefined);
+  // The open item lives in the address, so it has a link of its own and Back closes it.
+  const setOpened = (open: LibraryOpen | undefined): void => {
+    navigate({ screen: "library", opened: open });
+  };
   const viewCapture = (id: string): void => {
     setOpened({ kind: "capture", id });
-    setScreen("library");
   };
   // A plan from a link, kept in My plans, that the Guide screen opens on ready to record.
   const [offeredPlan, setOfferedPlan] = useState<string | undefined>(undefined);
   const viewRun = (id: string): void => {
     setOpened({ kind: "run", id });
-    setScreen("library");
   };
 
   return (

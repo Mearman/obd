@@ -32,7 +32,7 @@ import {
   type LibraryKind,
   type LibraryOpen,
 } from "./items";
-import { LibraryImport, useLibraryImport } from "./LibraryImport";
+import { ImportNotes, LibraryImport, useLibraryImport } from "./LibraryImport";
 import { runEnvelope } from "./run-envelope";
 import { SavedReportView } from "./SavedReportView";
 import { useCaptureItems, useReportItems, useRunItems } from "./sources";
@@ -207,14 +207,6 @@ export function LibraryScreen({
                 Stop
               </Button>
             )}
-            <Button
-              aria-pressed={isOpen(item)}
-              onClick={() => {
-                onOpen(isOpen(item) ? undefined : { kind: "run", id: run.id });
-              }}
-            >
-              View graphs
-            </Button>
             <Dialog
               trigger={<Button aria-label={`Fault codes of run ${run.id}`}>Fault codes</Button>}
               title="Fault codes"
@@ -247,14 +239,6 @@ export function LibraryScreen({
         return (
           <span className={row}>
             <Button
-              aria-label={`View capture ${item.id}`}
-              onClick={() => {
-                onOpen({ kind: "capture", id: item.id });
-              }}
-            >
-              View
-            </Button>
-            <Button
               variant="ghost"
               aria-label={`Delete capture ${item.id}`}
               onClick={() =>
@@ -270,17 +254,7 @@ export function LibraryScreen({
           </span>
         );
       case "report":
-        return (
-          <Button
-            aria-label={`View report ${item.id}`}
-            onClick={() => {
-              setProblem(undefined);
-              onOpen({ kind: "report", id: item.id });
-            }}
-          >
-            View
-          </Button>
-        );
+        return null;
     }
   }
 
@@ -319,38 +293,60 @@ export function LibraryScreen({
       >
         Library
       </ScreenHeading>
-      <p className={muted}>
-        Every collection run, raw capture and saved report kept on this device, newest first. A
-        capture keeps every raw request and reply, so it can be decoded with any profile, a newer
-        version of one, or none; it holds the VIN and fault history. Nothing here leaves this device
-        unless you export or share it.
-      </p>
-      <LibraryImport
-        outcome={outcome}
-        onFile={(file) => {
-          void importFile(file);
-        }}
-      />
       {(problem ?? listProblem) !== undefined && (
         <p role="alert" className={error}>
           {problem ?? listProblem}
         </p>
       )}
-      <div className={row}>
-        <Select label="Kind" value={kinds} options={KIND_FILTER_OPTIONS} onValueChange={setKinds} />
-        <Select
-          label="Origin"
-          value={origins}
-          options={ORIGIN_FILTER_OPTIONS}
-          onValueChange={setOrigins}
-        />
-      </div>
-      {!loaded ? (
-        <p className={muted}>Loading the library…</p>
-      ) : items.length === 0 ? (
-        <p className={muted}>{emptyNote(kinds, origins)}</p>
-      ) : (
-        <DataTable label="Library" columns={columns} rows={items} rowKey={itemKey} />
+      {open !== undefined && <ImportNotes outcome={outcome} />}
+      {open === undefined && (
+        <>
+          <p className={muted}>
+            Every collection run, raw capture and saved report kept on this device, newest first. A
+            capture keeps every raw request and reply, so it can be decoded with any profile, a
+            newer version of one, or none; it holds the VIN and fault history. Nothing here leaves
+            this device unless you export or share it.
+          </p>
+          <LibraryImport
+            outcome={outcome}
+            onFile={(file) => {
+              void importFile(file);
+            }}
+          />
+          <div className={row}>
+            <Select
+              label="Kind"
+              value={kinds}
+              options={KIND_FILTER_OPTIONS}
+              onValueChange={setKinds}
+            />
+            <Select
+              label="Origin"
+              value={origins}
+              options={ORIGIN_FILTER_OPTIONS}
+              onValueChange={setOrigins}
+            />
+          </div>
+          {!loaded ? (
+            <p className={muted}>Loading the library…</p>
+          ) : items.length === 0 ? (
+            <p className={muted}>{emptyNote(kinds, origins)}</p>
+          ) : (
+            <DataTable
+              label="Library"
+              columns={columns}
+              rows={items}
+              rowKey={itemKey}
+              onOpen={{
+                label: (item) => `Open ${item.kind} ${item.id}`,
+                open: (item) => {
+                  setProblem(undefined);
+                  onOpen({ kind: item.kind, id: item.id });
+                },
+              }}
+            />
+          )}
+        </>
       )}
       {open?.kind === "capture" && (
         <CaptureViewer

@@ -124,7 +124,8 @@ describe("Captures", () => {
     );
     expect(await screen.findByText("line 5: not a transcript line")).toBeVisible();
     await summary(/Decoded 1.*Left raw 0.*Generic OBD-II/);
-    expect(screen.getByRole("table", { name: "Library" })).toHaveTextContent("Imported");
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(await screen.findByRole("table", { name: "Library" })).toHaveTextContent("Imported");
   });
 
   it("imports a file dropped anywhere on the screen and opens the viewer", async () => {
@@ -142,7 +143,8 @@ describe("Captures", () => {
       dataTransfer: { files: [file] },
     });
     await summary(/Decoded 1.*Left raw 0.*Generic OBD-II/);
-    expect(screen.getByRole("table", { name: "Library" })).toHaveTextContent("Imported");
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(await screen.findByRole("table", { name: "Library" })).toHaveTextContent("Imported");
   });
 
   it("shares the raw capture, overwriting the VIN in its bytes unless asked to keep it", async () => {
