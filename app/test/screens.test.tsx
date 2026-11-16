@@ -100,6 +100,26 @@ async function openTab(name: "Library" | "Settings"): Promise<void> {
   await userEvent.click(screen.getByRole("tab", { name }));
 }
 
+describe("The header's connection badge", () => {
+  it("shows the connection on Library, Guide and Settings, and leaves it to the Session screen's bar there", async () => {
+    await renderApp(<App support={CHROME} />);
+    const banner = screen.getByRole("banner");
+    // The Session screen opens first, and its own bar says Not connected.
+    expect(within(banner).queryByText("Not connected")).toBeNull();
+    expect(screen.getByText("Not connected", { selector: "p" })).toBeVisible();
+    for (const name of ["Library", "Guide", "Settings"] as const) {
+      await userEvent.click(screen.getByRole("tab", { name }));
+      expect(within(banner).getByText("Not connected")).toBeVisible();
+    }
+
+    await userEvent.click(screen.getByRole("tab", { name: "Session" }));
+    await connectSimulator();
+    expect(within(banner).queryByText("Simulator")).toBeNull();
+    await userEvent.click(screen.getByRole("tab", { name: "Library" }));
+    expect(within(banner).getByText("Simulator")).toBeVisible();
+  });
+});
+
 describe("Updates while something runs", () => {
   it("waits for a collection run to stop before it applies a new version", async () => {
     const tab = openFakeTab(APP_VERSION);

@@ -85,24 +85,27 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
           <VersionLink />
         </div>
         <div className={status}>
-          {shared.fragment === undefined ? (
-            <Badge
-              tone={
-                connection === undefined
-                  ? "neutral"
-                  : connection.simulated
-                    ? "simulated"
-                    : "success"
-              }
-            >
-              {connection === undefined
-                ? "Not connected"
-                : connection.simulated
-                  ? "Simulator"
-                  : "Connected"}
-            </Badge>
-          ) : (
+          {/* The Session screen's own bar shows the connection there, with the adapter and Disconnect; the header shows it everywhere else. Shared data is marked on every screen. */}
+          {shared.fragment !== undefined ? (
             <Badge tone="warning">Shared data</Badge>
+          ) : (
+            screen !== "session" && (
+              <Badge
+                tone={
+                  connection === undefined
+                    ? "neutral"
+                    : connection.simulated
+                      ? "simulated"
+                      : "success"
+                }
+              >
+                {connection === undefined
+                  ? "Not connected"
+                  : connection.simulated
+                    ? "Simulator"
+                    : "Connected"}
+              </Badge>
+            )
           )}
           <ThemeButton />
         </div>
