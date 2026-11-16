@@ -206,7 +206,9 @@ describe("the socketcan package", () => {
       .parse(JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")));
     const script = /^pnpm (\S+)$/.exec(SOCKETCAN_BUILD_COMMAND)?.[1];
     if (script === undefined) throw new Error(`not a pnpm script: ${SOCKETCAN_BUILD_COMMAND}`);
-    expect(scripts[script]).toBe(`PNPM_CONFIG_ALLOW_BUILDS='{"socketcan":true}' pnpm rebuild socketcan`);
+    expect(scripts[script]).toBe(
+      `PNPM_CONFIG_ALLOW_BUILDS='{"socketcan":true}' pnpm rebuild socketcan`,
+    );
     const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
     expect(readme).toContain(`\`${SOCKETCAN_BUILD_COMMAND}\``);
   });
