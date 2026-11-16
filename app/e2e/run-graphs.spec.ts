@@ -44,7 +44,10 @@ async function undersizedTargets(page: Page): Promise<string[]> {
 
 /** The number of samples the Details cell of the only run listed gives. */
 async function sampleCount(page: Page): Promise<number> {
-  const cell = page.getByRole("table", { name: "Library" }).getByRole("cell").nth(3);
+  const cell = page
+    .getByRole("table", { name: "Library" })
+    .locator('[role="cell"][data-label="Details"]')
+    .first();
   return Number(/^(\d+) samples?/.exec(await cell.innerText())?.[1]);
 }
 
@@ -67,8 +70,7 @@ async function openCollectedRunGraphs(page: Page): Promise<void> {
 
   await page
     .getByRole("row", { name: /^Open run / })
-    .getByRole("cell")
-    .first()
+    .locator('[role="cell"][data-label="Kind"]')
     .click();
   await expect(page.getByRole("group", { name: "Run playback" })).toBeVisible();
 }

@@ -15,7 +15,6 @@ import { FaultHistory } from "../faults/FaultHistory";
 import { OriginBadge } from "../origin/OriginBadge";
 import { ORIGIN_FILTER_OPTIONS } from "../origin/origins";
 import { RunGraphs } from "../screens/RunGraphs";
-import { checkBox } from "../guide/editor.css";
 import { error, muted, page, row } from "../screens/screen.css";
 import { ScreenHeading } from "../screens/ScreenHeading";
 import { ShareDialog } from "../share/ShareDialog";
@@ -40,7 +39,8 @@ import {
   type LibraryKind,
   type LibraryOpen,
 } from "./items";
-import { itemEnvelope } from "./item-envelope";
+import { itemEnvelopes } from "./item-envelope";
+import { selectBox } from "./library.css";
 import { ImportNotes, LibraryImport, useLibraryImport } from "./LibraryImport";
 import { runEnvelope } from "./run-envelope";
 import { SavedReportView } from "./SavedReportView";
@@ -344,7 +344,7 @@ export function LibraryScreen({
       header: "Select",
       render: (item) => (
         <input
-          className={checkBox}
+          className={selectBox}
           type="checkbox"
           aria-label={`Select ${item.kind} ${item.id}`}
           checked={selected.has(itemKey(item))}
@@ -479,10 +479,7 @@ export function LibraryScreen({
               <ShareDialog
                 label={`Share selected (${String(chosen.length)})`}
                 title={`Share ${counted(chosen.length, "result", "results")}`}
-                loadAll={() => {
-                  const createdAt = Date.now();
-                  return Promise.all(chosen.map((item) => itemEnvelope(client, item, createdAt)));
-                }}
+                loadAll={() => itemEnvelopes(client, chosen)}
               />
               <Button
                 variant="ghost"

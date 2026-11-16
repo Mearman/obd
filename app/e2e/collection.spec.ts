@@ -8,7 +8,10 @@ async function openScreen(page: Page, name: string): Promise<void> {
 
 /** The number of samples the Details cell of the only run listed gives. */
 async function sampleCount(page: Page): Promise<number> {
-  const cell = page.getByRole("table", { name: "Library" }).getByRole("cell").nth(3);
+  const cell = page
+    .getByRole("table", { name: "Library" })
+    .locator('[role="cell"][data-label="Details"]')
+    .first();
   return Number(/^(\d+) samples?/.exec(await cell.innerText())?.[1]);
 }
 

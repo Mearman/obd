@@ -84,7 +84,7 @@ async function kindsListed(page: Page): Promise<string[]> {
     .nth(1)
     .getByRole("row")
     .evaluateAll((rows) =>
-      rows.map((row) => row.querySelector('[role="cell"]')?.textContent ?? ""),
+      rows.map((row) => row.querySelector('[role="cell"][data-label="Kind"]')?.textContent ?? ""),
     );
 }
 
@@ -131,8 +131,7 @@ for (const viewport of VIEWPORTS) {
         await expect(page).toHaveURL(/[?&]kind=run(&|$)/);
         await page
           .getByRole("row", { name: /^Open run / })
-          .getByRole("cell")
-          .first()
+          .locator('[role="cell"][data-label="Kind"]')
           .click();
         await expect(page.getByRole("group", { name: "Run playback" })).toBeVisible();
         await fits(page, "the Library with a run's graphs");

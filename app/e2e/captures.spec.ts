@@ -47,8 +47,7 @@ test("a simulator capture decodes differently under another profile and reopens 
   await expect(listed.getByText("mercedes-w211")).toBeVisible();
   await listed
     .getByRole("row", { name: /^Open capture / })
-    .getByRole("cell")
-    .first()
+    .locator('[role="cell"][data-label="Kind"]')
     .click();
   await expectSummary(page, /with mercedes-w211/);
   await chooseProfile(page, "", "Decode with");
