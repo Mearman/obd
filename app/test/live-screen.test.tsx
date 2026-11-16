@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../src/App";
 import type { BrowserSupport } from "../src/connect/support";
 import type { AppService } from "../src/diagnostics/client";
+import { SATURATED_NOTE } from "../src/format/saturation";
 import { createTestService, renderApp } from "./render";
 
 const SUPPORT: BrowserSupport = {
@@ -61,12 +62,33 @@ function slowFirstRound(service: AppService): AppService {
   });
   const live = patched(service.client.live, {
     samples: () =>
-      Promise.resolve({
-        next: () => new Promise<never>(() => undefined),
-        return: () => Promise.resolve({ done: true as const, value: undefined }),
-      }),
+      Promise.resolve(
+        (async function* () {
+          yield* [];
+          await new Promise<never>(() => undefined);
+        })(),
+      ),
   });
   return { ...service, client: patched(service.client, { runs, live }) };
+}
+
+/** The service whose run delivers `readings` once and then nothing more, as a car reporting these values would. */
+function deliveringReadings(
+  service: AppService,
+  readings: readonly { signal: string; unit: string; value: number }[],
+): AppService {
+  const live = patched(service.client.live, {
+    samples: (input: { runId: string }) =>
+      Promise.resolve(
+        (async function* () {
+          for (const [index, reading] of readings.entries()) {
+            yield { ...reading, runId: input.runId, timestamp: index };
+          }
+          await new Promise<never>(() => undefined);
+        })(),
+      ),
+  });
+  return { ...service, client: patched(service.client, { live }) };
 }
 
 beforeEach(() => {
@@ -171,6 +193,25 @@ describe("reading the table", () => {
     if (!(row instanceof HTMLElement)) throw new Error("the coolant row is missing");
     const shown = within(row).getAllByRole("cell")[1]?.textContent ?? "";
     expect(shown).toMatch(/^-?\d+$/);
+    await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
+  });
+
+  it("says a counter at its field's maximum is higher, and leaves a counter below it plain", async () => {
+    await openLive(
+      deliveringReadings(createTestService(), [
+        { signal: "distance since codes cleared", unit: "km", value: 65_535 },
+        { signal: "time since codes cleared", unit: "min", value: 65_534 },
+      ]),
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Start collecting" }));
+    await screen.findByText("time since codes cleared");
+    const reading = (signal: string): string => {
+      const row = screen.getByText(signal).closest("[role=row]");
+      if (!(row instanceof HTMLElement)) throw new Error(`the ${signal} row is missing`);
+      return within(row).getAllByRole("cell")[1]?.textContent ?? "";
+    };
+    expect(reading("distance since codes cleared")).toContain(SATURATED_NOTE);
+    expect(reading("time since codes cleared")).not.toContain(SATURATED_NOTE);
     await userEvent.click(screen.getByRole("button", { name: "Stop collecting" }));
   });
 
