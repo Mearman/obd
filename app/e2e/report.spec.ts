@@ -123,11 +123,14 @@ test("an uncaught error and an unhandled rejection offer a report and leave the 
   for (const secret of [VIN, VIN_HEX, MAC, IPV4, FILE]) expect(report).not.toContain(secret);
   await dialog.getByRole("button", { name: "Close" }).click();
 
+  // The first notice may still be showing, and each uncaught failure adds its own notice, so wait for one more than there is now and report the newest.
+  const notices = page.getByText("Something went wrong");
+  const before = await notices.count();
   await page.evaluate((message) => {
     window.obdE2eFail?.({ kind: "rejection", message });
   }, MESSAGE);
-  await expect(page.getByText("Something went wrong")).toBeVisible();
-  await page.getByRole("button", { name: "Report this problem" }).click();
+  await expect(notices).toHaveCount(before + 1);
+  await page.getByRole("button", { name: "Report this problem" }).last().click();
   await expect(page.getByLabel("Report text")).toContainText(
     "in a task that nothing was waiting on",
   );
