@@ -143,8 +143,6 @@ test("with automatic saving off a raw capture link re-decodes under the chosen p
   await expect(page.getByRole("tablist")).toBeVisible();
   expect(await storedCaptures(page)).toHaveLength(1);
   await page.getByRole("tab", { name: "Library" }).click();
-  // The saved item is open in the Library, in place of the list.
-  await page.getByRole("button", { name: "Close" }).first().click();
   const listed = page.getByRole("table", { name: "Library" });
   await expect(listed.getByText("Shared", { exact: true })).toBeVisible();
   await receiver.close();
