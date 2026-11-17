@@ -338,7 +338,11 @@ describe("the Library", () => {
     await userEvent.click(await within(table).findByRole("row", { name: `Open run ${runId}` }));
     expect(await screen.findByRole("group", { name: "Run playback" })).toBeVisible();
     expect(screen.queryByRole("table", { name: "Library" })).toBeNull();
-    expect(window.location.search).toBe(`?screen=library&item=run%3A${runId}`);
+    // The address is the item's sharing link alone, which names both the screen and the item.
+    await waitFor(() => {
+      expect(window.location.hash).toMatch(/^#share=2\./);
+    });
+    expect(window.location.search).toBe("");
     await userEvent.click(screen.getByRole("button", { name: "Close graphs" }));
     await waitFor(() => {
       expect(screen.queryByRole("group", { name: "Run playback" })).toBeNull();
@@ -430,8 +434,9 @@ describe("the Library", () => {
     expect(screen.queryByText(`Capture ${captureId}`)).toBeNull();
     window.history.back();
     await waitFor(() => {
-      expect(window.location.search).toBe(`?screen=library&item=capture%3A${captureId}`);
+      expect(window.location.hash).toMatch(/^#share=2\./);
     });
+    expect(window.location.search).toBe("");
     expect(await screen.findByText(`Capture ${captureId}`)).toBeVisible();
   });
 
@@ -569,10 +574,16 @@ describe("the Library", () => {
       }),
     );
     expect(runs).not.toBeInTheDocument();
-    expect(new URLSearchParams(window.location.search).get("item")).toBe(`run:${runId}`);
+    await waitFor(() => {
+      expect(window.location.hash).toMatch(/^#share=2\./);
+    });
+    expect(window.location.search).toBe("?group=kind");
     await userEvent.click(await screen.findByRole("button", { name: "Close graphs" }));
     expect(await screen.findByRole("table", { name: "Library, Runs" })).toBeInTheDocument();
-    expect(window.location.search).toBe("?screen=library&group=kind");
+    expect(Object.fromEntries(new URLSearchParams(window.location.search))).toEqual({
+      screen: "library",
+      group: "kind",
+    });
   });
 
   it("ignores a view in the address that is not valid", async () => {
