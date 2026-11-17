@@ -16,7 +16,7 @@ export type LocalItem = "loading" | "found" | "missing";
 export function useItemAddress(
   key: string | undefined,
   load: () => Promise<ShareEnvelope>,
-  setFragment: (fragment: string | undefined) => void,
+  setFragment: (item: string, fragment: string | undefined) => void,
   /** Whether to wait for the browser to be idle before reading the item: true when the address has no link yet, false when a link is waiting to be told apart from another device's. */
   defer: boolean,
 ): LocalItem {
@@ -43,7 +43,7 @@ export function useItemAddress(
         if (!live.active) return;
         setState({ key, status: "found" });
         void encodeShare(envelope, streamShareCodec, { redactVin: true }).then((encoded) => {
-          if (live.active) setFragment(encoded.ok ? encoded.value.fragment : undefined);
+          if (live.active) setFragment(key, encoded.ok ? encoded.value.fragment : undefined);
         });
       },
       () => {
