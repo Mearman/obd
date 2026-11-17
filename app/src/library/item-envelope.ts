@@ -6,7 +6,7 @@ import {
   type ShareResult,
 } from "obd-read";
 import type { DiagnosticsClient } from "../diagnostics/client";
-import type { LibraryItem } from "./items";
+import type { LibraryItem, LibraryOpen } from "./items";
 import { runEnvelope } from "./run-envelope";
 import { isObdRead } from "./saved-report";
 
@@ -14,6 +14,36 @@ import { isObdRead } from "./saved-report";
 function shareable<T>(result: ShareResult<T>, what: string): T {
   if (!result.ok) throw new Error(`The ${what} cannot be shared: ${result.error.message}.`);
   return result.value;
+}
+
+async function captureItemEnvelope(
+  client: DiagnosticsClient,
+  id: string,
+  createdAt: number,
+): Promise<ShareEnvelope> {
+  const capture = await client.captures.get({ id });
+  return {
+    v: 1,
+    kind: "capture",
+    createdAt,
+    data: shareable(captureShareData(capture), `capture ${id}`),
+  };
+}
+
+async function reportItemEnvelope(
+  client: DiagnosticsClient,
+  id: string,
+  createdAt: number,
+): Promise<ShareEnvelope> {
+  const { report } = await client.reports.get({ id });
+  return isObdRead(report)
+    ? {
+        v: 1,
+        kind: "obd-report",
+        createdAt,
+        data: shareable(obdReportDocumentShareData(report), `report ${id}`),
+      }
+    : { v: 1, kind: "scan", createdAt, data: shareable(scanShareData(report), `report ${id}`) };
 }
 
 /**
@@ -29,31 +59,33 @@ export async function itemEnvelope(
   switch (item.kind) {
     case "run":
       return { ...(await runEnvelope(client, item.run)), createdAt };
-    case "capture": {
-      const capture = await client.captures.get({ id: item.id });
+    case "capture":
+      return captureItemEnvelope(client, item.id, createdAt);
+    case "report":
+      return reportItemEnvelope(client, item.id, createdAt);
+  }
+}
+
+/**
+ * The envelope of the Library item named by `open`, read from the service by its id alone, so the address can carry the item's sharing link without the list having been read.
+ *
+ * @throws Error when the item is not stored on this device or cannot be shared.
+ */
+export async function openItemEnvelope(
+  client: DiagnosticsClient,
+  open: LibraryOpen,
+  createdAt: number,
+): Promise<ShareEnvelope> {
+  switch (open.kind) {
+    case "run":
       return {
-        v: 1,
-        kind: "capture",
+        ...(await runEnvelope(client, await client.runs.get({ runId: open.id }))),
         createdAt,
-        data: shareable(captureShareData(capture), `capture ${item.id}`),
       };
-    }
-    case "report": {
-      const { report } = await client.reports.get({ id: item.id });
-      return isObdRead(report)
-        ? {
-            v: 1,
-            kind: "obd-report",
-            createdAt,
-            data: shareable(obdReportDocumentShareData(report), `report ${item.id}`),
-          }
-        : {
-            v: 1,
-            kind: "scan",
-            createdAt,
-            data: shareable(scanShareData(report), `report ${item.id}`),
-          };
-    }
+    case "capture":
+      return captureItemEnvelope(client, open.id, createdAt);
+    case "report":
+      return reportItemEnvelope(client, open.id, createdAt);
   }
 }
 

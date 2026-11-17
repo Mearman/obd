@@ -9,6 +9,7 @@ The app's screens share one kit in `app/src/ui` and one set of theme tokens in `
 - **Actions.** A row or card has at most a few visible actions; related secondary actions share one `Menu` (for example the run export formats). A destructive action is a separate, plainly worded button.
 - **Downloads.** A view that can save several tables offers one Download menu (`DownloadMenu`), and one that can export a file in several formats offers one Export menu, never a button per format.
 - **Long forms.** A repeated block of fields, such as a plan phase, can be folded so a long plan is easy to move around.
+- **Addresses.** The address of an open Library item is its sharing link, made with identifying values removed, so copying the address shares the item. The same link opens the stored item on a device that holds it and the read-only shared viewer anywhere else; closing the item takes the link out of the address.
 - **Buttons.** `block` buttons are full width on a phone and natural width from 640 px, so a single action does not stretch across a desktop.
 - **Tables.** `DataTable` is a table from 640 px and one card per row below it. A column can be `nowrap` (kept on one line on a wide screen) or `bare` (a control that needs no heading on a card). A cell with no value is not shown on a card.
 - **Long reference text** that most visits do not need, such as the list of bundled profiles, sits in a disclosure with a 44 px summary.

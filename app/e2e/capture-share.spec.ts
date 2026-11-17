@@ -92,8 +92,11 @@ test("a raw capture link is saved once on opening by default", async ({ browser 
   await page.goto(link);
   await expect(page.getByText("Saved to this device, marked as shared.")).toBeVisible();
   expect(await storedCaptures(page)).toHaveLength(1);
+  // Once its capture is stored here, the same link opens that stored item, marked as shared.
   await page.reload();
-  await expect(page.getByText(/saved to this device earlier/)).toBeVisible();
+  await expectSummary(page, /with /);
+  await expect(page.getByRole("heading", { name: "Shared data" })).toHaveCount(0);
+  await expect(page.getByText("Shared", { exact: true })).toBeVisible();
   expect(await storedCaptures(page)).toHaveLength(1);
   await receiver.close();
 });
@@ -166,4 +169,43 @@ test("with automatic saving off, Dismiss on a raw capture link writes nothing", 
   expect(page.url()).not.toContain("share=");
   expect(await storedCaptures(page)).toEqual([]);
   await receiver.close();
+});
+
+test("an open item's address is its sharing link: the same link opens the item where it is stored and as shared data elsewhere", async ({
+  browser,
+}) => {
+  const owner = await browser.newContext();
+  const page = await owner.newPage();
+  await page.goto("/");
+  await chooseProfile(page, "mercedes-w211");
+  await page.getByRole("button", { name: /connect with the simulator/i }).click();
+  await expect(page.getByText("Connected to Simulator")).toBeVisible();
+  await openSection(page, "Read");
+  await page.getByRole("button", { name: "Capture everything" }).click();
+  await expectSummary(page, /with mercedes-w211/);
+
+  // The address bar already holds the link the Share dialog would make, with the VIN overwritten.
+  await expect.poll(() => fragmentOfLink(page.url())).toMatch(/^share=2\./);
+  const address = page.url();
+  const fragment = fragmentOfLink(address) ?? "";
+  const decoded = await decodeShare(fragment, streamShareCodec);
+  expect(decoded.ok && JSON.stringify(decoded.value)).not.toContain(VIN_BYTES);
+
+  // Where the capture is stored, the link opens that item, not a read-only copy.
+  const again = await owner.newPage();
+  await again.goto(address);
+  await expectSummary(again, /with mercedes-w211/);
+  await expect(again.getByRole("heading", { name: "Shared data" })).toHaveCount(0);
+
+  // Anywhere else it is the shared viewer.
+  const stranger = await browser.newContext();
+  const elsewhere = await stranger.newPage();
+  await elsewhere.goto(address);
+  await expect(elsewhere.getByRole("heading", { name: "Shared data" })).toBeVisible();
+
+  // Closing the item takes the link out of the address.
+  await page.getByRole("button", { name: "Close" }).first().click();
+  await expect.poll(() => fragmentOfLink(page.url())).toBeUndefined();
+  await stranger.close();
+  await owner.close();
 });
