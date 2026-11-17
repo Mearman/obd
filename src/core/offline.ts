@@ -351,14 +351,14 @@ async function sharedLines(
 ): Promise<string[]> {
   if (envelope.kind === "plan") {
     return [
-      `shared plan, from a link; link made ${new Date(envelope.createdAt).toISOString()}`,
+      `shared plan, from a link; dated ${new Date(envelope.createdAt).toISOString()}`,
       "it only reads: no step clears, writes or actuates",
       ...describePlan(envelope.data.plan),
     ];
   }
   if (envelope.kind === "plan-result") {
     return [
-      `shared data, not read from an adapter; link made ${new Date(envelope.createdAt).toISOString()}`,
+      `shared data, not read from an adapter; dated ${new Date(envelope.createdAt).toISOString()}`,
       ...describeSharedPlanResult(envelope.data, envelope.createdAt),
     ];
   }
@@ -366,7 +366,7 @@ async function sharedLines(
   if (envelope.kind === "capture") {
     const { capture } = envelope.data;
     return [
-      `shared data, not read from an adapter; link made ${new Date(envelope.createdAt).toISOString()}`,
+      `shared data, not read from an adapter; dated ${new Date(envelope.createdAt).toISOString()}`,
       ...describeSharedCapture(envelope.data),
       ...decodedLines(await decodeCapture(capture, await decodeWith(capture))),
     ];
@@ -374,7 +374,7 @@ async function sharedLines(
   if (envelope.kind === "obd-report") {
     const { data } = envelope;
     return [
-      `shared data, not read from an adapter; link made ${new Date(envelope.createdAt).toISOString()}`,
+      `shared data, not read from an adapter; dated ${new Date(envelope.createdAt).toISOString()}`,
       `shared OBD-II read (taken ${data.taken}, adapter ${data.adapter.label === "" ? "unknown" : data.adapter.label})`,
       data.redacted
         ? "VIN and calibration identifiers were removed before sharing"
@@ -384,7 +384,7 @@ async function sharedLines(
   }
   const saved = parseScan(JSON.stringify(sharedScanReport(envelope.data)), "shared link");
   return [
-    `shared data, not read from an adapter; link made ${new Date(envelope.createdAt).toISOString()}`,
+    `shared data, not read from an adapter; dated ${new Date(envelope.createdAt).toISOString()}`,
     ...describeSharedScan(envelope.data, envelope.createdAt).slice(1, 2),
     ...describeScan(saved, namesFor(envelope.data.profile.name) ?? generic),
   ];

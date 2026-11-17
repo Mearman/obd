@@ -157,7 +157,7 @@ describe("share", () => {
     const link = made.lines[0] ?? "";
     const { status, lines } = await share(["share", "--open", link]);
     expect(status).toBe(0);
-    expect(lines[0]).toMatch(/^shared data, not read from an adapter; link made 20/);
+    expect(lines[0]).toMatch(/^shared data, not read from an adapter; dated 20/);
     expect(lines).toContain("VIN and serial numbers were removed before sharing");
     expect(lines).toContain("shared link (taken 2026-11-15T10:00:00+00:00, profile mercedes-w211)");
     expect(lines.some((line) => line.startsWith("  engine P0420 status 2F: "))).toBe(true);
@@ -231,7 +231,7 @@ describe("a generic OBD-II read from the recorded car", () => {
     const envelope = await decoded(link.lines[0]);
     expect(envelope.kind).toBe("obd-report");
     expect(JSON.stringify(envelope)).not.toContain("0034466040150284");
-    expect(opened.lines[0]).toMatch(/^shared data, not read from an adapter; link made 20/);
+    expect(opened.lines[0]).toMatch(/^shared data, not read from an adapter; dated 20/);
     expect(opened.lines).toContain("VIN and calibration identifiers were removed before sharing");
     expect(opened.lines).toContain("  calibration identifiers: (removed)");
     expect(opened.lines).toContain("short-term fuel trim bank 1 from 7E8: -2.344 %");
@@ -312,7 +312,7 @@ describe("a capture from the recorded car", () => {
     const link = await share(["share", output, "--redact-vin"], undefined, directory);
     const opened = await share(["share", "--open", link.lines[0] ?? ""], undefined, directory);
     expect(opened.status).toBe(0);
-    expect(opened.lines[0]).toMatch(/^shared data, not read from an adapter; link made 20/);
+    expect(opened.lines[0]).toMatch(/^shared data, not read from an adapter; dated 20/);
     expect(opened.lines[1]).toMatch(/^shared capture import-/);
     expect(opened.lines).toContain(
       "the VIN, calibration identifiers and serial numbers were overwritten with * before sharing",
