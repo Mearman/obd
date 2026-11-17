@@ -57,7 +57,8 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
   const { connection, service } = useDiagnostics();
   const shared = useSharedLink();
   // The item the address's share link carries, when this device stores it: the same link opens it here and the read-only viewer elsewhere.
-  const fromLink = useFragmentItem(shared.fragment, service.client);
+  const [own, setOwn] = useState<{ readonly fragment: string; readonly open: LibraryOpen }>();
+  const fromLink = useFragmentItem(shared.fragment, service.client, own);
   const [{ screen, opened, view }, navigate, setShareFragment] = useAppLocation(
     fromLink.status === "found" ? fromLink.open : undefined,
   );
@@ -70,7 +71,10 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
       ? itemKey(opened)
       : undefined,
     () => openItemEnvelope(service.client, opened ?? { kind: "run", id: "" }),
-    setShareFragment,
+    (item, fragment) => {
+      if (opened !== undefined && itemKey(opened) === item) setOwn({ fragment, open: opened });
+      setShareFragment(item, fragment);
+    },
   );
   const resolving = fromLink.status === "resolving";
   const sharedFragment = fromLink.status === "foreign" ? shared.fragment : undefined;

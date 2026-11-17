@@ -537,7 +537,7 @@ describe("a shared link with automatic saving off", () => {
     expect(await storage.listCaptures({})).toEqual([]);
   });
 
-  it("stores a shared capture only on Save, and refuses one already stored", async () => {
+  it("stores a shared capture only on Save, and opens the stored one from its link afterwards", async () => {
     const capture = await simulatedCapture();
     window.location.hash = await captureFragment(capture);
     const storage = new MemoryStorage();
@@ -560,9 +560,9 @@ describe("a shared link with automatic saving off", () => {
 
     window.location.hash = await captureFragment(capture);
     window.dispatchEvent(new HashChangeEvent("hashchange"));
-    await userEvent.click(await screen.findByRole("button", { name: "Save this capture" }));
-    expect(await screen.findByText(/Already saved to this device earlier/)).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "Saved" })).toBeDisabled();
+    // The capture is stored here now, so its link opens the stored item rather than a second copy.
+    expect(await screen.findByRole("status", { name: "Decoding summary" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save this capture" })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(await storage.listCaptures({})).toHaveLength(1);
   });
@@ -664,7 +664,7 @@ describe("a shared link with the default setting", () => {
     ]);
   });
 
-  it("does not save the same link again when it is opened again", async () => {
+  it("opens the stored run, and saves nothing more, when the same link is opened again", async () => {
     const fragment = await fragmentOf(AUTO_RUN);
     const storage = new MemoryStorage();
     await openLink(fragment, storage);
@@ -673,8 +673,9 @@ describe("a shared link with the default setting", () => {
 
     window.location.hash = "";
     await openLink(fragment, storage);
-    expect(await screen.findByText(/Already saved to this device earlier/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save again" })).toBeEnabled();
+    // The run is stored here now, so its link opens the stored run in the Library, not a second copy.
+    expect(await screen.findByRole("heading", { level: 1, name: "Library" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Shared data" })).not.toBeInTheDocument();
     expect(await storage.listRuns({})).toHaveLength(1);
   });
 
@@ -693,13 +694,13 @@ describe("a shared link with the default setting", () => {
     expect(Array.isArray(kept) && kept[0]).toBe("old-1");
   });
 
-  it("shows the manual path's problem and does not retry when the save fails", async () => {
+  it("opens a capture this device already stores as that capture, without saving it again", async () => {
     const capture = await simulatedCapture();
     const storage = new MemoryStorage();
     await storage.saveCapture(capture, "shared");
     await openLink(await captureFragment(capture), storage);
-    expect(await screen.findByText(/Already saved to this device earlier/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Saved" })).toBeDisabled();
+    // A capture this device already stores opens as that capture; nothing is saved again.
+    expect(await screen.findByRole("status", { name: "Decoding summary" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(await storage.listCaptures({})).toHaveLength(1);
   });
