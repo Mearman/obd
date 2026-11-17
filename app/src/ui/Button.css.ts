@@ -36,7 +36,10 @@ export const button = recipe({
         selectors: { "&:hover:not(:disabled)": { background: vars.color.accentSubtle } },
       },
     },
-    block: { true: { width: "100%" } },
+    // Full width on a phone, where a wide button is the easy target; its natural width once there is room.
+    block: {
+      true: { width: "100%", "@media": { "screen and (min-width: 640px)": { width: "auto" } } },
+    },
   },
   defaultVariants: { variant: "secondary" },
 });

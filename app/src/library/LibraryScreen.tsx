@@ -41,7 +41,7 @@ import {
   type LibraryOpen,
 } from "./items";
 import { itemEnvelopes } from "./item-envelope";
-import { selectBox } from "./library.css";
+import { actionsRow, selectBox } from "./library.css";
 import { ImportNotes, LibraryImport, useLibraryImport } from "./LibraryImport";
 import { runEnvelope } from "./run-envelope";
 import { SavedReportView } from "./SavedReportView";
@@ -242,7 +242,7 @@ export function LibraryScreen({
       case "run": {
         const { run } = item;
         return (
-          <span className={row}>
+          <span className={actionsRow}>
             {allowsWrites(run.origin) && run.stoppedAt === null && run.id !== collectingId && (
               <Button
                 onClick={() => void act(() => resumeCollection(run), "Could not resume the run.")}
@@ -308,6 +308,7 @@ export function LibraryScreen({
   const columns: readonly Column<LibraryItem, SortColumn>[] = [
     {
       header: "Select",
+      bare: true,
       render: (item) => (
         <input
           className={selectBox}
@@ -321,7 +322,7 @@ export function LibraryScreen({
       ),
     },
     { header: "Kind", sortKey: "kind", render: (item) => <Badge>{KIND_LABELS[item.kind]}</Badge> },
-    { header: "Date", sortKey: "date", render: (item) => when(item.at) },
+    { header: "Date", sortKey: "date", nowrap: true, render: (item) => when(item.at) },
     { header: "Profile", sortKey: "profile", render: profileText },
     { header: "Details", render: details },
     {
@@ -329,7 +330,7 @@ export function LibraryScreen({
       sortKey: "origin",
       render: (item) => <OriginBadge origin={item.origin} />,
     },
-    { header: "Actions", render: actions },
+    { header: "Actions", nowrap: true, render: actions },
   ];
   const table = {
     label: "Library",
