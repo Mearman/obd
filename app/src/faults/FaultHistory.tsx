@@ -9,7 +9,7 @@ import {
 import { useEffect, useState } from "react";
 import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { error, muted, row, stack } from "../screens/screen.css";
-import { TableDownloads } from "../tabular/TableDownloads";
+import { DownloadMenu, tableDownload } from "../tabular/TableDownloads";
 import { DataTable, type Column } from "../ui";
 
 const LIST_NAMES: Readonly<Record<FaultList, string>> = {
@@ -96,11 +96,15 @@ export function FaultHistory({
             }
           />
           <span className={row}>
-            <TableDownloads
-              label="fault code changes"
-              filename={`obd-read-run-${runId}-fault-events`}
-              spec={runFaultEventTable(run.startedAt)}
-              rows={events}
+            <DownloadMenu
+              tables={[
+                tableDownload(
+                  "fault code changes",
+                  `obd-read-run-${runId}-fault-events`,
+                  runFaultEventTable(run.startedAt),
+                  events,
+                ),
+              ]}
             />
           </span>
         </>

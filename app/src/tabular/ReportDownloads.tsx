@@ -16,7 +16,7 @@ import {
 } from "obd-read";
 import { isObdRead } from "../library/saved-report";
 import { useCodeDescriber } from "../profiles/code-describer";
-import { TableDownloads } from "./TableDownloads";
+import { DownloadMenu, tableDownload } from "./TableDownloads";
 
 /** The fault codes, each described by `describe`, and identification values a saved report holds, or `undefined` for a report with neither a per-unit scan nor an OBD-II read. */
 function reportTables(
@@ -38,7 +38,7 @@ function reportTables(
   return { faults: faultCodeRows(units, describe), identification: identificationRows(units) };
 }
 
-/** Download buttons for a saved report's fault codes and identification values, as CSV and TSV. A code's description comes from the describer the command line uses: the generic titles for an OBD-II read, the report's profile for a scan. The buttons appear once the descriptions are loaded. */
+/** A Download menu for a saved report's fault codes and identification values, as CSV and TSV. A code's description comes from the describer the command line uses: the generic titles for an OBD-II read, the report's profile for a scan. The menu appears once the descriptions are loaded. */
 export function ReportDownloads({ report }: { readonly report: ScanReport }) {
   const generic = isObdRead(report.report);
   const describe = useCodeDescriber(generic ? null : report.profile, generic);
@@ -46,19 +46,16 @@ export function ReportDownloads({ report }: { readonly report: ScanReport }) {
   const tables = reportTables(report.report, describe);
   if (tables === undefined) return null;
   return (
-    <>
-      <TableDownloads
-        label="fault codes"
-        filename={`${report.id}-fault-codes`}
-        spec={FAULT_CODE_TABLE}
-        rows={tables.faults}
-      />
-      <TableDownloads
-        label="identification"
-        filename={`${report.id}-identification`}
-        spec={IDENTIFICATION_TABLE}
-        rows={tables.identification}
-      />
-    </>
+    <DownloadMenu
+      tables={[
+        tableDownload("fault codes", `${report.id}-fault-codes`, FAULT_CODE_TABLE, tables.faults),
+        tableDownload(
+          "identification",
+          `${report.id}-identification`,
+          IDENTIFICATION_TABLE,
+          tables.identification,
+        ),
+      ]}
+    />
   );
 }

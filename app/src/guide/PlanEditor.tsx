@@ -33,6 +33,8 @@ import {
   fieldStack,
   fields,
   group,
+  foldSummary,
+  foldable,
   legend,
   problems as problemList,
   textarea,
@@ -216,161 +218,164 @@ function PhaseEditor({
       <legend className={legend}>
         {name}: {phase.title}
       </legend>
-      <Problems items={problems} label={`Problems in ${name}`} />
-      <div className={fields}>
+      <details open className={foldable}>
+        <summary className={foldSummary}>{`${name} fields`}</summary>
+        <Problems items={problems} label={`Problems in ${name}`} />
+        <div className={fields}>
+          <TextInput
+            label={`${name}: id`}
+            value={phase.id}
+            onChange={(id) => {
+              onChange({ ...phase, id: id ?? "" });
+            }}
+          />
+          <TextInput
+            label={`${name}: title`}
+            value={phase.title}
+            onChange={(title) => {
+              onChange({ ...phase, title: title ?? "" });
+            }}
+          />
+        </div>
         <TextInput
-          label={`${name}: id`}
-          value={phase.id}
-          onChange={(id) => {
-            onChange({ ...phase, id: id ?? "" });
+          label={`${name}: instruction`}
+          value={phase.instruction}
+          onChange={(instruction) => {
+            onChange({ ...phase, instruction: instruction ?? "" });
           }}
         />
-        <TextInput
-          label={`${name}: title`}
-          value={phase.title}
-          onChange={(title) => {
-            onChange({ ...phase, title: title ?? "" });
-          }}
-        />
-      </div>
-      <TextInput
-        label={`${name}: instruction`}
-        value={phase.instruction}
-        onChange={(instruction) => {
-          onChange({ ...phase, instruction: instruction ?? "" });
-        }}
-      />
-      <Check
-        label={`${name}: sample every value the plan reads`}
-        checked={sampled === undefined}
-        onChange={(all) => {
-          onChange({
-            ...phase,
-            sample: all ? { every } : { every, values: available.slice(0, 1) },
-          });
-        }}
-      />
-      {sampled !== undefined && (
-        <ValueChecklist
-          label={`${name}: values to sample`}
-          names={available}
-          selected={sampled}
-          onChange={(values) => {
-            onChange({ ...phase, sample: { every, values } });
-          }}
-        />
-      )}
-      <div className={fields}>
         <Check
-          label={`${name}: sample as fast as the car answers`}
-          checked={every === "fastest"}
-          onChange={(fastest) => {
+          label={`${name}: sample every value the plan reads`}
+          checked={sampled === undefined}
+          onChange={(all) => {
             onChange({
               ...phase,
-              sample: { ...phase.sample, every: fastest ? "fastest" : 1 },
+              sample: all ? { every } : { every, values: available.slice(0, 1) },
             });
           }}
         />
-        {every !== "fastest" && (
-          <NumberField
-            label={`${name}: seconds between samples`}
-            value={every}
-            onChange={(seconds) => {
-              onChange({ ...phase, sample: { ...phase.sample, every: seconds ?? Number.NaN } });
+        {sampled !== undefined && (
+          <ValueChecklist
+            label={`${name}: values to sample`}
+            names={available}
+            selected={sampled}
+            onChange={(values) => {
+              onChange({ ...phase, sample: { every, values } });
             }}
           />
         )}
-      </div>
-      {(["start", "end"] as const).map((when) => (
-        <fieldset key={when} className={group}>
-          <legend className={legend}>
-            {name}: reads at the {when}
-          </legend>
-          <ul className={checklist}>
-            {PLAN_READS.map((read) => (
-              <li key={read}>
-                <Check
-                  label={`${read} at the ${when}`}
-                  checked={reads[when].includes(read)}
-                  onChange={(on) => {
-                    const chosen = on
-                      ? PLAN_READS.filter((item) => item === read || reads[when].includes(item))
-                      : reads[when].filter((item) => item !== read);
-                    onChange({ ...phase, reads: { ...reads, [when]: chosen } });
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
-        </fieldset>
-      ))}
-      <Check
-        label={`${name}: watch the fault code lists throughout`}
-        checked={phase.watchCodes === true}
-        onChange={(watchCodes) => {
-          onChange({ ...phase, watchCodes });
-        }}
-      />
-      <Check
-        label={`${name}: wait for a condition before it starts`}
-        checked={phase.start !== undefined}
-        onChange={(on) => {
-          onChange({
-            ...phase,
-            start: on
-              ? { when: { kind: "confirm", prompt: "Ready?" }, timeout: 120, onTimeout: "skip" }
-              : undefined,
-          });
-        }}
-      />
-      {phase.start !== undefined && (
+        <div className={fields}>
+          <Check
+            label={`${name}: sample as fast as the car answers`}
+            checked={every === "fastest"}
+            onChange={(fastest) => {
+              onChange({
+                ...phase,
+                sample: { ...phase.sample, every: fastest ? "fastest" : 1 },
+              });
+            }}
+          />
+          {every !== "fastest" && (
+            <NumberField
+              label={`${name}: seconds between samples`}
+              value={every}
+              onChange={(seconds) => {
+                onChange({ ...phase, sample: { ...phase.sample, every: seconds ?? Number.NaN } });
+              }}
+            />
+          )}
+        </div>
+        {(["start", "end"] as const).map((when) => (
+          <fieldset key={when} className={group}>
+            <legend className={legend}>
+              {name}: reads at the {when}
+            </legend>
+            <ul className={checklist}>
+              {PLAN_READS.map((read) => (
+                <li key={read}>
+                  <Check
+                    label={`${read} at the ${when}`}
+                    checked={reads[when].includes(read)}
+                    onChange={(on) => {
+                      const chosen = on
+                        ? PLAN_READS.filter((item) => item === read || reads[when].includes(item))
+                        : reads[when].filter((item) => item !== read);
+                      onChange({ ...phase, reads: { ...reads, [when]: chosen } });
+                    }}
+                  />
+                </li>
+              ))}
+            </ul>
+          </fieldset>
+        ))}
+        <Check
+          label={`${name}: watch the fault code lists throughout`}
+          checked={phase.watchCodes === true}
+          onChange={(watchCodes) => {
+            onChange({ ...phase, watchCodes });
+          }}
+        />
+        <Check
+          label={`${name}: wait for a condition before it starts`}
+          checked={phase.start !== undefined}
+          onChange={(on) => {
+            onChange({
+              ...phase,
+              start: on
+                ? { when: { kind: "confirm", prompt: "Ready?" }, timeout: 120, onTimeout: "skip" }
+                : undefined,
+            });
+          }}
+        />
+        {phase.start !== undefined && (
+          <WaitEditor
+            {...waitProps(`${name} start condition`)}
+            wait={phase.start}
+            onChange={(start) => {
+              onChange({ ...phase, start });
+            }}
+          />
+        )}
         <WaitEditor
-          {...waitProps(`${name} start condition`)}
-          wait={phase.start}
-          onChange={(start) => {
-            onChange({ ...phase, start });
+          {...waitProps(`${name} end condition`)}
+          wait={phase.end}
+          onChange={(end) => {
+            onChange({ ...phase, end });
           }}
         />
-      )}
-      <WaitEditor
-        {...waitProps(`${name} end condition`)}
-        wait={phase.end}
-        onChange={(end) => {
-          onChange({ ...phase, end });
-        }}
-      />
-      <div className={fields}>
-        <SelectField
-          label={`${name}: repeat`}
-          value={repeatChoice}
-          options={REPEAT_CHOICES}
-          onChange={(choice) => {
-            if (choice === "once") setRepeat(undefined);
-            if (choice === "times") setRepeat({ times: 2 });
-            if (choice === "until") {
-              setRepeat({ until: { kind: "samples", count: 10 }, max: 3 });
-            }
-          }}
-        />
-        {repeat !== undefined && "times" in repeat && (
-          <NumberField
-            label={`${name}: times`}
-            value={repeat.times}
-            onChange={(times) => {
-              setRepeat({ times: times ?? Number.NaN });
+        <div className={fields}>
+          <SelectField
+            label={`${name}: repeat`}
+            value={repeatChoice}
+            options={REPEAT_CHOICES}
+            onChange={(choice) => {
+              if (choice === "once") setRepeat(undefined);
+              if (choice === "times") setRepeat({ times: 2 });
+              if (choice === "until") {
+                setRepeat({ until: { kind: "samples", count: 10 }, max: 3 });
+              }
             }}
           />
-        )}
-        {repeat !== undefined && "until" in repeat && (
-          <NumberField
-            label={`${name}: at most this many times`}
-            value={repeat.max}
-            onChange={(max) => {
-              setRepeat({ ...repeat, max: max ?? Number.NaN });
-            }}
-          />
-        )}
-      </div>
+          {repeat !== undefined && "times" in repeat && (
+            <NumberField
+              label={`${name}: times`}
+              value={repeat.times}
+              onChange={(times) => {
+                setRepeat({ times: times ?? Number.NaN });
+              }}
+            />
+          )}
+          {repeat !== undefined && "until" in repeat && (
+            <NumberField
+              label={`${name}: at most this many times`}
+              value={repeat.max}
+              onChange={(max) => {
+                setRepeat({ ...repeat, max: max ?? Number.NaN });
+              }}
+            />
+          )}
+        </div>
+      </details>
       <div className={actions}>
         <Button
           disabled={index === 0}

@@ -445,9 +445,7 @@ describe("Generic OBD-II (no profile)", () => {
     ) {
       names.push(this.download);
     });
-    await userEvent.click(
-      within(dialog).getByRole("button", { name: "Download fault code changes CSV" }),
-    );
+    await chooseDownload(within(dialog), "fault code changes CSV");
     click.mockRestore();
     expect(names).toEqual([expect.stringMatching(/^obd-read-run-.+-fault-events\.csv$/)]);
     const text = await blobs[0]?.text();
@@ -466,3 +464,12 @@ describe("Generic OBD-II (no profile)", () => {
     expect(message).not.toContain("\n");
   });
 });
+
+/** Saves one table from a view's Download menu: opens the menu inside `scope`, then picks the item. */
+async function chooseDownload(
+  scope: Pick<typeof screen, "findByRole">,
+  item: string,
+): Promise<void> {
+  await userEvent.click(await scope.findByRole("button", { name: "Download" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: item }));
+}

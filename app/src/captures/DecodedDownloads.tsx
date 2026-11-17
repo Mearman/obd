@@ -13,10 +13,10 @@ import {
   type DecodedCaptureData,
 } from "obd-read";
 import { useCodeDescriber } from "../profiles/code-describer";
-import { TableDownloads } from "../tabular/TableDownloads";
+import { DownloadMenu, tableDownload } from "../tabular/TableDownloads";
 
 /**
- * Download buttons for a capture's tables as CSV and TSV: the decoded values with their times, the fault codes and identification values the decoding found, and every raw exchange. A decoding under no profile reads its fault codes and identification from the OBD-II report. A code's description comes from the describer the command line's `decode` uses: the generic titles under no profile, the decoding profile's code tables under one. The buttons appear once the descriptions are loaded.
+ * A Download menu for a capture's tables as CSV and TSV: the decoded values with their times, the fault codes and identification values the decoding found, and every raw exchange. A decoding under no profile reads its fault codes and identification from the OBD-II report. A code's description comes from the describer the command line's `decode` uses: the generic titles under no profile, the decoding profile's code tables under one. The menu appears once the descriptions are loaded.
  */
 export function DecodedDownloads({
   capture,
@@ -40,31 +40,28 @@ export function DecodedDownloads({
         : obdIdentificationRows(decoded.obd)
       : identificationRows(decoded.units);
   return (
-    <>
-      <TableDownloads
-        label="decoded values"
-        filename={`${capture.id}-values`}
-        spec={DECODED_VALUE_TABLE}
-        rows={decodedValueRows(decoded.values, capture.exchanges)}
-      />
-      <TableDownloads
-        label="decoded fault codes"
-        filename={`${capture.id}-fault-codes`}
-        spec={FAULT_CODE_TABLE}
-        rows={faults}
-      />
-      <TableDownloads
-        label="decoded identification"
-        filename={`${capture.id}-identification`}
-        spec={IDENTIFICATION_TABLE}
-        rows={identification}
-      />
-      <TableDownloads
-        label="raw exchanges"
-        filename={`${capture.id}-exchanges`}
-        spec={EXCHANGE_TABLE}
-        rows={exchangeRows(capture.exchanges)}
-      />
-    </>
+    <DownloadMenu
+      tables={[
+        tableDownload(
+          "decoded values",
+          `${capture.id}-values`,
+          DECODED_VALUE_TABLE,
+          decodedValueRows(decoded.values, capture.exchanges),
+        ),
+        tableDownload("decoded fault codes", `${capture.id}-fault-codes`, FAULT_CODE_TABLE, faults),
+        tableDownload(
+          "decoded identification",
+          `${capture.id}-identification`,
+          IDENTIFICATION_TABLE,
+          identification,
+        ),
+        tableDownload(
+          "raw exchanges",
+          `${capture.id}-exchanges`,
+          EXCHANGE_TABLE,
+          exchangeRows(capture.exchanges),
+        ),
+      ]}
+    />
   );
 }

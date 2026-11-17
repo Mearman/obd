@@ -115,25 +115,19 @@ describe("downloads of a saved report", () => {
     await userEvent.click(await screen.findByRole("row", { name: /^Open report / }));
     const opened = await screen.findByLabelText("Saved report");
 
-    await userEvent.click(
-      await within(opened).findByRole("button", { name: "Download fault codes CSV" }),
-    );
+    await chooseDownload(within(opened), "fault codes CSV");
     expect(await savedFile(`${row.id}-fault-codes.csv`)).toBe(
       "unit,code,status,description\r\nengine,P0420,2F,\r\n",
     );
-    await userEvent.click(within(opened).getByRole("button", { name: "Download fault codes TSV" }));
+    await chooseDownload(within(opened), "fault codes TSV");
     expect(await savedFile(`${row.id}-fault-codes.tsv`)).toBe(
       "unit\tcode\tstatus\tdescription\nengine\tP0420\t2F\t\n",
     );
-    await userEvent.click(
-      within(opened).getByRole("button", { name: "Download identification CSV" }),
-    );
+    await chooseDownload(within(opened), "identification CSV");
     expect(await savedFile(`${row.id}-identification.csv`)).toBe(
       'unit,label,hex,text\r\nengine,Part number,4142,"A,B"\r\n',
     );
-    await userEvent.click(
-      within(opened).getByRole("button", { name: "Download identification TSV" }),
-    );
+    await chooseDownload(within(opened), "identification TSV");
     expect(await savedFile(`${row.id}-identification.tsv`)).toContain("engine\tPart number");
     // The existing JSON download is still there.
     expect(within(opened).getByRole("button", { name: "Download JSON" })).toBeVisible();
@@ -158,9 +152,7 @@ describe("downloads of a saved report", () => {
     await userEvent.click(await screen.findByRole("row", { name: /^Open report / }));
     const opened = await screen.findByLabelText("Saved report");
 
-    await userEvent.click(
-      await within(opened).findByRole("button", { name: "Download fault codes CSV" }),
-    );
+    await chooseDownload(within(opened), "fault codes CSV");
     expect(await savedFile(`${row.id}-fault-codes.csv`)).toBe(
       [
         "unit,code,status,description",
@@ -193,9 +185,7 @@ describe("downloads of a saved report", () => {
     await userEvent.click(await screen.findByRole("row", { name: /^Open report / }));
     const opened = await screen.findByLabelText("Saved report");
 
-    await userEvent.click(
-      await within(opened).findByRole("button", { name: "Download fault codes CSV" }),
-    );
+    await chooseDownload(within(opened), "fault codes CSV");
     expect(await savedFile(`${row.id}-fault-codes.csv`)).toBe(
       "unit,code,status,description\r\nengine,P0420,2F,Catalyst below threshold\r\n",
     );
@@ -213,28 +203,24 @@ describe("downloads of a decoded capture", () => {
     await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
     await userEvent.click(await screen.findByRole("row", { name: `Open capture ${summary.id}` }));
-    const exchanges = await screen.findByRole("button", { name: "Download raw exchanges CSV" });
-
-    await userEvent.click(exchanges);
+    await chooseDownload(screen, "raw exchanges CSV");
     const csv = await savedFile(`${summary.id}-exchanges.csv`);
     expect(csv.split("\r\n")[0]).toBe("time,request id,request,response id,response,outcome");
     expect(csv.split("\r\n").length).toBeGreaterThan(capture.exchanges.length);
 
-    await userEvent.click(screen.getByRole("button", { name: "Download raw exchanges TSV" }));
+    await chooseDownload(screen, "raw exchanges TSV");
     expect((await savedFile(`${summary.id}-exchanges.tsv`)).split("\n")[0]).toBe(
       "time\trequest id\trequest\tresponse id\tresponse\toutcome",
     );
-    await userEvent.click(screen.getByRole("button", { name: "Download decoded fault codes TSV" }));
+    await chooseDownload(screen, "decoded fault codes TSV");
     expect(await savedFile(`${summary.id}-fault-codes.tsv`)).toMatch(
       /^unit\tcode\tstatus\tdescription\n/,
     );
-    await userEvent.click(screen.getByRole("button", { name: "Download decoded values CSV" }));
+    await chooseDownload(screen, "decoded values CSV");
     expect((await savedFile(`${summary.id}-values.csv`)).split("\r\n")[0]).toBe(
       "time,unit,name,label,reading,measure,error",
     );
-    await userEvent.click(
-      screen.getByRole("button", { name: "Download decoded identification TSV" }),
-    );
+    await chooseDownload(screen, "decoded identification TSV");
     expect(await savedFile(`${summary.id}-identification.tsv`)).toMatch(
       /^unit\tlabel\thex\ttext\n/,
     );
@@ -315,3 +301,12 @@ describe("runs as CSV and TSV", () => {
     ]);
   });
 });
+
+/** Saves one table from a view's Download menu: opens the menu inside `scope`, then picks the item. */
+async function chooseDownload(
+  scope: Pick<typeof screen, "findByRole">,
+  item: string,
+): Promise<void> {
+  await userEvent.click(await scope.findByRole("button", { name: "Download" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: item }));
+}
