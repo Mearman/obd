@@ -1566,7 +1566,7 @@ export function sharedRunStop(data: RunSummaryShareData): number {
 /** The lines of a shared scan: where it came from, then each unit's identification and fault codes. */
 export function describeSharedScan(data: ScanShareData, createdAt: number): string[] {
   const lines = [
-    `shared scan (taken ${data.taken}, profile ${data.profile.name}, adapter ${data.adapter.label === "" ? "unknown" : data.adapter.label}, link made ${new Date(createdAt).toISOString()})`,
+    `shared scan (taken ${data.taken}, profile ${data.profile.name}, adapter ${data.adapter.label === "" ? "unknown" : data.adapter.label}, dated ${new Date(createdAt).toISOString()})`,
     data.redacted
       ? "VIN and serial numbers were removed before sharing"
       : "VIN and serial numbers are included",
@@ -1694,7 +1694,7 @@ export function runExportShareData(document: unknown): ShareResult<RunSummarySha
 /** The lines of a shared run summary: where it came from, then each signal's range and series length. */
 export function describeSharedRun(data: RunSummaryShareData, createdAt: number): string[] {
   const lines = [
-    `shared run summary (profile ${data.run.profile}, adapter ${data.run.adapter}, started ${new Date(data.run.startedAt).toISOString()}, ${data.run.stoppedAt === null ? "still open" : `stopped ${new Date(data.run.stoppedAt).toISOString()}`}, link made ${new Date(createdAt).toISOString()})`,
+    `shared run summary (profile ${data.run.profile}, adapter ${data.run.adapter}, started ${new Date(data.run.startedAt).toISOString()}, ${data.run.stoppedAt === null ? "still open" : `stopped ${new Date(data.run.stoppedAt).toISOString()}`}, dated ${new Date(createdAt).toISOString()})`,
   ];
   if (data.run.notes !== "") lines.push(`notes: ${data.run.notes}`);
   for (const signal of data.signals) {
