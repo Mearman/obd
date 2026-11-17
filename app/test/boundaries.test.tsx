@@ -244,7 +244,9 @@ describe("a screen's boundary", () => {
     expect(screen.getByText("Shared data")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Go to Connect" }));
     expect(await screen.findByRole("heading", { name: "Session", level: 1 })).toBeVisible();
-    expect(window.location.hash).toBe("");
+    await waitFor(() => {
+      expect(window.location.hash).toBe("");
+    });
   });
 
   it("a different shared link resets the boundary", async () => {
