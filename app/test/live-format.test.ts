@@ -124,6 +124,7 @@ describe("the presets", () => {
 describe("the estimate of a round", () => {
   it("is words from the count and the measured time per request", () => {
     expect(describeCycle(0, 1000)).toBe("Choose at least one value.");
+    expect(describeCycle(3, 0)).toBe("A round of 3 values takes under a second.");
     expect(describeCycle(5, 20)).toBe(
       "A round of 5 values at about 20 ms per request takes under a second.",
     );
