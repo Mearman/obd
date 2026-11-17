@@ -36,11 +36,12 @@ for (const viewport of VIEWPORTS) {
         await openSection(page, "Read");
         await page.getByRole("button", { name: "Capture everything" }).click();
         await expect(page.getByRole("heading", { level: 1, name: "Library" })).toBeVisible();
-        await expect(page.getByRole("button", { name: "Share the raw capture" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Share the capture" })).toBeVisible();
         await fits(page, "the capture viewer");
         await page.screenshot({ path: `${base}-capture-full.png`, fullPage: true });
 
-        await page.getByRole("button", { name: "Share the raw capture" }).click();
+        await page.getByRole("button", { name: "Share the capture" }).click();
+        await page.getByRole("menuitem", { name: "The raw capture" }).click();
         await expect(page.getByRole("dialog", { name: "Share the raw capture" })).toBeVisible();
         await fits(page, "the share dialog");
         await page.screenshot({ path: `${base}-share-dialog.png` });

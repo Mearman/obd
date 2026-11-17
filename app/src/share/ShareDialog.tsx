@@ -26,6 +26,9 @@ function appAddress(): string {
 export type ShareDialogProps = {
   /** The button that opens the dialog. */
   readonly label: string;
+  /** Whether the dialog is open, when something other than its own button opens it, such as a menu item; with `onOpenChange`, and then there is no button. */
+  readonly open?: boolean;
+  readonly onOpenChange?: (open: boolean) => void;
   readonly title: string;
   /** The app's address the link points at; the page's own by default. */
   readonly base?: string;
@@ -334,7 +337,7 @@ function Body({
  * Nothing leaves the page: the link is made here and only the user sends it.
  */
 export function ShareDialog(props: ShareDialogProps) {
-  const { label, title, base } = props;
+  const { label, title, base, open, onOpenChange } = props;
   const several = "loadAll" in props;
   const load = (): Promise<Shared> =>
     ("loadAll" in props ? props.loadAll() : props.load().then((envelope) => [envelope])).then(
@@ -342,7 +345,8 @@ export function ShareDialog(props: ShareDialogProps) {
     );
   return (
     <Dialog
-      trigger={<Button>{label}</Button>}
+      {...(open === undefined ? { trigger: <Button>{label}</Button> } : { open })}
+      {...(onOpenChange === undefined ? {} : { onOpenChange })}
       title={title}
       description={
         several

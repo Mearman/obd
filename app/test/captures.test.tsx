@@ -151,7 +151,8 @@ describe("Captures", () => {
     await scanScreen();
     await userEvent.click(screen.getByRole("button", { name: "Capture everything" }));
     await summary(/with mercedes-w211/);
-    await userEvent.click(screen.getByRole("button", { name: "Share the raw capture" }));
+    await userEvent.click(screen.getByRole("button", { name: "Share the capture" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "The raw capture" }));
     const dialog = await screen.findByRole("dialog", { name: "Share the raw capture" });
     const included = await within(dialog).findByRole("list", { name: "What the link contains" });
     expect(included).toHaveTextContent(/raw exchanges/);

@@ -31,7 +31,8 @@ async function rawCaptureLink(page: Page, redact: boolean): Promise<string> {
   await openSection(page, "Read");
   await page.getByRole("button", { name: "Capture everything" }).click();
   await expectSummary(page, /with mercedes-w211/);
-  await page.getByRole("button", { name: "Share the raw capture" }).click();
+  await page.getByRole("button", { name: "Share the capture" }).click();
+  await page.getByRole("menuitem", { name: "The raw capture" }).click();
   const dialog = page.getByRole("dialog", { name: "Share the raw capture" });
   const toggle = dialog.getByRole("switch", { name: /overwrite the vin/i });
   await expect(toggle).toBeChecked();
