@@ -87,7 +87,7 @@ for (const viewport of VIEWPORTS) {
         await openCollectedRunGraphs(page);
 
         const charts = page.getByRole("figure");
-        expect(await charts.count()).toBeGreaterThan(1);
+        await expect.poll(() => charts.count()).toBeGreaterThan(1);
         const drawing = page.getByRole("img", { name: /^engine speed: \d+ readings/ });
         await expect(drawing).toBeVisible();
         const line = drawing.locator("polyline");
