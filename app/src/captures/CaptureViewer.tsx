@@ -67,6 +67,14 @@ export function CaptureViewer({
   const [choice, setChoice] = useState<string | undefined>(undefined);
   const [decoded, setDecoded] = useState<DecodedCaptureData | undefined>(undefined);
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  // Which share dialog the Share menu opened.
+  const [sharing, setSharing] = useState<"raw" | "decoding" | undefined>(undefined);
+  // The menu is still trapping focus as its item is chosen, and a dialog opened in the same moment fights it for focus, so the dialog opens once the menu has closed.
+  const openAfterMenu = (which: "raw" | "decoding"): void => {
+    setTimeout(() => {
+      setSharing(which);
+    }, 0);
+  };
   const [importNote, setImportNote] = useState<string | undefined>(undefined);
   const input = useRef<HTMLInputElement>(null);
 
@@ -199,26 +207,58 @@ export function CaptureViewer({
             />
           )}
           {capture !== undefined && (
-            <ShareDialog
-              label="Share the raw capture"
-              title="Share the raw capture"
-              load={() => Promise.resolve(captureEnvelope(capture))}
+            <Menu
+              label="Share"
+              triggerLabel="Share the capture"
+              items={[
+                {
+                  label: "The raw capture",
+                  onSelect: () => {
+                    openAfterMenu("raw");
+                  },
+                },
+                ...(decoded === undefined
+                  ? []
+                  : [
+                      {
+                        label: "This decoding",
+                        onSelect: () => {
+                          openAfterMenu("decoding");
+                        },
+                      },
+                    ]),
+              ]}
             />
           )}
           {decoded !== undefined && capture !== undefined && (
             <DecodedDownloads capture={capture} decoded={decoded} />
           )}
-          {decoded !== undefined && capture !== undefined && (
-            <ShareDialog
-              label="Share this decoding"
-              title="Share this decoding"
-              load={() => Promise.resolve(decodedEnvelope(decoded, capture))}
-            />
-          )}
           <Button variant="ghost" onClick={onClose}>
             Close
           </Button>
         </div>
+        {capture !== undefined && (
+          <ShareDialog
+            label="Share the raw capture"
+            title="Share the raw capture"
+            open={sharing === "raw"}
+            onOpenChange={(open) => {
+              setSharing(open ? "raw" : undefined);
+            }}
+            load={() => Promise.resolve(captureEnvelope(capture))}
+          />
+        )}
+        {decoded !== undefined && capture !== undefined && (
+          <ShareDialog
+            label="Share this decoding"
+            title="Share this decoding"
+            open={sharing === "decoding"}
+            onOpenChange={(open) => {
+              setSharing(open ? "decoding" : undefined);
+            }}
+            load={() => Promise.resolve(decodedEnvelope(decoded, capture))}
+          />
+        )}
         {importNote !== undefined && <p role="status">{importNote}</p>}
         {problem !== undefined && (
           <p role="alert" className={error}>
