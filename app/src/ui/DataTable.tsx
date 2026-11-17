@@ -17,7 +17,7 @@ import {
 } from "./DataTable.css";
 
 /** What inside a row handles its own click. */
-const INTERACTIVE = "button, a, input, select, textarea, [role=button], [role=dialog]";
+const INTERACTIVE = "button, a, input, label, select, textarea, [role=button], [role=dialog]";
 
 /** Which way a sorted column runs, in the words `aria-sort` takes. */
 export type SortDirection = "ascending" | "descending";

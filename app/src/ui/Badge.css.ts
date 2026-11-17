@@ -10,9 +10,9 @@ export const badge = recipe({
     borderRadius: vars.radius.round,
     fontSize: vars.fontSize.small,
     fontWeight: 600,
-    // A short badge stays on one line; a long one, such as when a shared link was made, wraps rather than widening a phone's page.
+    // A badge's words stay whole and the badge keeps its natural width in a table column; only a word longer than the space, such as a shared link, breaks rather than widening a phone's page.
     maxWidth: "100%",
-    overflowWrap: "anywhere",
+    overflowWrap: "break-word",
     border: "1px solid currentColor",
   },
   variants: {
