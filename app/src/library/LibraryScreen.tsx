@@ -334,6 +334,7 @@ export function LibraryScreen({
   ];
   const table = {
     label: "Library",
+    layout: "roomy" as const,
     columns,
     rowKey: itemKey,
     onOpen: {

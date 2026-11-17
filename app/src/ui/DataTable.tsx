@@ -1,22 +1,6 @@
 import { useId, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import {
-  bareCell,
-  body,
-  cell,
-  nowrapCell,
-  group,
-  groupHeading,
-  groupToggle,
-  head,
-  headRow,
-  headerCell,
-  openable,
-  row,
-  sortButton,
-  sortableHead,
-  sortableHeaderCell,
-  table,
-} from "./DataTable.css";
+import { tableStyles } from "./DataTable.css";
+const { group, groupHeading, groupToggle } = tableStyles.standard;
 
 /** What inside a row handles its own click. */
 const INTERACTIVE = "button, a, input, select, textarea, [role=button], [role=dialog]";
@@ -57,16 +41,23 @@ export interface DataTableProps<Row, Key extends string = string> {
   readonly onOpen?: { readonly label: (row: Row) => string; readonly open: (row: Row) => void };
   /** Makes each column with a {@link Column.sortKey} sortable by a button in its header, the sorted one marked with `aria-sort`; on a phone those headers stay on screen above the cards. The rows are shown in the order given. */
   readonly sorting?: DataTableSorting<Key>;
+  /** The width from which the table is a table rather than a card per row: `standard` (a tablet) or `roomy` (a laptop), for a table whose columns need the room. */
+  readonly layout?: "standard" | "roomy";
 }
+
+type Styles = (typeof tableStyles)[keyof typeof tableStyles];
 
 /** What a column's header holds: its heading, or a button that sorts by it with an arrow for the sorted direction. */
 function Header<Row, Key extends string>({
   column,
   sorting,
+  styles,
 }: {
+  readonly styles: Styles;
   readonly column: Column<Row, Key>;
   readonly sorting: DataTableSorting<Key> | undefined;
 }) {
+  const { headerCell, sortableHeaderCell, sortButton } = styles;
   const { sortKey } = column;
   if (sorting === undefined || sortKey === undefined) {
     return (
@@ -109,13 +100,17 @@ export function DataTable<Row, Key extends string = string>({
   rowKey,
   onOpen,
   sorting,
+  layout = "standard",
 }: DataTableProps<Row, Key>) {
+  const styles = tableStyles[layout];
+  const { bareCell, body, cell, nowrapCell, head, headRow, openable, row, sortableHead, table } =
+    styles;
   return (
     <div role="table" aria-label={label} className={table}>
       <div role="rowgroup" className={sorting === undefined ? head : sortableHead}>
         <div role="row" className={headRow}>
           {columns.map((column) => (
-            <Header key={column.header} column={column} sorting={sorting} />
+            <Header key={column.header} column={column} sorting={sorting} styles={styles} />
           ))}
         </div>
       </div>
