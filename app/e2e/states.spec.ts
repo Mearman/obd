@@ -54,3 +54,44 @@ for (const viewport of VIEWPORTS) {
     });
   }
 }
+
+for (const viewport of VIEWPORTS) {
+  for (const scheme of SCHEMES) {
+    test.describe(`loading ${viewport.name} ${scheme}`, () => {
+      test.use({
+        viewport: { width: viewport.width, height: viewport.height },
+        colorScheme: scheme,
+      });
+
+      test("every screen shows its loading state in the same way and fits", async ({ page }) => {
+        const base = `screenshots/loading-${viewport.name}-${scheme}`;
+        // Hold the database's WebAssembly back so every screen is seen while it is still opening.
+        let release: () => void = () => undefined;
+        const held = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        await page.route("**/*.wasm", async (route) => {
+          await held;
+          await route.continue();
+        });
+
+        await page.goto("/?screen=library");
+        await expect(page.getByRole("heading", { level: 1, name: "Library" })).toBeVisible();
+        await fits(page, "the Library while it loads");
+        await page.screenshot({ path: `${base}-library.png`, fullPage: true });
+
+        await page.getByRole("tab", { name: "Guide" }).click();
+        await expect(page.getByText("The database is opening.")).toBeVisible();
+        await fits(page, "the Guide while the database opens");
+        await page.screenshot({ path: `${base}-guide.png`, fullPage: true });
+
+        await page.getByRole("tab", { name: "Settings" }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+        await fits(page, "Settings while the database opens");
+        await page.screenshot({ path: `${base}-settings.png`, fullPage: true });
+
+        release();
+      });
+    });
+  }
+}
