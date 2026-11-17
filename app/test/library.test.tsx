@@ -411,7 +411,7 @@ describe("the Library", () => {
     expect(decoded.kind).toBe("capture");
 
     // Closing the item takes the link out of the address with it.
-    await userEvent.click(screen.getAllByRole("button", { name: "Close" })[0] as HTMLElement);
+    await userEvent.click(screen.getAllByRole("button", { name: "Close" })[0]!);
     await waitFor(() => {
       expect(window.location.hash).toBe("");
     });

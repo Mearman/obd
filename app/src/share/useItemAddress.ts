@@ -11,11 +11,14 @@ export type LocalItem = "loading" | "found" | "missing";
  * @param key Names the open item, so its link is made once for it; undefined when none is open.
  * @param load Builds the envelope of the open item. Called again only when `key` changes.
  * @param setFragment Puts a `share=...` fragment in the address, or removes it with undefined.
+ * @param defer Whether the read waits for the browser to be idle.
  */
 export function useItemAddress(
   key: string | undefined,
   load: () => Promise<ShareEnvelope>,
   setFragment: (fragment: string | undefined) => void,
+  /** Whether to wait for the browser to be idle before reading the item: true when the address has no link yet, false when a link is waiting to be told apart from another device's. */
+  defer: boolean,
 ): LocalItem {
   const [state, setState] = useState<
     { readonly key: string; readonly status: LocalItem } | undefined
@@ -23,7 +26,19 @@ export function useItemAddress(
   useEffect(() => {
     if (key === undefined) return;
     const live = { active: true };
-    load().then(
+    // The link is a convenience, so it waits for the browser to be idle and never delays the item's own first paint.
+    const wait = new Promise<void>((resolve) => {
+      if (!defer) resolve();
+      else if ("requestIdleCallback" in window)
+        window.requestIdleCallback(
+          () => {
+            resolve();
+          },
+          { timeout: 1000 },
+        );
+      else setTimeout(resolve, 0);
+    });
+    wait.then(load).then(
       (envelope) => {
         if (!live.active) return;
         setState({ key, status: "found" });

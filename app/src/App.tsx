@@ -65,6 +65,7 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
     onLibraryItem ? itemKey(opened) : undefined,
     () => openItemEnvelope(service.client, opened ?? { kind: "run", id: "" }, Date.now()),
     setShareFragment,
+    shared.fragment === undefined,
   );
   const resolving = shared.fragment !== undefined && onLibraryItem && local === "loading";
   const sharedFragment = onLibraryItem && local !== "missing" ? undefined : shared.fragment;
