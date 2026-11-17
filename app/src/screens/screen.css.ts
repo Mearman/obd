@@ -65,9 +65,10 @@ export const row = style({
 export const disclosure = style({});
 
 globalStyle(`${disclosure} > summary`, {
-  display: "flex",
-  alignItems: "center",
-  minHeight: vars.size.touch,
+  display: "list-item",
+  listStylePosition: "inside",
+  // 24 px line plus this padding makes the 44 px target while keeping the disclosure marker.
+  paddingBlock: "10px",
   cursor: "pointer",
   fontWeight: 600,
 });

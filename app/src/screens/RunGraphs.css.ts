@@ -38,9 +38,7 @@ export const scrubber = style({
 
 export const charts = style({
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
+  // One chart fills the width; several share it, each at least as wide as a phone can show.
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 26rem), 1fr))",
   gap: vars.space["3"],
-  "@media": {
-    "screen and (min-width: 1024px)": { gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
-  },
 });
