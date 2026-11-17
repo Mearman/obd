@@ -355,11 +355,15 @@ export function SharedViewer({ fragment, onDone, onOpenPlan }: SharedViewerProps
     <div className={page}>
       <div className={heading}>
         <h1 className={headingStyle}>Shared data</h1>
-        <Badge tone="warning">From a link, not your adapter</Badge>
+        <Badge wrap tone="warning">
+          From a link, not your adapter
+        </Badge>
         {carried !== undefined && (
-          <Badge>{`Link made ${utc(carried.kind === "single" ? carried.envelope.createdAt : carried.createdAt)}`}</Badge>
+          <Badge
+            wrap
+          >{`Link made ${utc(carried.kind === "single" ? carried.envelope.createdAt : carried.createdAt)}`}</Badge>
         )}
-        {carried?.kind === "bundle" && <Badge>{`${String(envelopes.length)} results`}</Badge>}
+        {carried?.kind === "bundle" && <Badge wrap>{`${String(envelopes.length)} results`}</Badge>}
       </div>
       <p className={muted}>
         This is a read-only copy that someone sent you in a link. It was not read from the adapter

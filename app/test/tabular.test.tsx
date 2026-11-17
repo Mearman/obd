@@ -263,9 +263,10 @@ describe("runs as CSV and TSV", () => {
     ]);
     await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
-    expect(await screen.findByRole("button", { name: "Export CSV" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Export JSON" })).toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Export TSV" }));
+    await userEvent.click(await screen.findByRole("button", { name: `Export run ${run.id}` }));
+    expect(await screen.findByRole("menuitem", { name: "CSV" })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: "JSON" })).toBeVisible();
+    await userEvent.click(screen.getByRole("menuitem", { name: "TSV" }));
     await waitFor(() => {
       expect(saved.has(`obd-read-run-${run.id}.tsv`)).toBe(true);
     });

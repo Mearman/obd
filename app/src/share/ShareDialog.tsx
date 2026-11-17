@@ -274,7 +274,7 @@ function Body({
             {made.link}
           </pre>
           <p>
-            <Badge tone={made.link.length > PRACTICAL_LINK_LENGTH ? "warning" : "success"}>
+            <Badge wrap tone={made.link.length > PRACTICAL_LINK_LENGTH ? "warning" : "success"}>
               {`${String(made.link.length)} characters`}
             </Badge>{" "}
             <span className={muted}>

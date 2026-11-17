@@ -10,12 +10,14 @@ export const badge = recipe({
     borderRadius: vars.radius.round,
     fontSize: vars.fontSize.small,
     fontWeight: 600,
-    // A badge's words stay whole and the badge keeps its natural width in a table column; only a word longer than the space, such as a shared link, breaks rather than widening a phone's page.
-    maxWidth: "100%",
-    overflowWrap: "break-word",
+    // A short badge is one unbreakable line so a table column never splits its words; a long one opts into `wrap`.
+    whiteSpace: "nowrap",
     border: "1px solid currentColor",
   },
   variants: {
+    wrap: {
+      true: { whiteSpace: "normal", maxWidth: "100%", overflowWrap: "anywhere" },
+    },
     tone: {
       neutral: { color: vars.color.textMuted, background: vars.color.surface },
       success: { color: vars.color.success, background: vars.color.successSubtle },
