@@ -40,7 +40,7 @@ import {
   type LibraryOpen,
 } from "./items";
 import { itemEnvelopes } from "./item-envelope";
-import { selectBox } from "./library.css";
+import { selectBox, selectLabel } from "./library.css";
 import { ImportNotes, LibraryImport, useLibraryImport } from "./LibraryImport";
 import { runEnvelope } from "./run-envelope";
 import { SavedReportView } from "./SavedReportView";
@@ -313,15 +313,17 @@ export function LibraryScreen({
     {
       header: "Select",
       render: (item) => (
-        <input
-          className={selectBox}
-          type="checkbox"
-          aria-label={`Select ${item.kind} ${item.id}`}
-          checked={selected.has(itemKey(item))}
-          onChange={(event) => {
-            select(item, event.currentTarget.checked);
-          }}
-        />
+        <label className={selectLabel}>
+          <input
+            className={selectBox}
+            type="checkbox"
+            aria-label={`Select ${item.kind} ${item.id}`}
+            checked={selected.has(itemKey(item))}
+            onChange={(event) => {
+              select(item, event.currentTarget.checked);
+            }}
+          />
+        </label>
       ),
     },
     { header: "Kind", sortKey: "kind", render: (item) => <Badge>{KIND_LABELS[item.kind]}</Badge> },

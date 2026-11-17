@@ -91,6 +91,9 @@ export const cell = style({
   "@media": {
     [WIDE]: {
       display: "table-cell",
+      verticalAlign: "middle",
+      // Table columns size to their words; "anywhere" would let a column shrink until a word breaks mid-way.
+      overflowWrap: "normal",
       padding: `${vars.space["3"]} ${vars.space["3"]}`,
       borderBottom: `1px solid ${vars.color.border}`,
       selectors: { "&::before": { content: "none" } },
