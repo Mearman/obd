@@ -33,7 +33,6 @@ import {
   fieldStack,
   fields,
   group,
-  foldSummary,
   foldable,
   legend,
   problems as problemList,
@@ -219,7 +218,7 @@ function PhaseEditor({
         {name}: {phase.title}
       </legend>
       <details open className={foldable}>
-        <summary className={foldSummary}>{`${name} fields`}</summary>
+        <summary>{`${name} fields`}</summary>
         <Problems items={problems} label={`Problems in ${name}`} />
         <div className={fields}>
           <TextInput

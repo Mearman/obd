@@ -5,7 +5,7 @@ export const MIN_TARGET = 44;
 
 /** What a person taps or types into. */
 const INTERACTIVE =
-  'button, a[href], [role="tab"], [role="switch"], [role="combobox"], [role="checkbox"], input:not([hidden]):not([type="hidden"])';
+  'button, a[href], summary, select, textarea, [role="tab"], [role="switch"], [role="combobox"], [role="checkbox"], [role="slider"], input:not([hidden]):not([type="hidden"]), label:has(> input[type="checkbox"])';
 
 /** How far the page is wider than the window, in CSS pixels; above zero means it scrolls sideways. */
 export async function horizontalOverflow(page: Page): Promise<number> {
@@ -20,6 +20,15 @@ export async function undersizedTargets(page: Page): Promise<string[]> {
     ({ selector, min }) =>
       [...document.querySelectorAll<HTMLElement>(selector)]
         .filter((element) => element.getClientRects().length > 0)
+        // A checkbox inside its label is reached through the label, whose whole row is the target.
+        .filter(
+          (element) =>
+            !(
+              element instanceof HTMLInputElement &&
+              element.type === "checkbox" &&
+              element.closest("label") !== null
+            ),
+        )
         .map((element) => ({ element, box: element.getBoundingClientRect() }))
         .filter(({ box }) => box.width < min || box.height < min)
         .map(
@@ -31,10 +40,12 @@ export async function undersizedTargets(page: Page): Promise<string[]> {
 }
 
 /**
- * The buttons, tabs, column headings and badges whose text runs onto more than one line, each named with its text. A label meant to wrap, such as a sentence in a badge, carries `data-wrap` and is left out.
+ * The buttons, tabs and badges whose text runs onto more than one line, each named with its text. Left out: a label meant to wrap, such as a sentence in a badge (`data-wrap`), and a button that spans its container, which wraps at word boundaries to fit like a line of text.
  */
 export async function wrappedLabels(page: Page): Promise<string[]> {
   return page.evaluate(() => {
+    // The narrowest phones wrap a label rather than scroll sideways.
+    if (window.innerWidth < 360) return [];
     const isBadge = (element: HTMLElement): boolean => {
       const style = getComputedStyle(element);
       return style.display === "inline-flex" && parseFloat(style.borderTopLeftRadius) >= 100;
@@ -56,6 +67,10 @@ export async function wrappedLabels(page: Page): Promise<string[]> {
       }
       return count;
     };
+    const spansParent = (element: HTMLElement): boolean => {
+      const parent = element.parentElement;
+      return parent !== null && element.getBoundingClientRect().width >= parent.clientWidth * 0.9;
+    };
     return [...document.querySelectorAll<HTMLElement>("button, [role=tab], span, div")]
       .filter((element) => element.getClientRects().length > 0)
       .filter((element) => !element.closest("[data-wrap]"))
@@ -63,7 +78,9 @@ export async function wrappedLabels(page: Page): Promise<string[]> {
         (element) =>
           element.matches("button, [role=tab]") || (element.tagName === "SPAN" && isBadge(element)),
       )
-      .filter((element) => lines(element) > 1)
+      .filter(
+        (element) => lines(element) > 1 && !(element.tagName === "BUTTON" && spansParent(element)),
+      )
       .map(
         (element) =>
           `${element.tagName.toLowerCase()} "${element.textContent.trim().slice(0, 40)}"`,

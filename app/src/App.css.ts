@@ -31,7 +31,12 @@ export const identity = style({ display: "flex", alignItems: "center", gap: vars
 
 export const brand = style({ fontSize: vars.fontSize.large, fontWeight: 700 });
 
-export const status = style({ display: "flex", alignItems: "center", gap: vars.space["2"] });
+export const status = style({
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  gap: vars.space["2"],
+});
 
 export const main = style({
   flex: 1,

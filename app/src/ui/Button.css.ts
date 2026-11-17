@@ -13,6 +13,8 @@ export const button = recipe({
     borderRadius: vars.radius.medium,
     border: "1px solid transparent",
     fontWeight: 600,
+    // A label stays on one line wherever there is room; on the narrowest phones, and in a button that fills its container (`block`), it wraps at word boundaries rather than push the page sideways.
+    "@media": { "screen and (min-width: 360px)": { whiteSpace: "nowrap" } },
     cursor: "pointer",
     textDecoration: "none",
     selectors: { "&:disabled": { opacity: 0.55, cursor: "not-allowed" } },
@@ -40,7 +42,10 @@ export const button = recipe({
     block: {
       true: {
         width: "100%",
-        "@media": { "screen and (min-width: 640px)": { width: "auto", alignSelf: "flex-start" } },
+        "@media": {
+          "screen and (min-width: 360px)": { whiteSpace: "normal" },
+          "screen and (min-width: 640px)": { width: "auto", alignSelf: "flex-start" },
+        },
       },
     },
   },

@@ -25,3 +25,14 @@ globalStyle(":focus-visible", {
   outline: `3px solid ${vars.color.focusRing}`,
   outlineOffset: "2px",
 });
+
+// A disclosure's summary is a control: a full touch target, with the marker kept.
+globalStyle("summary", {
+  display: "list-item",
+  listStylePosition: "inside",
+  boxSizing: "border-box",
+  minHeight: vars.size.touch,
+  paddingBlock: "10px",
+  cursor: "pointer",
+  fontWeight: 600,
+});
