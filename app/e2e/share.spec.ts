@@ -29,13 +29,15 @@ test("a link from a simulator scan opens as read-only shared data in a fresh con
   expect(others).toEqual([]);
   expect(stored?.summary).toMatchObject({ adapter: "shared://link", origin: "shared" });
 
-  // Opening the same link again in this browser saves nothing more.
+  // Opening the same link again in this browser saves nothing more, and opens the stored scan instead of a copy.
   await page.reload();
-  await expect(page.getByText(/saved to this device earlier/)).toBeVisible();
+  await expect(page.getByLabel("Saved report")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Shared data" })).toHaveCount(0);
   expect(await savedReports(page)).toHaveLength(1);
 
-  await page.getByRole("button", { name: "Dismiss" }).click();
-  expect(page.url()).not.toContain("share=");
+  // Closing the stored scan takes its link out of the address.
+  await page.getByRole("button", { name: "Close" }).first().click();
+  await expect.poll(() => page.url()).not.toContain("share=");
   await expect(page.getByRole("tablist")).toBeVisible();
   await receiver.close();
 });
