@@ -1,6 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { openSection } from "./session";
 import { shareLinkOfSimulatorScan } from "./share-links";
+import { fits } from "./layout";
 
 const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },
@@ -9,32 +10,6 @@ const VIEWPORTS = [
 ] as const;
 
 const SCHEMES = ["light", "dark"] as const;
-
-/** The smallest touch target, in CSS pixels. */
-const MIN_TARGET = 44;
-
-const INTERACTIVE =
-  'button, a[href], [role="tab"], [role="switch"], [role="combobox"], input:not([hidden]):not([type="hidden"])';
-
-async function fits(page: Page, view: string): Promise<void> {
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow, `${view} overflows horizontally`).toBeLessThanOrEqual(0);
-  const small = await page.evaluate(
-    ({ selector, min }) =>
-      [...document.querySelectorAll<HTMLElement>(selector)]
-        .filter((element) => element.getClientRects().length > 0)
-        .map((element) => ({ element, box: element.getBoundingClientRect() }))
-        .filter(({ box }) => box.width < min || box.height < min)
-        .map(
-          ({ element, box }) =>
-            `${element.tagName.toLowerCase()} "${(element.getAttribute("aria-label") ?? element.textContent).trim().slice(0, 30)}" ${String(Math.round(box.width))}x${String(Math.round(box.height))}`,
-        ),
-    { selector: INTERACTIVE, min: MIN_TARGET },
-  );
-  expect(small, `${view} has targets under ${String(MIN_TARGET)} px`).toEqual([]);
-}
 
 for (const viewport of VIEWPORTS) {
   for (const scheme of SCHEMES) {
@@ -86,6 +61,50 @@ for (const viewport of VIEWPORTS) {
         await fits(shared, "the shared viewer");
         await shared.screenshot({ path: `${base}-shared-full.png`, fullPage: true });
         await receiver.close();
+      });
+    });
+  }
+}
+
+for (const viewport of VIEWPORTS) {
+  for (const scheme of SCHEMES) {
+    test.describe(`dialogs ${viewport.name} ${scheme}`, () => {
+      test.use({
+        viewport: { width: viewport.width, height: viewport.height },
+        colorScheme: scheme,
+      });
+
+      test("a run's menu and dialogs, and the problem report, fit and have large targets", async ({
+        page,
+      }) => {
+        const base = `screenshots/dialogs-${viewport.name}-${scheme}`;
+        await page.goto("/");
+        await page.getByRole("button", { name: /connect with the simulator/i }).click();
+        await expect(page.getByText("Connected to Simulator")).toBeVisible();
+        await openSection(page, "Live");
+        await page.getByRole("button", { name: "Start collecting" }).click();
+        await expect(page.getByRole("button", { name: "Stop collecting" })).toBeVisible();
+        await page.getByRole("button", { name: "Stop collecting" }).click();
+        await page.getByRole("tab", { name: "Library" }).click();
+        await expect(page.getByRole("table", { name: "Library" })).toBeVisible();
+
+        await fits(page, "the Library with a run");
+        await page.getByRole("button", { name: /^Export run/ }).click();
+        await expect(page.getByRole("menuitem", { name: "CSV" })).toBeVisible();
+        await fits(page, "the Export menu");
+        await page.screenshot({ path: `${base}-export-menu.png` });
+        await page.keyboard.press("Escape");
+
+        await page.getByRole("button", { name: /^Fault codes of run/ }).click();
+        await expect(page.getByRole("dialog", { name: "Fault codes" })).toBeVisible();
+        await fits(page, "the fault codes dialog");
+        await page.screenshot({ path: `${base}-fault-codes.png` });
+        await page.keyboard.press("Escape");
+
+        await page.getByRole("button", { name: "Share", exact: true }).click();
+        await expect(page.getByRole("dialog", { name: "Share this run's summary" })).toBeVisible();
+        await fits(page, "the run share dialog");
+        await page.screenshot({ path: `${base}-run-share.png` });
       });
     });
   }

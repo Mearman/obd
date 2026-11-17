@@ -21,12 +21,9 @@ export const groupTitle = style({
 
 export const checks = style({
   display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr)",
+  // As many columns as fit, each wide enough for a signal's name on one line, so the count follows the card's width rather than the window's.
+  gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 14rem), 1fr))",
   gap: vars.space["1"],
-  "@media": {
-    "screen and (min-width: 640px)": { gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
-    "screen and (min-width: 1024px)": { gridTemplateColumns: "repeat(3, minmax(0, 1fr))" },
-  },
 });
 
 // A button with the checkbox role, so the whole row is a 44 px target.
