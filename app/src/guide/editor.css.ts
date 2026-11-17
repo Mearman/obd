@@ -117,3 +117,14 @@ export const bareFieldset = style({
   padding: 0,
   border: 0,
 });
+
+/** A phase's fields, which can be folded away so a long plan stays easy to move around. */
+export const foldable = style({ display: "flex", flexDirection: "column", gap: vars.space["3"] });
+
+export const foldSummary = style({
+  display: "list-item",
+  listStylePosition: "inside",
+  paddingBlock: "10px",
+  cursor: "pointer",
+  fontWeight: 600,
+});

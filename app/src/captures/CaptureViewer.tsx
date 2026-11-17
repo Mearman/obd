@@ -15,7 +15,7 @@ import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { error, muted, row, stack } from "../screens/screen.css";
 import { ShareDialog } from "../share/ShareDialog";
-import { Button, Card, download } from "../ui";
+import { Button, Card, Menu, download } from "../ui";
 import { OriginBadge } from "../origin/OriginBadge";
 import { PlaybackView } from "./playback/PlaybackView";
 import { DecodedDownloads } from "./DecodedDownloads";
@@ -171,30 +171,32 @@ export function CaptureViewer({
           />
           <Button onClick={() => input.current?.click()}>Import a profile and re-decode</Button>
           {capture !== undefined && (
-            <>
-              <Button
-                onClick={() => {
-                  download(
-                    `${capture.id}${CAPTURE_JSON_SUFFIX}`,
-                    "application/json",
-                    new Uint8Array(captureFileBytes(capture, false)),
-                  );
-                }}
-              >
-                Export JSON
-              </Button>
-              <Button
-                onClick={() => {
-                  download(
-                    `${capture.id}${CAPTURE_GZIP_SUFFIX}`,
-                    "application/gzip",
-                    new Uint8Array(captureFileBytes(capture, true)),
-                  );
-                }}
-              >
-                Export compressed
-              </Button>
-            </>
+            <Menu
+              label="Export"
+              triggerLabel="Export the capture"
+              items={[
+                {
+                  label: "JSON",
+                  onSelect: () => {
+                    download(
+                      `${capture.id}${CAPTURE_JSON_SUFFIX}`,
+                      "application/json",
+                      new Uint8Array(captureFileBytes(capture, false)),
+                    );
+                  },
+                },
+                {
+                  label: "Compressed",
+                  onSelect: () => {
+                    download(
+                      `${capture.id}${CAPTURE_GZIP_SUFFIX}`,
+                      "application/gzip",
+                      new Uint8Array(captureFileBytes(capture, true)),
+                    );
+                  },
+                },
+              ]}
+            />
           )}
           {capture !== undefined && (
             <ShareDialog
@@ -202,6 +204,9 @@ export function CaptureViewer({
               title="Share the raw capture"
               load={() => Promise.resolve(captureEnvelope(capture))}
             />
+          )}
+          {decoded !== undefined && capture !== undefined && (
+            <DecodedDownloads capture={capture} decoded={decoded} />
           )}
           {decoded !== undefined && capture !== undefined && (
             <ShareDialog
@@ -214,11 +219,6 @@ export function CaptureViewer({
             Close
           </Button>
         </div>
-        {decoded !== undefined && capture !== undefined && (
-          <div className={row}>
-            <DecodedDownloads capture={capture} decoded={decoded} />
-          </div>
-        )}
         {importNote !== undefined && <p role="status">{importNote}</p>}
         {problem !== undefined && (
           <p role="alert" className={error}>
