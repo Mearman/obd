@@ -208,9 +208,11 @@ describe("the Guide screen", () => {
     expect(
       within(summary).getByText("At the start: P0420 (7E8). At the end: P0420 (7E8)."),
     ).toBeVisible();
+    await userEvent.click(within(summary).getByRole("button", { name: "Export the run" }));
     for (const format of ["CSV", "TSV", "JSON"]) {
-      expect(within(summary).getByRole("button", { name: `Export ${format}` })).toBeVisible();
+      expect(await screen.findByRole("menuitem", { name: format })).toBeVisible();
     }
+    await userEvent.keyboard("{Escape}");
     await userEvent.click(within(summary).getByRole("button", { name: "Send results back" }));
     const dialog = await screen.findByRole("dialog", { name: "Send the results back" });
     expect(within(dialog).getByRole("switch")).toBeChecked();

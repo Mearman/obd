@@ -4,7 +4,7 @@ import { failureMessage, type DiagnosticsClient } from "../diagnostics/client";
 import { error, muted, row } from "../screens/screen.css";
 import { runEnvelope } from "../library/run-envelope";
 import { ShareDialog } from "../share/ShareDialog";
-import { Badge, Button, Card, DataTable, download, type Column } from "../ui";
+import { Badge, Button, Card, DataTable, Menu, download, type Column } from "../ui";
 import { codesAtEnds, formatDuration, type PlanView, type ViewRecord } from "./plan-view";
 
 const OUTCOME_TONE = {
@@ -104,19 +104,18 @@ export function PlanSummary({
         >
           Open the run in the Library
         </Button>
-        {EXPORT_FORMATS.map((format) => (
-          <Button
-            key={format}
-            onClick={() =>
+        <Menu
+          label="Export"
+          triggerLabel="Export the run"
+          items={EXPORT_FORMATS.map((format) => ({
+            label: format.toUpperCase(),
+            onSelect: () =>
               void run(async () => {
                 const file = await client.runs.export({ runId, format });
                 download(file.filename, file.mediaType, file.content);
-              }, "Could not export the run.")
-            }
-          >
-            Export {format.toUpperCase()}
-          </Button>
-        ))}
+              }, "Could not export the run."),
+          }))}
+        />
         <ShareDialog
           label="Send results back"
           title="Send the results back"
