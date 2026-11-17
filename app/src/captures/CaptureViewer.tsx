@@ -44,7 +44,7 @@ function decodedEnvelope(decoded: DecodedCaptureData, capture: Capture): ShareEn
 function captureEnvelope(capture: Capture): ShareEnvelope {
   const shared = captureShareData(capture);
   if (!shared.ok) throw new Error(shared.error.message);
-  return { v: 1, kind: "capture", createdAt: Date.now(), data: shared.value };
+  return { v: 1, kind: "capture", createdAt: capture.startedAt, data: shared.value };
 }
 
 /**

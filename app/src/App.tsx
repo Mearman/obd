@@ -15,6 +15,7 @@ import { VersionLink } from "./release/VersionLink";
 import { ScreenBoundary } from "./report";
 import { savedNotice, type SavedShare } from "./share/saved";
 import { SharedViewer } from "./share/SharedViewer";
+import { useFragmentItem } from "./share/useFragmentItem";
 import { useItemAddress } from "./share/useItemAddress";
 import { useSharedLink } from "./share/useSharedLink";
 import { THEME_PREFERENCES } from "./theme/preference";
@@ -53,22 +54,26 @@ function ThemeButton() {
 
 /** The application shell: header, the screens and the navigation between them. */
 export function App({ support = detectBrowserSupport() }: { readonly support?: BrowserSupport }) {
-  const [{ screen, opened, view }, navigate, setShareFragment] = useAppLocation();
+  const { connection, service } = useDiagnostics();
+  const shared = useSharedLink();
+  // The item the address's share link carries, when this device stores it: the same link opens it here and the read-only viewer elsewhere.
+  const fromLink = useFragmentItem(shared.fragment, service.client);
+  const [{ screen, opened, view }, navigate, setShareFragment] = useAppLocation(
+    fromLink.status === "found" ? fromLink.open : undefined,
+  );
   const setScreen = (next: ScreenName): void => {
     navigate({ screen: next });
   };
-  const { connection, service } = useDiagnostics();
-  const shared = useSharedLink();
-  // The open item's address is its sharing link. A link whose item this device does not hold carries someone else's data, so it opens as shared data instead.
-  const onLibraryItem = screen === "library" && opened !== undefined;
-  const local = useItemAddress(
-    onLibraryItem ? itemKey(opened) : undefined,
-    () => openItemEnvelope(service.client, opened ?? { kind: "run", id: "" }, Date.now()),
+  // An open item whose address has no link yet moves to its sharing link, so the address is the one link the item has.
+  useItemAddress(
+    screen === "library" && opened !== undefined && shared.fragment === undefined
+      ? itemKey(opened)
+      : undefined,
+    () => openItemEnvelope(service.client, opened ?? { kind: "run", id: "" }),
     setShareFragment,
-    shared.fragment === undefined,
   );
-  const resolving = shared.fragment !== undefined && onLibraryItem && local === "loading";
-  const sharedFragment = onLibraryItem && local !== "missing" ? undefined : shared.fragment;
+  const resolving = fromLink.status === "resolving";
+  const sharedFragment = fromLink.status === "foreign" ? shared.fragment : undefined;
   const [saved, setSaved] = useState<SavedShare | undefined>(undefined);
   // Each increment asks the Session screen to show its Connection section.
   const [connectRequest, setConnectRequest] = useState(0);

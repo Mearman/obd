@@ -30,29 +30,27 @@ function parseItem(value: string | undefined): LibraryOpen | undefined {
 /**
  * The active screen, open Library item and Library view as the router holds them in the address query (`?screen=library&item=run:<id>&kind=run`), with a function that moves to another. Each move is one history entry unless it replaces the current one, so Back returns to the previous place. The default screen and every default of the view are left out of the address, and so are an item and a view on any other screen; other query parameters and the `#share=` fragment are kept.
  */
-export function useAppLocation(): readonly [
-  AppLocation,
-  (change: Navigation) => void,
-  (item: string, fragment: string | undefined) => void,
-] {
+export function useAppLocation(
+  fromLink?: LibraryOpen,
+): readonly [AppLocation, (change: Navigation) => void, (item: string, fragment: string) => void] {
   const search = useSearch({ from: "__root__" });
   const navigate = useNavigate();
-  const screen = search.screen ?? DEFAULT_SCREEN;
+  // An item named by the address's share link opens on the Library whatever the query says.
+  const screen = fromLink === undefined ? (search.screen ?? DEFAULT_SCREEN) : "library";
   const library = screen === "library";
   const location: AppLocation = {
     screen,
-    opened: library ? parseItem(search.item) : undefined,
+    opened: library ? (parseItem(search.item) ?? fromLink) : undefined,
     view: library ? viewFromSearch(search) : DEFAULT_VIEW,
   };
-  /** Puts a `share=...` fragment in the address for the open `item` without adding a history entry, or removes the fragment with undefined; does nothing once that item is no longer the open one. */
-  const setShareFragment = (item: string, fragment: string | undefined): void => {
-    // A link read for an item that has since been closed or replaced must not bring the item back.
+  /** Replaces the address with the sharing link of the open `item`: the fragment alone, since the fragment names the item and the screen. Does nothing once that item is no longer the open one. */
+  const setShareFragment = (item: string, fragment: string): void => {
     if (new URLSearchParams(window.location.search).get("item") !== item) return;
     void navigate({
       to: ".",
-      hash: fragment ?? "",
+      hash: fragment,
       replace: true,
-      search: (previous) => previous,
+      search: (previous) => ({ ...previous, screen: undefined, item: undefined }),
     });
   };
   const move = (change: Navigation): void => {
@@ -62,8 +60,8 @@ export function useAppLocation(): readonly [
     const view = onLibrary ? (change.view ?? location.view) : DEFAULT_VIEW;
     void navigate({
       to: ".",
-      // The address's share link belongs to the item it was made for, so opening or closing an item drops it; any other move keeps it.
-      hash: "opened" in change ? "" : true,
+      // The share link in the address belongs to the item it was made for, so any move drops it.
+      hash: "",
       replace: change.replace === true,
       search: (previous) => ({
         ...previous,

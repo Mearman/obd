@@ -16,12 +16,9 @@ function shareable<T>(result: ShareResult<T>, what: string): T {
   return result.value;
 }
 
-async function captureItemEnvelope(
-  client: DiagnosticsClient,
-  id: string,
-  createdAt: number,
-): Promise<ShareEnvelope> {
+async function captureItemEnvelope(client: DiagnosticsClient, id: string): Promise<ShareEnvelope> {
   const capture = await client.captures.get({ id });
+  const createdAt = capture.startedAt;
   return {
     v: 1,
     kind: "capture",
@@ -30,12 +27,10 @@ async function captureItemEnvelope(
   };
 }
 
-async function reportItemEnvelope(
-  client: DiagnosticsClient,
-  id: string,
-  createdAt: number,
-): Promise<ShareEnvelope> {
-  const { report } = await client.reports.get({ id });
+async function reportItemEnvelope(client: DiagnosticsClient, id: string): Promise<ShareEnvelope> {
+  const saved = await client.reports.get({ id });
+  const { report } = saved;
+  const createdAt = saved.takenAt;
   return isObdRead(report)
     ? {
         v: 1,
@@ -47,22 +42,21 @@ async function reportItemEnvelope(
 }
 
 /**
- * The envelope that shares one Library item, read from the service when the person asks to share it: a run as its plan result or summary ({@link runEnvelope}), a capture whole, and a saved report as the generic OBD-II read or the scan it holds.
+ * The envelope that shares one Library item, read from the service when the person asks to share it and dated by the item itself, so the same item always makes the same link: a run as its plan result or summary ({@link runEnvelope}), a capture whole, and a saved report as the generic OBD-II read or the scan it holds.
  *
  * @throws Error naming the item when its data cannot be shared, as a saved report with no per-unit scan.
  */
 export async function itemEnvelope(
   client: DiagnosticsClient,
   item: LibraryItem,
-  createdAt: number,
 ): Promise<ShareEnvelope> {
   switch (item.kind) {
     case "run":
-      return { ...(await runEnvelope(client, item.run)), createdAt };
+      return runEnvelope(client, item.run);
     case "capture":
-      return captureItemEnvelope(client, item.id, createdAt);
+      return captureItemEnvelope(client, item.id);
     case "report":
-      return reportItemEnvelope(client, item.id, createdAt);
+      return reportItemEnvelope(client, item.id);
   }
 }
 
@@ -74,26 +68,21 @@ export async function itemEnvelope(
 export async function openItemEnvelope(
   client: DiagnosticsClient,
   open: LibraryOpen,
-  createdAt: number,
 ): Promise<ShareEnvelope> {
   switch (open.kind) {
     case "run":
-      return {
-        ...(await runEnvelope(client, await client.runs.get({ runId: open.id }))),
-        createdAt,
-      };
+      return runEnvelope(client, await client.runs.get({ runId: open.id }));
     case "capture":
-      return captureItemEnvelope(client, open.id, createdAt);
+      return captureItemEnvelope(client, open.id);
     case "report":
-      return reportItemEnvelope(client, open.id, createdAt);
+      return reportItemEnvelope(client, open.id);
   }
 }
 
-/** The envelopes that share `items`, in their order, all made at the same moment. */
+/** The envelopes that share `items`, in their order, each dated by the item itself so an item makes the same link alone or in a bundle. */
 export function itemEnvelopes(
   client: DiagnosticsClient,
   items: readonly LibraryItem[],
 ): Promise<ShareEnvelope[]> {
-  const createdAt = Date.now();
-  return Promise.all(items.map((item) => itemEnvelope(client, item, createdAt)));
+  return Promise.all(items.map((item) => itemEnvelope(client, item)));
 }
