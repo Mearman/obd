@@ -33,7 +33,7 @@ function parseItem(value: string | undefined): LibraryOpen | undefined {
 export function useAppLocation(): readonly [
   AppLocation,
   (change: Navigation) => void,
-  (fragment: string | undefined) => void,
+  (item: string, fragment: string | undefined) => void,
 ] {
   const search = useSearch({ from: "__root__" });
   const navigate = useNavigate();
@@ -44,8 +44,10 @@ export function useAppLocation(): readonly [
     opened: library ? parseItem(search.item) : undefined,
     view: library ? viewFromSearch(search) : DEFAULT_VIEW,
   };
-  /** Puts a `share=...` fragment in the address without adding a history entry, or removes the fragment with undefined. */
-  const setShareFragment = (fragment: string | undefined): void => {
+  /** Puts a `share=...` fragment in the address for the open `item` without adding a history entry, or removes the fragment with undefined; does nothing once that item is no longer the open one. */
+  const setShareFragment = (item: string, fragment: string | undefined): void => {
+    // A link read for an item that has since been closed or replaced must not bring the item back.
+    if (new URLSearchParams(window.location.search).get("item") !== item) return;
     void navigate({
       to: ".",
       hash: fragment ?? "",
