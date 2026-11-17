@@ -55,6 +55,7 @@ export const nav = style({
 export const navButton = style({
   flex: "1 0 auto",
   minHeight: vars.size.touch,
+  minWidth: vars.size.touch,
   paddingInline: vars.space["2"],
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.radius.medium,
@@ -63,7 +64,11 @@ export const navButton = style({
   font: "inherit",
   fontSize: vars.fontSize.small,
   fontWeight: 600,
-  "@media": { [TABLET]: { fontSize: vars.fontSize.body } },
+  "@media": {
+    // The four labels must fit one row at 320 px, so the narrowest phones trim the padding rather than clip the last label.
+    "screen and (max-width: 359px)": { paddingInline: vars.space["1"] },
+    [TABLET]: { fontSize: vars.fontSize.body },
+  },
   cursor: "pointer",
   selectors: {
     "&:hover": { background: vars.color.accentSubtle },
