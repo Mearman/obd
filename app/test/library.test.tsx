@@ -355,7 +355,8 @@ describe("the Library", () => {
     expect(await screen.findByRole("dialog", { name: "Share this run's summary" })).toBeVisible();
     await userEvent.keyboard("{Escape}");
 
-    await userEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+    await userEvent.click(screen.getByRole("button", { name: `Export run ${runId}` }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "CSV" }));
     await waitFor(() => {
       expect(saved).toContain(`obd-read-run-${runId}.csv`);
     });

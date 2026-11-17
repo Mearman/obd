@@ -4,6 +4,7 @@ export * from "./Card";
 export * from "./DataTable";
 export * from "./Dialog";
 export * from "./download";
+export * from "./Menu";
 export * from "./Select";
 export * from "./Switch";
 export * from "./TextField";

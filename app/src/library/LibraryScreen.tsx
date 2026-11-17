@@ -24,6 +24,7 @@ import {
   DataTable,
   Dialog,
   GroupedDataTable,
+  Menu,
   Select,
   TextField,
   download,
@@ -221,11 +222,7 @@ export function LibraryScreen({
             ) : (
               <Badge>Stopped</Badge>
             )}
-            {isSimulatorUrl(item.run.adapter) ? (
-              <Badge tone="simulated">Simulated</Badge>
-            ) : (
-              <Badge>Recorded</Badge>
-            )}
+            {isSimulatorUrl(item.run.adapter) && <Badge tone="simulated">Simulated</Badge>}
           </span>
         );
       case "capture":
@@ -270,19 +267,18 @@ export function LibraryScreen({
               title="Share this run's summary"
               load={() => runEnvelope(client, run)}
             />
-            {EXPORT_FORMATS.map((format) => (
-              <Button
-                key={format}
-                onClick={() =>
+            <Menu
+              label="Export"
+              triggerLabel={`Export run ${run.id}`}
+              items={EXPORT_FORMATS.map((format) => ({
+                label: format.toUpperCase(),
+                onSelect: () =>
                   void act(async () => {
                     const file = await client.runs.export({ runId: run.id, format });
                     download(file.filename, file.mediaType, file.content);
-                  }, "Could not export the run.")
-                }
-              >
-                Export {format.toUpperCase()}
-              </Button>
-            ))}
+                  }, "Could not export the run."),
+              }))}
+            />
           </span>
         );
       }
