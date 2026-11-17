@@ -1,7 +1,9 @@
 import { useId, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import {
+  bareCell,
   body,
   cell,
+  nowrapCell,
   group,
   groupHeading,
   groupToggle,
@@ -29,6 +31,10 @@ export interface Column<Row, Key extends string = string> {
   readonly render: (row: Row) => ReactNode;
   /** What the table's {@link DataTableProps.sorting} calls this column; a column without one cannot be sorted by. */
   readonly sortKey?: Key;
+  /** Keeps the value on one line when the table is wide; leave it off for text that may be long. */
+  readonly nowrap?: boolean;
+  /** Shows the value on a phone's card with no heading beside it, for a control that needs none. */
+  readonly bare?: boolean;
 }
 
 /** The sorted column of a {@link DataTable}, and what picking a column's header does. */
@@ -147,7 +153,18 @@ export function DataTable<Row, Key extends string = string>({
                 })}
           >
             {columns.map((column) => (
-              <div key={column.header} role="cell" data-label={column.header} className={cell}>
+              <div
+                key={column.header}
+                role="cell"
+                data-label={column.header}
+                className={[
+                  cell,
+                  column.nowrap === true ? nowrapCell : "",
+                  column.bare === true ? bareCell : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
                 <span>{column.render(item)}</span>
               </div>
             ))}

@@ -1,4 +1,4 @@
-import { style } from "@vanilla-extract/css";
+import { globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../theme/contract.css";
 
 export const page = style({
@@ -59,4 +59,15 @@ export const row = style({
   flexWrap: "wrap",
   alignItems: "center",
   gap: vars.space["2"],
+});
+
+/** A native disclosure whose summary is a full touch target, for long reference text that most visits do not need. */
+export const disclosure = style({});
+
+globalStyle(`${disclosure} > summary`, {
+  display: "flex",
+  alignItems: "center",
+  minHeight: vars.size.touch,
+  cursor: "pointer",
+  fontWeight: 600,
 });

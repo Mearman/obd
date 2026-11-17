@@ -31,3 +31,13 @@ export const selectBox = style({
     "&:focus-visible": { outline: `2px solid ${vars.color.accent}`, outlineOffset: "-2px" },
   },
 });
+
+/** A run's actions: wrapping on a phone or tablet, one line once the Library has the width. */
+export const actionsRow = style({
+  display: "flex",
+  flexWrap: "wrap",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: vars.space["2"],
+  "@media": { "screen and (min-width: 1100px)": { flexWrap: "nowrap" } },
+});

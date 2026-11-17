@@ -62,6 +62,11 @@ export const openable = style({
   },
 });
 
+/** A cell whose value stays on one line once the table is wide enough that every column can afford it. */
+export const nowrapCell = style({
+  "@media": { "screen and (min-width: 1100px)": { whiteSpace: "nowrap" } },
+});
+
 export const headRow = style({ display: "table-row" });
 
 export const headerCell = style({
@@ -87,6 +92,8 @@ export const cell = style({
       fontWeight: 600,
       flexShrink: 0,
     },
+    // A value-less cell on a card is a label with nothing beside it.
+    "&:has(> span:empty)": { display: "none" },
   },
   "@media": {
     [WIDE]: {
@@ -96,9 +103,17 @@ export const cell = style({
       overflowWrap: "normal",
       padding: `${vars.space["3"]} ${vars.space["3"]}`,
       borderBottom: `1px solid ${vars.color.border}`,
-      selectors: { "&::before": { content: "none" } },
+      selectors: {
+        "&::before": { content: "none" },
+        "&:has(> span:empty)": { display: "table-cell" },
+      },
     },
   },
+});
+
+/** A cell with no heading of its own on a phone's card, such as a row's select checkbox. */
+export const bareCell = style({
+  selectors: { "&::before": { content: "none" } },
 });
 
 /** The head of a sortable table, which stays on a phone as a row of sort buttons above the cards. */
