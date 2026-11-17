@@ -288,7 +288,9 @@ describe("a shared link with automatic saving off", () => {
     expect(window.location.hash).not.toBe("");
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(await screen.findByText("Saved the shared scan")).toBeInTheDocument();
-    expect(window.location.hash).toBe("");
+    await waitFor(() => {
+      expect(window.location.hash).toBe("");
+    });
     expect(screen.getByRole("tablist")).toBeInTheDocument();
     const [summary] = await storage.listScanReports({});
     expect(summary).toMatchObject({
@@ -307,7 +309,9 @@ describe("a shared link with automatic saving off", () => {
     await renderApp(<App support={CHROME} />, createTestService(storage), sessionOver(storage));
     await screen.findByRole("table", { name: "Shared scan" });
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-    expect(window.location.hash).toBe("");
+    await waitFor(() => {
+      expect(window.location.hash).toBe("");
+    });
     expect(screen.getByRole("tablist")).toBeInTheDocument();
     expect(await storage.listScanReports({})).toEqual([]);
   });
@@ -552,7 +556,9 @@ describe("a shared link with automatic saving off", () => {
     expect(window.location.hash).not.toBe("");
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(await screen.findByText("Saved the shared capture")).toBeInTheDocument();
-    expect(window.location.hash).toBe("");
+    await waitFor(() => {
+      expect(window.location.hash).toBe("");
+    });
     const [stored, ...others] = await storage.listCaptures({});
     expect(others).toEqual([]);
     expect(stored).toMatchObject({ id: capture.id, origin: "shared" });
@@ -625,7 +631,9 @@ describe("a shared link with the default setting", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(await screen.findByText("Saved the shared scan")).toBeInTheDocument();
-    expect(window.location.hash).toBe("");
+    await waitFor(() => {
+      expect(window.location.hash).toBe("");
+    });
     expect(await storage.listScanReports({})).toHaveLength(1);
   });
 

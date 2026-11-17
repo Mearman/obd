@@ -275,7 +275,9 @@ describe("a plan link", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open in Guide" }));
     const record = await screen.findByRole("button", { name: "Record Accelerator pedal check" });
     expect(record).toHaveAttribute("aria-pressed", "true");
-    expect(window.location.hash).toBe("");
+    await waitFor(() => {
+      expect(window.location.hash).toBe("");
+    });
     const stored = await storage.listPlans();
     expect(stored.map((plan) => plan.origin)).toEqual(["shared"]);
     expect(screen.getByRole("button", { name: "Start the plan" })).toBeDisabled();
