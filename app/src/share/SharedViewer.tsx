@@ -359,9 +359,11 @@ export function SharedViewer({ fragment, onDone, onOpenPlan }: SharedViewerProps
           From a link, not your adapter
         </Badge>
         {carried !== undefined && (
-          <Badge
-            wrap
-          >{`Link made ${utc(carried.kind === "single" ? carried.envelope.createdAt : carried.createdAt)}`}</Badge>
+          <Badge wrap>
+            {carried.kind === "single"
+              ? `Dated ${utc(carried.envelope.createdAt)}`
+              : `Link made ${utc(carried.createdAt)}`}
+          </Badge>
         )}
         {carried?.kind === "bundle" && <Badge wrap>{`${String(envelopes.length)} results`}</Badge>}
       </div>
