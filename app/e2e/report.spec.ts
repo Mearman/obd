@@ -44,6 +44,7 @@ test("a failing screen is contained, and its report carries nothing from the ses
   await failScan(page);
 
   await expect(page.getByRole("heading", { name: "Read could not be shown" })).toBeVisible();
+  await page.screenshot({ path: "screenshots/error-contained.png", fullPage: true });
   // The rest of the app is still up: the shell, the connection in the Session screen's bar and the other sections.
   await expect(page.getByRole("banner")).toBeVisible();
   await expect(page.getByText("Connected to Simulator")).toBeVisible();

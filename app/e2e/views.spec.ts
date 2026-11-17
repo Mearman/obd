@@ -50,6 +50,11 @@ for (const viewport of VIEWPORTS) {
       }) => {
         const base = `screenshots/views-${viewport.name}-${scheme}`;
 
+        await page.goto("/?screen=library");
+        await expect(page.getByRole("heading", { level: 1, name: "Library" })).toBeVisible();
+        await fits(page, "the empty Library");
+        await page.screenshot({ path: `${base}-library-empty.png` });
+
         await page.goto("/");
         await page.getByRole("button", { name: /connect with the simulator/i }).click();
         await expect(page.getByText("Connected to Simulator")).toBeVisible();
