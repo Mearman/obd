@@ -20,6 +20,28 @@ The app's screens share one kit in `app/src/ui` and one set of theme tokens in `
 
 `app/e2e/layout.ts` holds one `fits` check, and every screen and dialog spec calls it, so no view can opt out by forgetting a copy: no sideways page scroll, every control at least 44 px, and no button, tab or badge whose text runs onto a second line. A badge that is a sentence opts out with `wrap`, which marks it `data-wrap`. A label that wraps is fixed in the layout (a wider column, `nowrap`), never by loosening the check.
 
+## Per-view review
+
+Each view was reviewed from screenshots at phone, tablet and desktop widths in light and dark, and held to the conventions above. What each shows, and the pattern it follows:
+
+| View                | What it shows                                                                   | Pattern it follows                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Session, Connection | Vehicle profile, the three ways to connect, options                             | Cards with one primary action each; the connection choices sit in a row from tablet width and stack on a phone                             |
+| Session, Read       | Scan, results, vehicle summary, capture                                         | One primary action per card; results are a table from tablet width and cards on a phone; the unit's Clear action stays on one line         |
+| Session, Live       | Collection picker, run state, fault codes, readings                             | A signal's name stays on one line in the picker; readings are a table from tablet width and cards on a phone; Pin is the row's only action |
+| Session, Advanced   | Guarded changes to the car                                                      | Disabled actions look disabled and say why in the text above them                                                                          |
+| Library             | One list of runs, captures and reports, with filters                            | Actions are Fault codes, Share and one Export menu on one line from a laptop width; the row's kind, origin and state are one-line badges   |
+| Library, a run      | Playback and graphs                                                             | Charts share the width; one primary Play action; speed choices are one group                                                               |
+| Library, a capture  | Decode profile, replay, decoded tables                                          | Import, Export, Share and Download are four controls, each a menu where it holds several formats                                           |
+| Guide               | Plan picker, running phase, summary, plan editor                                | One primary action per state; a phase's fields fold; a finished plan offers Open, Export, Send results back                                |
+| Shared data         | A link opened read-only                                                         | The same cards as the screens it mirrors, a badge saying it came from a link, Save and Dismiss as the only actions                         |
+| Settings            | Appearance, shared links, profiles, stored data, updates                        | One card per concern; long reference text is a disclosure; full-width buttons only on a phone                                              |
+| Dialogs and menus   | Share, fault codes, Export, Download, problem report                            | A title, a description, the content and one primary Close; menu items are 44 px rows                                                       |
+| Loading             | Library, Guide, Settings while the database opens                               | Content that needs no database shows at once; the part that does says it is loading and its actions are disabled                           |
+| Empty and error     | Nothing stored, a link that cannot be opened, a refused import, a failed screen | A plain sentence, the one action that helps, and no layout of its own                                                                      |
+
+A view is added to this table, and to the end-to-end suite's layout check, in the change that adds it.
+
 ## Checking a view
 
 The end-to-end suite visits Session, Library, Settings, Guide, graphs, live collection, the capture viewer, the share dialog and a shared link at phone, tablet and desktop widths in light and dark, fails on any horizontal page scroll or any control under 44 px, and saves a screenshot of each to `app/screenshots` (not committed). Review those screenshots for what the suite cannot decide:
