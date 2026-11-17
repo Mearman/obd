@@ -14,7 +14,7 @@ export const CONDITION_CHOICES = [
   ["elapsed", "After a number of seconds"],
   ["samples", "After a number of samples"],
   ["compare", "A value above or below a number"],
-  ["between", "A value between two numbers"],
+  ["between", "A value in a range"],
   ["stable", "A value holding steady"],
   ["code-appears", "A fault code appears"],
   ["code-clears", "A fault code clears"],
