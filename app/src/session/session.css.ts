@@ -65,8 +65,8 @@ export const navButton = style({
   fontSize: vars.fontSize.small,
   fontWeight: 600,
   "@media": {
-    // The four labels must fit one row at 320 px, so the narrowest phones trim the padding rather than clip the last label.
-    "screen and (max-width: 359px)": { paddingInline: vars.space["1"] },
+    // The four labels must fit one row at 320 px, so the narrowest phones trim the padding and the type, with room to spare for a font wider than this one, rather than clip the last label.
+    "screen and (max-width: 359px)": { paddingInline: vars.space["1"], fontSize: "0.75rem" },
     [TABLET]: { fontSize: vars.fontSize.body },
   },
   cursor: "pointer",
