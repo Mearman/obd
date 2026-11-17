@@ -88,6 +88,16 @@ export async function wrappedLabels(page: Page): Promise<string[]> {
   });
 }
 
+/** The navigation bars whose content is wider than the bar, so a label is cut off at the edge instead of shown. */
+export async function clippedNavs(page: Page): Promise<string[]> {
+  return page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>("nav")]
+      .filter((element) => element.getClientRects().length > 0)
+      .filter((element) => element.scrollWidth > element.clientWidth + 1)
+      .map((element) => `nav "${element.getAttribute("aria-label") ?? ""}"`),
+  );
+}
+
 /** Checks that the page does not scroll sideways, that every control is large enough and that no label wraps. */
 export async function fits(page: Page, what: string): Promise<void> {
   expect(await horizontalOverflow(page), `${what} overflows horizontally`).toBeLessThanOrEqual(0);
@@ -96,4 +106,5 @@ export async function fits(page: Page, what: string): Promise<void> {
     `${what} has targets under ${String(MIN_TARGET)} px`,
   ).toEqual([]);
   expect(await wrappedLabels(page), `${what} has a label that wraps`).toEqual([]);
+  expect(await clippedNavs(page), `${what} has a navigation bar that clips a label`).toEqual([]);
 }
