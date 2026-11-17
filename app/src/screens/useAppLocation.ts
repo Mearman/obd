@@ -30,7 +30,11 @@ function parseItem(value: string | undefined): LibraryOpen | undefined {
 /**
  * The active screen, open Library item and Library view as the router holds them in the address query (`?screen=library&item=run:<id>&kind=run`), with a function that moves to another. Each move is one history entry unless it replaces the current one, so Back returns to the previous place. The default screen and every default of the view are left out of the address, and so are an item and a view on any other screen; other query parameters and the `#share=` fragment are kept.
  */
-export function useAppLocation(): readonly [AppLocation, (change: Navigation) => void] {
+export function useAppLocation(): readonly [
+  AppLocation,
+  (change: Navigation) => void,
+  (fragment: string | undefined) => void,
+] {
   const search = useSearch({ from: "__root__" });
   const navigate = useNavigate();
   const screen = search.screen ?? DEFAULT_SCREEN;
@@ -40,6 +44,15 @@ export function useAppLocation(): readonly [AppLocation, (change: Navigation) =>
     opened: library ? parseItem(search.item) : undefined,
     view: library ? viewFromSearch(search) : DEFAULT_VIEW,
   };
+  /** Puts a `share=...` fragment in the address without adding a history entry, or removes the fragment with undefined. */
+  const setShareFragment = (fragment: string | undefined): void => {
+    void navigate({
+      to: ".",
+      hash: fragment ?? "",
+      replace: true,
+      search: (previous) => previous,
+    });
+  };
   const move = (change: Navigation): void => {
     const next = change.screen ?? location.screen;
     const onLibrary = next === "library";
@@ -47,7 +60,8 @@ export function useAppLocation(): readonly [AppLocation, (change: Navigation) =>
     const view = onLibrary ? (change.view ?? location.view) : DEFAULT_VIEW;
     void navigate({
       to: ".",
-      hash: true,
+      // The address's share link belongs to the item it was made for, so opening or closing an item drops it; any other move keeps it.
+      hash: "opened" in change ? "" : true,
       replace: change.replace === true,
       search: (previous) => ({
         ...previous,
@@ -57,5 +71,5 @@ export function useAppLocation(): readonly [AppLocation, (change: Navigation) =>
       }),
     });
   };
-  return [location, move];
+  return [location, move, setShareFragment];
 }

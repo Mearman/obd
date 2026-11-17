@@ -6,7 +6,8 @@ import { DatabaseNotice } from "./database/DatabaseNotice";
 import { useDiagnostics } from "./diagnostics/DiagnosticsProvider";
 import { app, brand, header, identity, main, nav, status } from "./App.css";
 import { GuideScreen } from "./screens/GuideScreen";
-import type { LibraryOpen } from "./library/items";
+import { itemKey, type LibraryOpen } from "./library/items";
+import { openItemEnvelope } from "./library/item-envelope";
 import { LibraryScreen } from "./library/LibraryScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { SessionScreen } from "./session/SessionScreen";
@@ -14,6 +15,7 @@ import { VersionLink } from "./release/VersionLink";
 import { ScreenBoundary } from "./report";
 import { savedNotice, type SavedShare } from "./share/saved";
 import { SharedViewer } from "./share/SharedViewer";
+import { useItemAddress } from "./share/useItemAddress";
 import { useSharedLink } from "./share/useSharedLink";
 import { THEME_PREFERENCES } from "./theme/preference";
 import { useTheme } from "./theme/ThemeProvider";
@@ -51,12 +53,21 @@ function ThemeButton() {
 
 /** The application shell: header, the screens and the navigation between them. */
 export function App({ support = detectBrowserSupport() }: { readonly support?: BrowserSupport }) {
-  const [{ screen, opened, view }, navigate] = useAppLocation();
+  const [{ screen, opened, view }, navigate, setShareFragment] = useAppLocation();
   const setScreen = (next: ScreenName): void => {
     navigate({ screen: next });
   };
-  const { connection } = useDiagnostics();
+  const { connection, service } = useDiagnostics();
   const shared = useSharedLink();
+  // The open item's address is its sharing link. A link whose item this device does not hold carries someone else's data, so it opens as shared data instead.
+  const onLibraryItem = screen === "library" && opened !== undefined;
+  const local = useItemAddress(
+    onLibraryItem ? itemKey(opened) : undefined,
+    () => openItemEnvelope(service.client, opened ?? { kind: "run", id: "" }, Date.now()),
+    setShareFragment,
+  );
+  const resolving = shared.fragment !== undefined && onLibraryItem && local === "loading";
+  const sharedFragment = onLibraryItem && local !== "missing" ? undefined : shared.fragment;
   const [saved, setSaved] = useState<SavedShare | undefined>(undefined);
   // Each increment asks the Session screen to show its Connection section.
   const [connectRequest, setConnectRequest] = useState(0);
@@ -86,7 +97,7 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
         </div>
         <div className={status}>
           {/* The Session screen's own bar shows the connection there, with the adapter and Disconnect; the header shows it everywhere else. Shared data is marked on every screen. */}
-          {shared.fragment !== undefined ? (
+          {sharedFragment !== undefined ? (
             <Badge tone="warning">Shared data</Badge>
           ) : (
             screen !== "session" && (
@@ -120,19 +131,21 @@ export function App({ support = detectBrowserSupport() }: { readonly support?: B
           description={savedNotice(saved).description}
         />
       )}
-      {shared.fragment !== undefined ? (
+      {resolving ? (
+        <main className={main} aria-busy />
+      ) : sharedFragment !== undefined ? (
         <main className={main}>
           <ScreenBoundary
             screen="shared"
-            resetKeys={[shared.fragment]}
+            resetKeys={[sharedFragment]}
             onGoToConnect={() => {
               shared.clear();
               goConnect();
             }}
           >
             <SharedViewer
-              key={shared.fragment}
-              fragment={shared.fragment}
+              key={sharedFragment}
+              fragment={sharedFragment}
               onDone={(kept) => {
                 shared.clear();
                 setSaved(kept);

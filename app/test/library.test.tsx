@@ -396,6 +396,27 @@ describe("the Library", () => {
     expect(screen.queryByLabelText("Saved report")).toBeNull();
   });
 
+  it("puts the open item's sharing link in the address, which opens the same item here", async () => {
+    const { service, captureId } = await seeded();
+    const table = await openLibrary(service);
+    await userEvent.click(
+      await within(table).findByRole("row", { name: `Open capture ${captureId}` }),
+    );
+    expect(await screen.findByText(`Capture ${captureId}`)).toBeVisible();
+    await waitFor(() => {
+      expect(fragmentOfLink(window.location.href)).toBeDefined();
+    });
+    const link = window.location.href;
+    const decoded = await decodedLink(link);
+    expect(decoded.kind).toBe("capture");
+
+    // Closing the item takes the link out of the address with it.
+    await userEvent.click(screen.getAllByRole("button", { name: "Close" })[0] as HTMLElement);
+    await waitFor(() => {
+      expect(window.location.hash).toBe("");
+    });
+  });
+
   it("returns to the open item with Back after another screen, and opens one from the address", async () => {
     const { service, captureId } = await seeded();
     const table = await openLibrary(service);

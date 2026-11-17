@@ -1,5 +1,6 @@
 import { shareFragmentOf } from "obd-read";
-import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useCallback } from "react";
 
 /** What a page holds of a share link in its address. */
 export interface SharedLink {
@@ -9,28 +10,15 @@ export interface SharedLink {
   readonly clear: () => void;
 }
 
-/** Follows the page's `#share=` fragment, including one pasted into an already open page. */
+/** Follows the address's `#share=` fragment as the router holds it, so one pasted into an open page and one the app puts there itself both count. */
 export function useSharedLink(): SharedLink {
-  const [fragment, setFragment] = useState(() => shareFragmentOf(window.location.hash));
+  const hash = useRouterState({ select: (state) => state.location.hash });
+  const fragment = shareFragmentOf(hash);
 
-  useEffect(() => {
-    const follow = (): void => {
-      setFragment(shareFragmentOf(window.location.hash));
-    };
-    window.addEventListener("hashchange", follow);
-    return () => {
-      window.removeEventListener("hashchange", follow);
-    };
-  }, []);
-
+  const navigate = useNavigate();
   const clear = useCallback(() => {
-    window.history.replaceState(
-      window.history.state,
-      "",
-      window.location.pathname + window.location.search,
-    );
-    setFragment(undefined);
-  }, []);
+    void navigate({ to: ".", hash: "", replace: true, search: (previous) => previous });
+  }, [navigate]);
 
   return { fragment, clear };
 }
