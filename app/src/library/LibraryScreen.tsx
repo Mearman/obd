@@ -323,7 +323,7 @@ export function LibraryScreen({
     },
     { header: "Kind", sortKey: "kind", render: (item) => <Badge>{KIND_LABELS[item.kind]}</Badge> },
     { header: "Date", sortKey: "date", nowrap: true, render: (item) => when(item.at) },
-    { header: "Profile", sortKey: "profile", render: profileText },
+    { header: "Profile", sortKey: "profile", nowrap: true, render: profileText },
     { header: "Details", render: details },
     {
       header: "Origin",
