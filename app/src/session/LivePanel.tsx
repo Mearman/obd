@@ -74,6 +74,7 @@ export function LivePanel() {
     },
     {
       header: "Pin",
+      bare: true,
       render: (row) => {
         const pinned = pins.includes(row.signal);
         return (

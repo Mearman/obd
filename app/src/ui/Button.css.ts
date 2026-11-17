@@ -38,7 +38,10 @@ export const button = recipe({
     },
     // Full width on a phone, where a wide button is the easy target; its natural width once there is room.
     block: {
-      true: { width: "100%", "@media": { "screen and (min-width: 640px)": { width: "auto" } } },
+      true: {
+        width: "100%",
+        "@media": { "screen and (min-width: 640px)": { width: "auto", alignSelf: "flex-start" } },
+      },
     },
   },
   defaultVariants: { variant: "secondary" },
