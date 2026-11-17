@@ -7,7 +7,7 @@ import { isThemePreference } from "../theme/preference";
 import { useTheme } from "../theme/ThemeProvider";
 import { Button, Card, Select, Switch } from "../ui";
 import { COLLECTION_LIMIT } from "./limits";
-import { disclosure, error, list, muted, page } from "./screen.css";
+import { error, list, muted, page } from "./screen.css";
 import { ScreenHeading } from "./ScreenHeading";
 
 const THEME_OPTIONS = [
@@ -59,7 +59,7 @@ export function SettingsScreen() {
         title="Vehicle profiles"
         description="Profiles are JSON files. Importing checks the file against the same schema as the bundled ones, and nothing leaves this device. Imported profiles are kept on this device."
       >
-        <details className={disclosure}>
+        <details>
           <summary>{`${String(builtin.length)} bundled profiles`}</summary>
           <p>{builtin.join(", ")}.</p>
         </details>
