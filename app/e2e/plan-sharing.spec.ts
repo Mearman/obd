@@ -14,6 +14,7 @@ import {
 } from "obd-read";
 import { loadBuiltinPlan } from "obd-read/plans";
 import { streamShareCodec } from "obd-read/web";
+import { fits } from "./layout";
 
 const VIEWPORTS = [
   { name: "narrow", width: 320, height: 640 },
@@ -23,12 +24,6 @@ const VIEWPORTS = [
 ] as const;
 
 const SCHEMES = ["light", "dark"] as const;
-
-/** The smallest touch target, in CSS pixels. */
-const MIN_TARGET = 44;
-
-const INTERACTIVE =
-  'button, a[href], [role="tab"], [role="switch"], [role="slider"], summary, select, textarea, input:not([hidden]):not([type="hidden"]), label:has(> input[type="checkbox"])';
 
 /** A wider font than any the app is likely to fall back to, so a layout that fits only with this machine's fonts fails here, not on another system. */
 const WIDE_FONT =
@@ -42,28 +37,6 @@ async function fitsWithAnyFont(page: Page, what: string): Promise<void> {
   await tag.evaluate((element) => {
     element.parentNode?.removeChild(element);
   });
-}
-
-async function fits(page: Page, what: string): Promise<void> {
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow, `${what} overflows horizontally`).toBeLessThanOrEqual(0);
-  const small = await page.evaluate(
-    ({ selector, min }) =>
-      [...document.querySelectorAll<HTMLElement>(selector)]
-        .filter((element) => element.getClientRects().length > 0)
-        // A checkbox inside its label is reached through the label, whose whole row is the target.
-        .filter((element) => !(element instanceof HTMLInputElement && element.type === "checkbox"))
-        .map((element) => ({ element, box: element.getBoundingClientRect() }))
-        .filter(({ box }) => box.width < min || box.height < min)
-        .map(
-          ({ element, box }) =>
-            `${element.tagName.toLowerCase()} "${(element.getAttribute("aria-label") ?? element.textContent).trim().slice(0, 30)}" ${String(Math.round(box.width))}x${String(Math.round(box.height))}`,
-        ),
-    { selector: INTERACTIVE, min: MIN_TARGET },
-  );
-  expect(small, `${what} has targets under ${String(MIN_TARGET)} px`).toEqual([]);
 }
 
 /** A results link made in Node from a recorded run of the shipped idle-then-rev plan, for the layout checks. */

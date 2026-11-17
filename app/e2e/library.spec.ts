@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openSection } from "./session";
+import { fits as fitsPage, MIN_TARGET } from "./layout";
 
 const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },
@@ -9,14 +10,8 @@ const VIEWPORTS = [
 
 const SCHEMES = ["light", "dark"] as const;
 
-/** The smallest touch target, in CSS pixels. */
-const MIN_TARGET = 44;
-
 /** The narrowest phone the tab bar must fit without scrolling. */
 const NARROWEST = { width: 320, height: 640 } as const;
-
-const INTERACTIVE =
-  'button, a[href], [role="tab"], [role="switch"], [role="combobox"], input:not([hidden]):not([type="hidden"])';
 
 /** A run's CSV export: the two fixed columns, then one per signal. */
 const RUN_CSV =
@@ -30,12 +25,6 @@ const TRANSCRIPT = [
   "2026-01-02T03:04:05.150+00:00 < 7E8 06 41 00 08 18 00 00",
 ].join("\n");
 
-async function horizontalOverflow(page: Page): Promise<number> {
-  return page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-}
-
 /** How far the tab bar's labels run past its width; the bar scrolls rather than overflowing the page, so the page check alone would miss a clipped tab. */
 async function tabBarOverflow(page: Page): Promise<number> {
   return page
@@ -43,28 +32,9 @@ async function tabBarOverflow(page: Page): Promise<number> {
     .evaluate((bar) => bar.scrollWidth - bar.clientWidth);
 }
 
-async function undersizedTargets(page: Page): Promise<string[]> {
-  return page.evaluate(
-    ({ selector, min }) =>
-      [...document.querySelectorAll<HTMLElement>(selector)]
-        .filter((element) => element.getClientRects().length > 0)
-        .map((element) => ({ element, box: element.getBoundingClientRect() }))
-        .filter(({ box }) => box.width < min || box.height < min)
-        .map(
-          ({ element, box }) =>
-            `${element.tagName.toLowerCase()} "${(element.getAttribute("aria-label") ?? element.textContent).trim().slice(0, 30)}" ${String(Math.round(box.width))}x${String(Math.round(box.height))}`,
-        ),
-    { selector: INTERACTIVE, min: MIN_TARGET },
-  );
-}
-
 async function fits(page: Page, what: string): Promise<void> {
   expect(await tabBarOverflow(page), `the tab bar is clipped on ${what}`).toBeLessThanOrEqual(0);
-  expect(await horizontalOverflow(page), `${what} overflows horizontally`).toBeLessThanOrEqual(0);
-  expect(
-    await undersizedTargets(page),
-    `${what} has targets under ${String(MIN_TARGET)} px`,
-  ).toEqual([]);
+  await fitsPage(page, what);
 }
 
 /** Imports `text` as the file `name` through the Library's one import control. */

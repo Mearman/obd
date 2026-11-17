@@ -16,6 +16,10 @@ The app's screens share one kit in `app/src/ui` and one set of theme tokens in `
 - **Graphs** fill the width when there is one and share it when there are several.
 - **Theme.** Colours come from tokens only, with a light and a dark value for each.
 
+## What the suite enforces on every view
+
+`app/e2e/layout.ts` holds one `fits` check, and every screen and dialog spec calls it, so no view can opt out by forgetting a copy: no sideways page scroll, every control at least 44 px, and no button, tab or badge whose text runs onto a second line. A badge that is a sentence opts out with `wrap`, which marks it `data-wrap`. A label that wraps is fixed in the layout (a wider column, `nowrap`), never by loosening the check.
+
 ## Checking a view
 
 The end-to-end suite visits Session, Library, Settings, Guide, graphs, live collection, the capture viewer, the share dialog and a shared link at phone, tablet and desktop widths in light and dark, fails on any horizontal page scroll or any control under 44 px, and saves a screenshot of each to `app/screenshots` (not committed). Review those screenshots for what the suite cannot decide:

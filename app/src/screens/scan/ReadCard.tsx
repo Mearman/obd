@@ -50,6 +50,7 @@ export function ReadCard({ stopRunHint }: { readonly stopRunHint: string }) {
 
   const clearColumn: Column<UnitReportData> = {
     header: "Clear",
+    nowrap: true,
     render: (unit) =>
       unit.answered && (unit.faults?.length ?? 0) > 0 ? (
         <GuardedOperation

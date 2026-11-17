@@ -15,5 +15,9 @@ export function Badge({
   readonly wrap?: boolean;
   readonly children: ReactNode;
 }) {
-  return <span className={badge({ tone, wrap })}>{children}</span>;
+  return (
+    <span className={badge({ tone, wrap })} {...(wrap === true ? { "data-wrap": "" } : {})}>
+      {children}
+    </span>
+  );
 }
