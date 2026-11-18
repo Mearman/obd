@@ -692,7 +692,10 @@ describe("sharing several Library items", () => {
         return String.fromCharCode(97 + (state % 26));
       }).join("");
     for (const id of ["noisy-a", "noisy-b", "noisy-c"]) {
-      await service.storage.saveCapture({ ...base, id, notes: [letters()] }, { origin: "imported", vin: null, plate: null });
+      await service.storage.saveCapture(
+        { ...base, id, notes: [letters()] },
+        { origin: "imported", vin: null, plate: null },
+      );
     }
     const table = await openLibrary(service);
     await choose("Kind", "Captures");
