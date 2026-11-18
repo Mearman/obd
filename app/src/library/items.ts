@@ -34,6 +34,8 @@ interface ItemBase {
   readonly vin: string | null;
   /** The number plate recorded with it, or, once the Library resolves it, the plate its vehicle carried at its time; `null` when neither is known. */
   readonly plate: string | null;
+  /** Which vehicle the Library files it under: its VIN, or once the Library resolves it through the register, `vehicle:` and the id of a vehicle known only by its plates; `null` when neither is known. */
+  readonly vehicle: string | null;
 }
 
 /** One row of the Library. */
@@ -95,6 +97,7 @@ export function runItem(run: Run, samples: number): LibraryItem {
     origin: run.origin,
     profile: run.profile,
     vin: run.vin,
+    vehicle: run.vin,
     plate: run.plate,
     run,
     samples,
@@ -110,6 +113,7 @@ export function captureItem(capture: CaptureSummary): LibraryItem {
     origin: capture.origin,
     profile: capture.profile,
     vin: capture.vin,
+    vehicle: capture.vin,
     plate: capture.plate,
     capture,
   };
@@ -124,6 +128,7 @@ export function reportItem(report: ScanReportSummary): LibraryItem {
     origin: report.origin,
     profile: report.profile,
     vin: report.vin,
+    vehicle: report.vin,
     plate: report.plate,
     report,
   };

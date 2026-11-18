@@ -185,6 +185,18 @@ describe("routing an imported file by its content", () => {
 });
 
 describe("the Library", () => {
+  it("says so when the vehicles cannot be read, and still lists every item", async () => {
+    const { service } = await seeded();
+    vi.spyOn(service.storage, "getVehicleRegister").mockRejectedValue(new Error("disk gone"));
+    await openLibrary(service);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The vehicles could not be read, so items show only the VIN and plate they recorded.",
+    );
+    await waitFor(() => {
+      expect(kindsListed()).toEqual(["Run", "Capture", "Report"]);
+    });
+  });
+
   it("lists every kind in one list, newest first, with the kind, date, profile and origin in each row", async () => {
     const { service } = await seeded();
     await openLibrary(service);

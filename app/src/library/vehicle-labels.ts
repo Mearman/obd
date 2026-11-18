@@ -1,6 +1,7 @@
 import { profilesForVin, type Profile, type VehicleRegister } from "obd-read";
 import { useEffect, useState } from "react";
 import { useDatabase } from "../database/DatabaseProvider";
+import { failureMessage } from "../diagnostics/client";
 import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { availableProfiles } from "../profiles/vin-suggestions";
 import type { VehicleLabels } from "./view";
@@ -42,22 +43,44 @@ export function useVehicleLabels(vins: readonly string[]): VehicleLabels {
 /** No vehicles and no plates: what the Library resolves against until the register is read. */
 const EMPTY_REGISTER: VehicleRegister = { vehicles: [], plates: [] };
 
-/** The vehicle register, read again whenever the database changes; empty until the first read, so items show what they recorded until then. A failed read leaves the last register in place, since the list itself reports storage problems. */
-export function useVehicleRegister(): VehicleRegister {
+/** The vehicle register as the Library last read it, and why the latest read failed, if it did. */
+export interface RegisterListing {
+  readonly register: VehicleRegister;
+  readonly problem: string | undefined;
+}
+
+/** The vehicle register, read again whenever the database changes; empty until the first read, so items show what they recorded until then. A failed read keeps the last register and says why, for the Library to show beside the list. */
+export function useVehicleRegister(): RegisterListing {
   const { service } = useDiagnostics();
   const { client } = service;
   const { revision } = useDatabase();
-  const [register, setRegister] = useState<VehicleRegister>(EMPTY_REGISTER);
+  const [listing, setListing] = useState<RegisterListing>({
+    register: EMPTY_REGISTER,
+    problem: undefined,
+  });
 
   useEffect(() => {
     let current = true;
-    void client.vehicles.list().then((found) => {
-      if (current) setRegister(found);
-    });
+    client.vehicles.list().then(
+      (register) => {
+        if (current) setListing({ register, problem: undefined });
+      },
+      (caught: unknown) => {
+        if (current) {
+          setListing((before) => ({
+            register: before.register,
+            problem: failureMessage(
+              caught,
+              "The vehicles could not be read, so items show only the VIN and plate they recorded.",
+            ),
+          }));
+        }
+      },
+    );
     return () => {
       current = false;
     };
   }, [client, revision]);
 
-  return register;
+  return listing;
 }

@@ -6,6 +6,7 @@ import {
   DEFAULT_VIEW,
   describeVehicles,
   resolveVehicles,
+  withVehicleNames,
   UNKNOWN_VEHICLE,
   groupItems,
   shownItems,
@@ -415,5 +416,49 @@ describe("the Library's plates", () => {
       [`${POLO} (AB12 CDE)`, ["c3", "u1"]],
       ["Unknown vehicle", ["c4", "c1"]],
     ]);
+  });
+});
+
+describe("a vehicle known only by its plates", () => {
+  /** A W211 whose units report no VIN, added by hand with its plate; and a plate two vehicles claim. */
+  const REGISTER: VehicleRegister = {
+    vehicles: [
+      { id: "w", vin: null, label: "W211" },
+      { id: "a", vin: null, label: "" },
+      { id: "b", vin: null, label: "" },
+    ],
+    plates: [
+      { id: "1", vehicleId: "w", plate: "W211PLT", validFrom: null, validTo: null },
+      { id: "2", vehicleId: "a", plate: "TWO1", validFrom: null, validTo: null },
+      { id: "3", vehicleId: "b", plate: "TWO1", validFrom: null, validTo: null },
+    ],
+  };
+  const items: readonly LibraryItem[] = [
+    { ...report("w1", Date.UTC(2026, 10, 14), "local", "W211 scan"), plate: "W211PLT" },
+    { ...run("w2", Date.UTC(2026, 10, 15), "local", "mercedes-w211"), plate: "W211PLT" },
+    { ...capture("t1", Date.UTC(2026, 10, 16), "local"), plate: "TWO1" },
+    capture("n1", Date.UTC(2026, 10, 17), "local"),
+  ];
+  const resolved = resolveVehicles(items, REGISTER);
+  const names = withVehicleNames(new Map(), REGISTER);
+  const described = describeVehicles(resolved, names);
+
+  it("groups and filters the items of a car with no VIN by the plate it carried, and leaves a plate two cars claim unresolved", () => {
+    expect(
+      groupItems(
+        sortItems(resolved, DEFAULT_VIEW.sort),
+        "vehicle",
+        DEFAULT_VIEW.sort,
+        described,
+      ).map((group) => [group.label, ids(group.rows)]),
+    ).toEqual([
+      ["W211 PLT, W211", ["w2", "w1"]],
+      ["Unknown vehicle", ["n1", "t1"]],
+    ]);
+    expect(ids(shownItems(resolved, view({ vehicle: "vehicle:w" })))).toEqual(["w1", "w2"]);
+    expect(ids(shownItems(resolved, view({ vehicle: UNKNOWN_VEHICLE })))).toEqual(["t1", "n1"]);
+    expect(vehicleOptions(resolved, described, ALL_VEHICLES).map((option) => option.label)).toEqual(
+      ["All", "W211 PLT, W211", "Unknown vehicle"],
+    );
   });
 });

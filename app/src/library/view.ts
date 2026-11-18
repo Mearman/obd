@@ -157,47 +157,61 @@ export function groupingChoice(value: string): Grouping | undefined {
   return GROUPINGS.find((grouping) => grouping === value);
 }
 
-/** What items of no known VIN are called, as a filter choice, a group's heading and a row's vehicle. */
+/** What items of no known vehicle are called, as a filter choice, a group's heading and a row's vehicle. */
 export const UNKNOWN_VEHICLE_LABEL = "Unknown vehicle";
 
-/** A short name for each VIN whose car a profile names, such as the profile a VIN's maker and model match. */
+/** A short name for each vehicle key ({@link LibraryItem.vehicle}) where one is known, such as the profile a VIN's maker and model match, or the plates of a vehicle known only by its plates. */
 export type VehicleLabels = ReadonlyMap<string, string>;
 
-/** How a VIN reads in a filter choice or a group's heading: the VIN, then its short name where one is known. */
-export function vehicleText(vin: string | null, labels: VehicleLabels): string {
-  if (vin === null) return UNKNOWN_VEHICLE_LABEL;
-  const label = labels.get(vin);
-  return label === undefined ? vin : `${vin} (${label})`;
+/** The start of the key of a vehicle known only by its plates; a VIN never holds a colon, so no VIN reads as one. */
+export const PLATE_VEHICLE = "vehicle:";
+
+/** What a vehicle with no VIN is called where it has no name and no plate is known. */
+export const NO_VIN_LABEL = "A car with no VIN";
+
+/** How a vehicle key reads in a filter choice or a group's heading: the VIN then its short name where one is known, or for a vehicle known only by its plates its name and plates. */
+export function vehicleText(key: string | null, labels: VehicleLabels): string {
+  if (key === null) return UNKNOWN_VEHICLE_LABEL;
+  const label = labels.get(key);
+  if (key.startsWith(PLATE_VEHICLE)) return label ?? NO_VIN_LABEL;
+  return label === undefined ? key : `${key} (${label})`;
 }
 
 /**
- * `items` with the vehicle the register says each is of: an item with no VIN takes the VIN of the one vehicle its plate names at its time, and an item with no plate takes the plate its vehicle carried then. A recorded VIN or plate is never replaced.
+ * `items` with the vehicle the register says each is of: an item with no VIN takes the one vehicle its plate names at its time (none when two could), with that vehicle's VIN or, for one known only by its plates, its `vehicle:` key; an item with no plate takes the plate its vehicle carried then. A recorded VIN or plate is never replaced.
  */
 export function resolveVehicles(
   items: readonly LibraryItem[],
   register: VehicleRegister,
 ): LibraryItem[] {
   return items.map((item) => {
-    const { vin, plate } = identifyVehicle(register, {
+    const {
+      vehicle: found,
+      vin,
+      plate,
+    } = identifyVehicle(register, {
       vin: item.vin,
       plate: item.plate,
       at: item.at,
     });
-    return vin === item.vin && plate === item.plate ? item : { ...item, vin, plate };
+    const vehicle = vin ?? (found === undefined ? null : `${PLATE_VEHICLE}${found.id}`);
+    return vin === item.vin && plate === item.plate && vehicle === item.vehicle
+      ? item
+      : { ...item, vin, plate, vehicle };
   });
 }
 
-/** The short name of each VIN among `items` with the plates its items carry before it (`AB12 CDE, mercedes-w211`), for the filter and the group headings. */
+/** The short name of each vehicle among `items`: the plates its items carry, then the name a profile or the register gives it (`AB12 CDE, mercedes-w211`), for the filter and the group headings. */
 export function describeVehicles(
   items: readonly LibraryItem[],
   labels: VehicleLabels,
 ): VehicleLabels {
   return new Map(
-    vinsOf(items).flatMap((vin): [string, string][] => {
+    vehiclesOf(items).flatMap((vin): [string, string][] => {
       const plates = [
         ...new Set(
           items.flatMap((item) =>
-            item.vin === vin && item.plate !== null ? [formatPlate(item.plate)] : [],
+            item.vehicle === vin && item.plate !== null ? [formatPlate(item.plate)] : [],
           ),
         ),
       ].sort((a, b) => a.localeCompare(b, "en"));
@@ -208,6 +222,20 @@ export function describeVehicles(
   );
 }
 
+/**
+ * The short names `labels` gives (each VIN's profile), with the name the person gave each vehicle of `register` before its profile's, under the vehicle's key: its VIN, or `vehicle:` and its id for one known only by its plates.
+ */
+export function withVehicleNames(labels: VehicleLabels, register: VehicleRegister): VehicleLabels {
+  const names = new Map(labels);
+  for (const vehicle of register.vehicles) {
+    if (vehicle.label === "") continue;
+    const key = vehicle.vin ?? `${PLATE_VEHICLE}${vehicle.id}`;
+    const profile = names.get(key);
+    names.set(key, profile === undefined ? vehicle.label : `${vehicle.label}, ${profile}`);
+  }
+  return names;
+}
+
 /** The distinct VINs of `items`, in order. */
 export function vinsOf(items: readonly LibraryItem[]): string[] {
   return [...new Set(items.flatMap((item) => (item.vin === null ? [] : [item.vin])))].sort((a, b) =>
@@ -215,15 +243,22 @@ export function vinsOf(items: readonly LibraryItem[]): string[] {
   );
 }
 
+/** The distinct vehicle keys of `items` ({@link LibraryItem.vehicle}), in order. */
+export function vehiclesOf(items: readonly LibraryItem[]): string[] {
+  return [...new Set(items.flatMap((item) => (item.vehicle === null ? [] : [item.vehicle])))].sort(
+    (a, b) => a.localeCompare(b, "en"),
+  );
+}
+
 /**
- * The choices of the vehicle filter: every vehicle, each VIN among `items` with its short name, then the items of no known VIN. A VIN the address chose that no item has is offered too, so the filter still shows what it holds.
+ * The choices of the vehicle filter: every vehicle, each vehicle among `items` (by VIN, or by its plates for one with no VIN) with its short name, then the items of no known vehicle. A vehicle the address chose that no item has is offered too, so the filter still shows what it holds.
  */
 export function vehicleOptions(
   items: readonly LibraryItem[],
   labels: VehicleLabels,
   chosen: string,
 ): SelectOption[] {
-  const vins = vinsOf(items);
+  const vins = vehiclesOf(items);
   if (chosen !== ALL_VEHICLES && chosen !== UNKNOWN_VEHICLE && !vins.includes(chosen)) {
     vins.push(chosen);
   }
@@ -264,7 +299,7 @@ function searchable(item: LibraryItem): string {
     KIND_LABELS[item.kind],
     item.id,
     profileText(item),
-    item.vin ?? UNKNOWN_VEHICLE_LABEL,
+    item.vehicle === null ? UNKNOWN_VEHICLE_LABEL : (item.vin ?? ""),
     // A plate matches as stored and as shown, so `ab12cde` and `ab12 cde` both find it.
     ...(item.plate === null ? [] : [item.plate, formatPlate(item.plate)]),
     ORIGIN_LABELS[item.origin],
@@ -277,8 +312,8 @@ function searchable(item: LibraryItem): string {
 /** Whether `item` is of the vehicle `vehicle` chooses. */
 function vehicleShown(item: LibraryItem, vehicle: string): boolean {
   if (vehicle === ALL_VEHICLES) return true;
-  if (vehicle === UNKNOWN_VEHICLE) return item.vin === null;
-  return item.vin === vehicle;
+  if (vehicle === UNKNOWN_VEHICLE) return item.vehicle === null;
+  return item.vehicle === vehicle;
 }
 
 /** The items `view`'s vehicle, search and date range let through, in their order; the kind and origin filters are applied when the items are read. */
@@ -322,7 +357,7 @@ function byColumn(column: SortColumn, a: LibraryItem, b: LibraryItem): number {
     case "profile":
       return profileText(a).localeCompare(profileText(b));
     case "vehicle":
-      return byVin(a.vin, b.vin);
+      return byVin(a.vehicle, b.vehicle);
     case "origin":
       return ORIGIN_LABELS[a.origin].localeCompare(ORIGIN_LABELS[b.origin]);
   }
@@ -334,7 +369,7 @@ export function sortItems(items: readonly LibraryItem[], sort: LibrarySort): Lib
   // The vehicle sort keeps the items of no known VIN last whichever way it runs.
   const compare = (a: LibraryItem, b: LibraryItem): number =>
     sort.column === "vehicle"
-      ? byVin(a.vin, b.vin, sort.direction)
+      ? byVin(a.vehicle, b.vehicle, sort.direction)
       : sign * byColumn(sort.column, a, b);
   return [...items].sort((a, b) => compare(a, b) || newestFirst(a, b));
 }
@@ -358,9 +393,9 @@ function groupOf(
       };
     case "vehicle":
       return {
-        key: item.vin ?? UNKNOWN_VEHICLE,
-        label: vehicleText(item.vin, labels),
-        rank: (other) => byVin(item.vin, other.vin),
+        key: item.vehicle ?? UNKNOWN_VEHICLE,
+        label: vehicleText(item.vehicle, labels),
+        rank: (other) => byVin(item.vehicle, other.vehicle),
       };
     case "origin":
       return {
