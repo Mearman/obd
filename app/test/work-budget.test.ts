@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { withinBudget, type WorkBudget } from "./work-budget";
+import { describe, expect, it, vi } from "vitest";
+import { WorkBudgetExceeded, budgetEach, withinBudget, type WorkBudget } from "./work-budget";
 
 const BUDGET: WorkBudget = { processorMs: 200, sampleMs: 10, idleSamples: 20, idleProcessorMs: 1 };
 
@@ -10,6 +10,18 @@ async function spin(ms: number): Promise<void> {
     // Busy on purpose: this is the work being measured.
   }
   await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** A test that keeps the processor busy until `live` is no longer active. It stops by itself well past the budget, so a budget that never trips fails the test using it instead of leaving it running. */
+function busyPast(live: { readonly active: boolean }): () => Promise<void> {
+  return async () => {
+    const started = process.cpuUsage();
+    const used = () => {
+      const { user, system } = process.cpuUsage(started);
+      return (user + system) / 1000;
+    };
+    while (live.active && used() < BUDGET.processorMs * 5) await spin(5);
+  };
 }
 
 describe("a work budget", () => {
@@ -32,16 +44,7 @@ describe("a work budget", () => {
 
   it("fails a test that keeps the processor busy past the budget", async () => {
     const live = { active: true };
-    // Stops by itself well past the budget, so a budget that never trips fails this test instead of leaving it running.
-    const started = process.cpuUsage();
-    const busy = async () => {
-      const used = () => {
-        const { user, system } = process.cpuUsage(started);
-        return (user + system) / 1000;
-      };
-      while (live.active && used() < BUDGET.processorMs * 5) await spin(5);
-    };
-    await expect(withinBudget(busy, BUDGET, () => "the busy page")).rejects.toThrow(
+    await expect(withinBudget(busyPast(live), BUDGET, () => "the busy page")).rejects.toThrow(
       /more than its 200 ms of processor time[^]*the busy page/,
     );
     live.active = false;
@@ -67,5 +70,29 @@ describe("a work budget", () => {
       }
     };
     await expect(withinBudget(pauses, BUDGET, () => "")).resolves.toBeUndefined();
+  });
+});
+
+describe("a worker's tests under one work budget", () => {
+  it("fails every later test without running it once one reaches the budget, naming that one", async () => {
+    const each = budgetEach(BUDGET, () => "");
+    const live = { active: true };
+    await expect(each(busyPast(live), "the busy test")).rejects.toThrow(WorkBudgetExceeded);
+    live.active = false;
+    const later = vi.fn(() => Promise.resolve());
+    await expect(each(later, "a later test")).rejects.toThrow(
+      /^Not run: "the busy test" reached its work budget/,
+    );
+    expect(later).not.toHaveBeenCalled();
+  });
+
+  it("runs the later tests after one fails of its own accord", async () => {
+    const each = budgetEach(BUDGET, () => "");
+    await expect(
+      each(() => Promise.reject(new Error("the test's own failure")), "the failing test"),
+    ).rejects.toThrow("the test's own failure");
+    const later = vi.fn(() => Promise.resolve());
+    await expect(each(later, "a later test")).resolves.toBeUndefined();
+    expect(later).toHaveBeenCalledOnce();
   });
 });

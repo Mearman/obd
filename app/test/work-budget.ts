@@ -16,6 +16,11 @@ export interface WorkBudget {
   readonly idleProcessorMs: number;
 }
 
+/** A test reached a limit of its {@link WorkBudget}. */
+export class WorkBudgetExceeded extends Error {
+  override name = "WorkBudgetExceeded";
+}
+
 // Taken when the setup file loads, before any test can install fake timers, so the sampling keeps to real time whatever the test does with the clock.
 const { setInterval, clearInterval } = globalThis;
 
@@ -31,7 +36,7 @@ function processorMsSince(since: NodeJS.CpuUsage): number {
  * The worker's processor time includes anything else running in it, so this must wrap one test at a time in a process of its own, as Vitest's `forks` pool runs them.
  *
  * @param describe - What the test was looking at, added to the error when a limit is reached.
- * @throws an `Error` naming the limit reached and the work done when either limit is reached; the test itself is not stopped and its own errors are not reported after that.
+ * @throws a {@link WorkBudgetExceeded} naming the limit reached and the work done when either limit is reached; the test itself is not stopped and its own errors are not reported after that.
  */
 export async function withinBudget(
   test: () => Promise<void>,
@@ -50,13 +55,13 @@ export async function withinBudget(
       const total = processorMsSince(started);
       if (total > budget.processorMs) {
         reject(
-          new Error(
+          new WorkBudgetExceeded(
             `The test used more than its ${String(budget.processorMs)} ms of processor time (${total.toFixed(0)} ms).\n${describe()}`,
           ),
         );
       } else if (idle > budget.idleSamples) {
         reject(
-          new Error(
+          new WorkBudgetExceeded(
             `The test did no work for ${String(idle)} samples in a row of ${String(budget.sampleMs)} ms, so it is waiting on something that will not happen (${total.toFixed(0)} ms of processor time used).\n${describe()}`,
           ),
         );
@@ -68,4 +73,32 @@ export async function withinBudget(
   } finally {
     clearInterval(timer);
   }
+}
+
+/**
+ * Runs the tests of one worker within `budget`, one at a time, as {@link withinBudget} does.
+ *
+ * A test that reaches a limit is failed without being stopped, and so are its own after-each hooks, which run inside it: its work and its page carry on into every later test in the worker. Once one has, each later test is failed at once with an error naming it, without being run, so no result is measured together with another test's work.
+ *
+ * @returns A function that runs one test, given as `runTest`, under the name `name`.
+ * @throws a {@link WorkBudgetExceeded} from a test that reaches a limit, the test's own error when it fails, or an `Error` naming the earlier test without running this one.
+ */
+export function budgetEach(
+  budget: WorkBudget,
+  describe: () => string,
+): (runTest: () => Promise<void>, name: string) => Promise<void> {
+  let overrun: string | undefined;
+  return async (runTest, name) => {
+    if (overrun !== undefined) {
+      throw new Error(
+        `Not run: "${overrun}" reached its work budget earlier in this worker and is still running, so this test's work could not be told apart from it.`,
+      );
+    }
+    try {
+      await withinBudget(runTest, budget, describe);
+    } catch (caught) {
+      if (caught instanceof WorkBudgetExceeded) overrun = name;
+      throw caught;
+    }
+  };
 }
