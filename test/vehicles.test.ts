@@ -10,6 +10,7 @@ import {
   recordSighting,
   withPlate,
   withNewPlate,
+  withNewVehicle,
   withVehicle,
   type PlateAssignment,
   type VehicleRegister,
@@ -377,5 +378,33 @@ describe("one car, one plate at a time", () => {
     );
     oneAtATime(unknown);
     expect(periods(unknown)).toEqual([`${PLATE} v1 - 5`, `${OTHER} v1 5 9`]);
+  });
+});
+
+describe("a vehicle added by hand", () => {
+  it("is found by its plate at an item's time, for a car whose units report no VIN", () => {
+    const added = withNewVehicle(
+      EMPTY,
+      { vin: null, label: " W211 ", plate: "ab12 cde", validFrom: T0 },
+      counter(),
+    );
+    expect(added.vehicles).toEqual([{ id: "v1", vin: null, label: "W211" }]);
+    expect(periods(added)).toEqual([`${PLATE} v1 0 -`]);
+    expect(identifyVehicle(added, { vin: null, plate: PLATE, at: T0 + DAY }).vehicle?.id).toBe(
+      "v1",
+    );
+    expect(identifyVehicle(added, { vin: null, plate: PLATE, at: T0 - DAY }).vehicle).toBe(
+      undefined,
+    );
+  });
+
+  it("needs a VIN or a plate, and refuses a VIN another vehicle has", () => {
+    expect(() =>
+      withNewVehicle(EMPTY, { vin: " ", label: "x", plate: "", validFrom: null }, counter()),
+    ).toThrow(/VIN or a plate/);
+    const one = recordAll(EMPTY, [{ vin: ESTATE, plate: null, at: T0 }]).register;
+    expect(() =>
+      withNewVehicle(one, { vin: ESTATE, label: "", plate: null, validFrom: null }, () => "v9"),
+    ).toThrow(/belongs to/);
   });
 });

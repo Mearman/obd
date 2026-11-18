@@ -364,6 +364,42 @@ export function withNewPlate(
   );
 }
 
+/** A vehicle a person adds by hand, as for a car whose units report no VIN: its VIN if known, a name, and optionally the plate it carries from a day. */
+export const newVehicleSchema = z.object({
+  vin: vinSchema,
+  label: z.string(),
+  plate: plateSchema,
+  /** When it started carrying `plate`; `null` when that is not known. */
+  validFrom: timestampSchema.nullable(),
+});
+
+/** A vehicle a person adds by hand. */
+export type NewVehicle = z.input<typeof newVehicleSchema>;
+
+/**
+ * The register with a vehicle added by hand and, when a plate is given, that plate on it from its start, in one change.
+ *
+ * @throws StorageError `invalid` for a vehicle with neither a VIN nor a plate (nothing would find it again), `conflict` when another vehicle has the VIN or the plate is assigned for an overlapping period already.
+ */
+export function withNewVehicle(
+  register: VehicleRegister,
+  added: NewVehicle,
+  newId: () => string,
+): VehicleRegister {
+  const parsed = newVehicleSchema.safeParse(added);
+  if (!parsed.success) throw new StorageError("invalid", `new vehicle: ${parsed.error.message}`);
+  const { vin, label, plate, validFrom } = parsed.data;
+  if (vin === null && plate === null) {
+    throw new StorageError(
+      "invalid",
+      "a vehicle needs a VIN or a plate, so its items can be found",
+    );
+  }
+  const id = newId();
+  const withIt = withVehicle(register, { id, vin, label: label.trim() });
+  return plate === null ? withIt : withNewPlate(withIt, { vehicleId: id, plate, validFrom }, newId);
+}
+
 /** The register without the plate assignment `id`. */
 export function withoutPlate(register: VehicleRegister, id: string): VehicleRegister {
   return { vehicles: register.vehicles, plates: register.plates.filter((each) => each.id !== id) };

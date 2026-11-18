@@ -16,6 +16,7 @@ import { planSchema } from "./plan.js";
 import { planEventSchema, planStatusSchema } from "./plan-jobs.js";
 import {
   newPlateSchema,
+  newVehicleSchema,
   plateAssignmentSchema,
   vehicleRegisterSchema,
   vehicleSchema,
@@ -349,6 +350,8 @@ export const diagnosticsContract = {
     savePlate: oc.input(plateAssignmentSchema).output(vehicleRegisterSchema),
     /** Gives a vehicle a plate from a day, or from an unknown date, ending its open plate then in the same change; rejects with `CONFLICT` when the plate is assigned for an overlapping period already. */
     addPlate: oc.input(newPlateSchema).output(vehicleRegisterSchema),
+    /** Adds a vehicle by hand, for a car whose units report no VIN: a VIN if known, a name, and its plate from a day; rejects with `BAD_REQUEST` for neither a VIN nor a plate and `CONFLICT` for a VIN or plate period taken already. */
+    addVehicle: oc.input(newVehicleSchema).output(vehicleRegisterSchema),
     /** Removes a plate assignment. */
     deletePlate: oc.input(z.object({ id: nameSchema })).output(vehicleRegisterSchema),
     /** Merges one vehicle record into another that turned out to be the same car; rejects with `CONFLICT` when their VINs differ or their plates overlap. */

@@ -38,6 +38,7 @@ import {
 } from "../core/storage.js";
 import {
   newPlateSchema,
+  newVehicleSchema,
   plateAssignmentSchema,
   vehicleRegisterSchema,
   vehicleSchema,
@@ -71,6 +72,7 @@ export const storageContract = {
   getVehicleRegister: oc.output(vehicleRegisterSchema),
   saveVehicle: oc.input(vehicleSchema).output(vehicleRegisterSchema),
   savePlateAssignment: oc.input(plateAssignmentSchema).output(vehicleRegisterSchema),
+  addVehicle: oc.input(newVehicleSchema).output(vehicleRegisterSchema),
   addPlate: oc.input(newPlateSchema).output(vehicleRegisterSchema),
   deletePlateAssignment: oc.input(z.object({ id: name })).output(vehicleRegisterSchema),
   mergeVehicles: oc.input(z.object({ keep: name, remove: name })).output(vehicleRegisterSchema),
@@ -173,6 +175,7 @@ export function serveStorage(port: SupportedMessagePort, current: () => Promise<
     savePlateAssignment: os.savePlateAssignment.handler(({ input }) =>
       through((s) => s.savePlateAssignment(input)),
     ),
+    addVehicle: os.addVehicle.handler(({ input }) => through((s) => s.addVehicle(input))),
     addPlate: os.addPlate.handler(({ input }) => through((s) => s.addPlate(input))),
     deletePlateAssignment: os.deletePlateAssignment.handler(({ input }) =>
       through((s) => s.deletePlateAssignment(input.id)),
@@ -259,6 +262,7 @@ export function remoteStorage(port: SupportedMessagePort): Storage {
     getVehicleRegister: () => through(() => client.getVehicleRegister()),
     saveVehicle: (vehicle) => through(() => client.saveVehicle(vehicle)),
     savePlateAssignment: (assignment) => through(() => client.savePlateAssignment(assignment)),
+    addVehicle: (added) => through(() => client.addVehicle(added)),
     addPlate: (added) => through(() => client.addPlate(added)),
     deletePlateAssignment: (id) => through(() => client.deletePlateAssignment({ id })),
     mergeVehicles: (keep, remove) => through(() => client.mergeVehicles({ keep, remove })),
