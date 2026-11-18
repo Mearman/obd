@@ -48,7 +48,8 @@ export class DeviceLink {
 
   // Held with the session they belong to, so a later connection never records another car's VIN or plate.
   private vinRead: { readonly session: LinkSession; readonly vin: string } | undefined;
-  private plateGiven: { readonly session: LinkSession; readonly plate: string } | undefined;
+  private plateGiven:
+    { readonly session: LinkSession; readonly plate: string; readonly at: number } | undefined;
 
   /** The open connection, or `undefined`. */
   get session(): LinkSession | undefined {
@@ -65,10 +66,17 @@ export class DeviceLink {
     return this.vinRead?.session === session ? this.vinRead.vin : null;
   }
 
-  /** Records the number plate the user gave `session`'s car, or forgets it with `null`, so what is saved from that connection afterwards records it; does nothing once `session` is no longer the open connection. */
-  notePlate(session: LinkSession, plate: string | null): void {
+  /** Records the number plate the user gave `session`'s car at `at`, or forgets it with `null`, so what is saved from that connection afterwards records it; does nothing once `session` is no longer the open connection. */
+  notePlate(session: LinkSession, plate: string | null, at: number): void {
     if (session !== this.current) return;
-    this.plateGiven = plate === null ? undefined : { session, plate };
+    // Giving the same plate again keeps when it was first given.
+    if (this.plateGiven?.session === session && this.plateGiven.plate === plate) return;
+    this.plateGiven = plate === null ? undefined : { session, plate, at };
+  }
+
+  /** When the user gave `session`'s car its plate, or `undefined` when no plate was given. */
+  plateGivenAt(session: LinkSession): number | undefined {
+    return this.plateGiven?.session === session ? this.plateGiven.at : undefined;
   }
 
   /** The number plate the user gave `session`'s car, or `null` when none was given. */

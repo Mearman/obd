@@ -557,9 +557,17 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       return { ...asked, snapshot: store.saved.at(-1) ?? null };
     });
 
-  /** The summary of a scan just saved from `session`, whose VIN, when the scan read one, is noted as the connection's so the runs and captures it goes on to save record it. */
-  const savedScan = (session: LinkSession, saved: ScanReport): ScanReportSummary => {
-    if (saved.vin !== null) link.noteVin(session, saved.vin);
+  /** The summary of a scan just saved from `session`, whose VIN, when the scan read one, is noted as the connection's so the runs and captures it goes on to save record it, and gives the car the connection's plate from when that was given. */
+  const savedScan = async (session: LinkSession, saved: ScanReport): Promise<ScanReportSummary> => {
+    if (saved.vin !== null) {
+      link.noteVin(session, saved.vin);
+      // What was saved on this connection with its plate before the VIN was read is of this car too, so the car carries the plate from when it was given, not only from this scan.
+      const plate = link.plateOf(session);
+      const givenAt = link.plateGivenAt(session);
+      if (plate !== null && givenAt !== undefined && saved.origin === "local") {
+        await storage.recordSighting({ vin: saved.vin, plate, at: givenAt });
+      }
+    }
     return {
       id: saved.id,
       profile: saved.profile,
@@ -599,7 +607,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       }),
     });
     return {
-      report: savedScan(session, saved),
+      report: await savedScan(session, saved),
       units,
       obd,
     };
@@ -637,7 +645,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
         translated(() => {
           const session = link.session;
           if (session === undefined) throw new NotConnected("connect an adapter first");
-          link.notePlate(session, input.plate);
+          link.notePlate(session, input.plate, now());
           return Promise.resolve(connectionData(session, link.plateOf(session)));
         }),
       ),
@@ -689,7 +697,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
             report: jsonSchema.parse(JSON.parse(jsonText(document.json))),
           });
           return {
-            report: savedScan(session, saved),
+            report: await savedScan(session, saved),
             units: reports.map(unitReportData),
             obd: null,
           };
