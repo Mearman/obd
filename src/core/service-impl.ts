@@ -1099,6 +1099,9 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       savePlate: os.vehicles.savePlate.handler(({ input }) =>
         translated(() => storage.savePlateAssignment(input)),
       ),
+      addVehicle: os.vehicles.addVehicle.handler(({ input }) =>
+        translated(() => storage.addVehicle(input)),
+      ),
       addPlate: os.vehicles.addPlate.handler(({ input }) =>
         translated(() => storage.addPlate(input)),
       ),

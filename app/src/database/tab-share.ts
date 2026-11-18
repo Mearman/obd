@@ -93,7 +93,7 @@ type Operation = keyof Storage | keyof DatabaseControl;
 /**
  * Whether running a call twice leaves the same data as running it once, which decides how a handover treats a call the old leader acknowledged but did not answer: a repeatable call is sent to the new leader once more, any other fails with {@link HandoverError}.
  *
- * Reads, deletes, notes, profile, plan, vehicle and plate saves (which replace by name or id), sightings (which change nothing the second time) and file imports repeat safely. Stopping a run and saving a capture repeat safely because a repeat that finds its own earlier result reads it back instead of failing (see {@link sharedStorage}). Creating a run, saving a scan report and appending samples add new rows each time, a new plate is given a new id each time, and a merge finds its second vehicle gone, so they are not repeated.
+ * Reads, deletes, notes, profile, plan, vehicle and plate saves (which replace by name or id), sightings (which change nothing the second time) and file imports repeat safely. Stopping a run and saving a capture repeat safely because a repeat that finds its own earlier result reads it back instead of failing (see {@link sharedStorage}). Creating a run, saving a scan report and appending samples add new rows each time, a new vehicle or plate is given a new id each time, and a merge finds its second vehicle gone, so they are not repeated.
  */
 export const REPEATABLE: Readonly<Record<Operation, boolean>> = {
   createRun: false,
@@ -123,6 +123,7 @@ export const REPEATABLE: Readonly<Record<Operation, boolean>> = {
   getVehicleRegister: true,
   saveVehicle: true,
   savePlateAssignment: true,
+  addVehicle: false,
   addPlate: false,
   deletePlateAssignment: true,
   mergeVehicles: false,
@@ -624,6 +625,7 @@ function sharedStorage(dispatch: Dispatch): Storage {
     saveVehicle: (vehicle) => on("saveVehicle", (s) => s.saveVehicle(vehicle)),
     savePlateAssignment: (assignment) =>
       on("savePlateAssignment", (s) => s.savePlateAssignment(assignment)),
+    addVehicle: (added) => on("addVehicle", (s) => s.addVehicle(added)),
     addPlate: (added) => on("addPlate", (s) => s.addPlate(added)),
     deletePlateAssignment: (id) => on("deletePlateAssignment", (s) => s.deletePlateAssignment(id)),
     mergeVehicles: (keep, remove) => on("mergeVehicles", (s) => s.mergeVehicles(keep, remove)),
@@ -676,6 +678,7 @@ function observeCalls(
       getVehicleRegister: () => track(s.getVehicleRegister()),
       saveVehicle: (vehicle) => after(s.saveVehicle(vehicle)),
       savePlateAssignment: (assignment) => after(s.savePlateAssignment(assignment)),
+      addVehicle: (added) => after(s.addVehicle(added)),
       addPlate: (added) => after(s.addPlate(added)),
       deletePlateAssignment: (id) => after(s.deletePlateAssignment(id)),
       mergeVehicles: (keep, remove) => after(s.mergeVehicles(keep, remove)),

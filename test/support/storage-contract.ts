@@ -731,6 +731,22 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
           await code(storage.addPlate({ vehicleId: estate, plate: "NEW1", validFrom: null })),
         ).toBe("conflict");
 
+        // A car whose units report no VIN, added by hand with its plate, is found by that plate.
+        const byHand = await storage.addVehicle({
+          vin: null,
+          label: "W211",
+          plate: "W211 PLT",
+          validFrom: T0,
+        });
+        const w211 = byHand.vehicles.find((vehicle) => vehicle.label === "W211");
+        expect(w211?.vin).toBeNull();
+        expect(await storage.recordSighting({ vin: null, plate: "W211PLT", at: T0 + 1 })).toBe(
+          w211?.id,
+        );
+        expect(
+          await code(storage.addVehicle({ vin: null, label: "", plate: null, validFrom: null })),
+        ).toBe("invalid");
+
         const removed = await storage.deletePlateAssignment("older");
         expect(removed.plates.map((each) => each.id)).not.toContain("older");
         await storage.deletePlateAssignment("nope");
