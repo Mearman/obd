@@ -175,6 +175,9 @@ describe("sorting the Library", () => {
     // By the profile as it reads: the generic title, "mercedes-w211", then "no profile".
     expect(by("profile", "ascending")).toEqual(["u1", "u2", "r1", "c1"]);
     expect(by("profile", "descending")).toEqual(["c1", "u2", "r1", "u1"]);
+    // By the VIN, the items of no known VIN last whichever way.
+    expect(by("vehicle", "ascending")).toEqual(["u2", "r1", "u1", "c1"]);
+    expect(by("vehicle", "descending")).toEqual(["u1", "u2", "r1", "c1"]);
   });
 
   it("turns the sorted column around, and starts another ascending", () => {
@@ -243,11 +246,17 @@ describe("grouping the Library", () => {
       [POLO, POLO, ["u1"]],
       [UNKNOWN_VEHICLE, "Unknown vehicle", ["c1"]],
     ]);
-    // Whatever the sort, the vehicles come in the VINs' order, each group keeping the sort.
+    // By another column, the vehicles come in the VINs' order, each group keeping the sort.
     expect(vehicles({ column: "date", direction: "ascending" })).toEqual([
       [E_CLASS, `${E_CLASS} (mercedes-w211)`, ["r1", "u2"]],
       [POLO, POLO, ["u1"]],
       [UNKNOWN_VEHICLE, "Unknown vehicle", ["c1"]],
+    ]);
+    // Sorted by the vehicle, the groups follow that sort, the unknown vehicle still last.
+    expect(vehicles({ column: "vehicle", direction: "descending" }).map(([key]) => key)).toEqual([
+      POLO,
+      E_CLASS,
+      UNKNOWN_VEHICLE,
     ]);
   });
 });
@@ -314,8 +323,13 @@ describe("the Library view in the address", () => {
     const unknown = view({
       vehicle: UNKNOWN_VEHICLE,
       group: "vehicle",
+      sort: { column: "vehicle", direction: "descending" },
     });
-    expect(viewToSearch(unknown)).toMatchObject({ vehicle: "unknown", group: "vehicle" });
+    expect(viewToSearch(unknown)).toMatchObject({
+      vehicle: "unknown",
+      group: "vehicle",
+      sort: "-vehicle",
+    });
     expect(viewFromSearch(searchSchema.parse(viewToSearch(unknown)))).toEqual(unknown);
     expect(viewFromSearch(searchSchema.parse({ vehicle: 12345 })).vehicle).toBe("12345");
     expect(viewFromSearch(searchSchema.parse({ vehicle: "" })).vehicle).toBe(ALL_VEHICLES);
