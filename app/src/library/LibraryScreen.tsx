@@ -170,45 +170,48 @@ export function LibraryScreen({
   );
   const [outcome, importFile] = useLibraryImport(onImported);
 
+  // The open item by value: the shell builds a new object for the same item whenever it renders, and reading the item again for each one would start its viewer over.
+  const openKind = open?.kind;
+  const openId = open?.id;
+
   useEffect(() => {
-    if (open === undefined || open.kind === "capture") return;
+    if (openKind === undefined || openId === undefined || openKind === "capture") return;
     const live = { active: true };
+    const key = itemKey({ kind: openKind, id: openId });
     const read =
-      open.kind === "run"
-        ? client.runs
-            .get({ runId: open.id })
-            .then((run): Viewed => ({ for: itemKey(open), kind: "run", run }))
+      openKind === "run"
+        ? client.runs.get({ runId: openId }).then((run): Viewed => ({ for: key, kind: "run", run }))
         : client.reports
-            .get({ id: open.id })
-            .then((report): Viewed => ({ for: itemKey(open), kind: "report", report }));
+            .get({ id: openId })
+            .then((report): Viewed => ({ for: key, kind: "report", report }));
     read.then(
       (found) => {
         if (live.active) setViewed(found);
       },
       (caught: unknown) => {
-        if (live.active) setProblem(failureMessage(caught, `The ${open.kind} could not be read.`));
+        if (live.active) setProblem(failureMessage(caught, `The ${openKind} could not be read.`));
       },
     );
     return () => {
       live.active = false;
     };
-  }, [client, open]);
+  }, [client, openKind, openId]);
 
   useEffect(() => {
-    if (open?.kind !== "capture") return;
+    if (openKind !== "capture" || openId === undefined) return;
     const live = { active: true };
     void client.captures.list({}).then((every) => {
       if (live.active) {
         setCaptureOrigin({
-          id: open.id,
-          origin: every.find((capture) => capture.id === open.id)?.origin,
+          id: openId,
+          origin: every.find((capture) => capture.id === openId)?.origin,
         });
       }
     });
     return () => {
       live.active = false;
     };
-  }, [client, open, revision, version]);
+  }, [client, openKind, openId, revision, version]);
 
   const act = useCallback(async (work: () => Promise<unknown>, failure: string) => {
     setProblem(undefined);
