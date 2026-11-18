@@ -176,6 +176,7 @@ for (const viewport of VIEWPORTS) {
         await page.goto("/");
         await page.getByRole("button", { name: /connect with the simulator/i }).click();
         await expect(page.getByText("Connected to Simulator")).toBeVisible();
+        await openSection(page, "Connection");
         await page.getByRole("textbox", { name: "Number plate (optional)" }).fill("ab12-cde");
         await page.getByRole("button", { name: "Keep plate" }).click();
         await expect(page.getByText("AB12 CDE is kept with what you save")).toBeVisible();
