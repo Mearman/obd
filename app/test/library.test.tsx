@@ -501,7 +501,9 @@ describe("the Library", () => {
     expect(new URLSearchParams(window.location.search).get("q")).toBe("own scan");
     await userEvent.tab();
     await userEvent.type(search, "x");
-    expect(await screen.findByText("Nothing matches the search or the dates.")).toBeVisible();
+    expect(
+      await screen.findByText("Nothing matches the vehicle, the search or the dates."),
+    ).toBeVisible();
     // The list follows the address as it renders and the field one effect later, so each wait covers both.
     window.history.back();
     await waitFor(() => {

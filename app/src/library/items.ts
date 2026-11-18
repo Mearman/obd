@@ -30,6 +30,8 @@ interface ItemBase {
   readonly origin: Origin;
   /** The profile it was read with; `null` for a capture read with none. */
   readonly profile: string | null;
+  /** The VIN of the car it was read from, trimmed and in upper case; `null` when it is not known. */
+  readonly vin: string | null;
 }
 
 /** One row of the Library. */
@@ -90,6 +92,7 @@ export function runItem(run: Run, samples: number): LibraryItem {
     at: run.startedAt,
     origin: run.origin,
     profile: run.profile,
+    vin: run.vin,
     run,
     samples,
   };
@@ -103,6 +106,7 @@ export function captureItem(capture: CaptureSummary): LibraryItem {
     at: capture.startedAt,
     origin: capture.origin,
     profile: capture.profile,
+    vin: capture.vin,
     capture,
   };
 }
@@ -115,6 +119,7 @@ export function reportItem(report: ScanReportSummary): LibraryItem {
     at: report.takenAt,
     origin: report.origin,
     profile: report.profile,
+    vin: report.vin,
     report,
   };
 }

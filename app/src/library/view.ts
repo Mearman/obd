@@ -12,7 +12,7 @@ import {
 } from "./items";
 
 /** The columns the Library can be sorted by. */
-export const SORT_COLUMNS = ["kind", "date", "profile", "origin"] as const;
+export const SORT_COLUMNS = ["kind", "date", "profile", "vehicle", "origin"] as const;
 
 /** One column the Library can be sorted by. */
 export type SortColumn = (typeof SORT_COLUMNS)[number];
@@ -34,6 +34,8 @@ const SORTS: Readonly<Record<SortValue, LibrarySort>> = {
   "-date": { column: "date", direction: "descending" },
   profile: { column: "profile", direction: "ascending" },
   "-profile": { column: "profile", direction: "descending" },
+  vehicle: { column: "vehicle", direction: "ascending" },
+  "-vehicle": { column: "vehicle", direction: "descending" },
   origin: { column: "origin", direction: "ascending" },
   "-origin": { column: "origin", direction: "descending" },
 };
@@ -42,10 +44,16 @@ const SORTS: Readonly<Record<SortValue, LibrarySort>> = {
 export const SORT_VALUES = SORT_COLUMNS.flatMap((column) => [column, `-${column}` as const]);
 
 /** The groupings the address names; not grouping at all is left out of it. */
-export const GROUPINGS = ["kind", "origin", "day"] as const;
+export const GROUPINGS = ["kind", "vehicle", "origin", "day"] as const;
 
 /** One way of grouping the Library's list. */
 export type Grouping = (typeof GROUPINGS)[number];
+
+/** The vehicle filter's value for every vehicle; the address leaves it out. */
+export const ALL_VEHICLES = "all";
+
+/** The vehicle filter's value, and the address's `vehicle`, for the items whose VIN is not known. A stored VIN is upper case, so it never reads as this. */
+export const UNKNOWN_VEHICLE = "unknown";
 
 /**
  * How the Library's list is filtered, sorted and grouped, as the address holds it.
@@ -55,6 +63,8 @@ export type Grouping = (typeof GROUPINGS)[number];
 export interface LibraryView {
   readonly kind: LibraryKind | typeof ALL_KINDS;
   readonly origin: Origin | typeof ALL_ORIGINS;
+  /** {@link ALL_VEHICLES}, {@link UNKNOWN_VEHICLE} or one VIN as storage keeps it. */
+  readonly vehicle: string;
   /** Words every shown row must contain, in any case; blank shows every row. */
   readonly search: string;
   /** The first day shown, included; undefined for no first day. */
@@ -70,6 +80,7 @@ export interface LibraryView {
 export const DEFAULT_VIEW: LibraryView = {
   kind: ALL_KINDS,
   origin: ALL_ORIGINS,
+  vehicle: ALL_VEHICLES,
   search: "",
   from: undefined,
   to: undefined,
@@ -81,6 +92,7 @@ export const DEFAULT_VIEW: LibraryView = {
 export interface LibrarySearch {
   readonly kind: LibraryKind | undefined;
   readonly origin: Origin | undefined;
+  readonly vehicle: string | undefined;
   readonly q: string | undefined;
   readonly from: string | undefined;
   readonly to: string | undefined;
@@ -93,6 +105,7 @@ export function viewFromSearch(search: Partial<LibrarySearch>): LibraryView {
   return {
     kind: search.kind ?? DEFAULT_VIEW.kind,
     origin: search.origin ?? DEFAULT_VIEW.origin,
+    vehicle: search.vehicle ?? DEFAULT_VIEW.vehicle,
     search: search.q ?? DEFAULT_VIEW.search,
     from: search.from,
     to: search.to,
@@ -108,6 +121,7 @@ export function viewToSearch(view: LibraryView): LibrarySearch {
   return {
     kind: view.kind === ALL_KINDS ? undefined : view.kind,
     origin: view.origin === ALL_ORIGINS ? undefined : view.origin,
+    vehicle: view.vehicle === ALL_VEHICLES ? undefined : view.vehicle,
     q: view.search === "" ? undefined : view.search,
     from: view.from,
     to: view.to,
@@ -133,6 +147,7 @@ export const NO_GROUPING = "none";
 export const GROUPING_OPTIONS: readonly SelectOption[] = [
   { value: NO_GROUPING, label: "None" },
   { value: "kind", label: "Kind" },
+  { value: "vehicle", label: "Vehicle" },
   { value: "origin", label: "Origin" },
   { value: "day", label: "Day" },
 ];
@@ -140,6 +155,45 @@ export const GROUPING_OPTIONS: readonly SelectOption[] = [
 /** The grouping for a value of the group-by select, which offers every grouping and {@link NO_GROUPING}. */
 export function groupingChoice(value: string): Grouping | undefined {
   return GROUPINGS.find((grouping) => grouping === value);
+}
+
+/** What items of no known VIN are called, as a filter choice, a group's heading and a row's vehicle. */
+export const UNKNOWN_VEHICLE_LABEL = "Unknown vehicle";
+
+/** A short name for each VIN whose car a profile names, such as the profile a VIN's maker and model match. */
+export type VehicleLabels = ReadonlyMap<string, string>;
+
+/** How a VIN reads in a filter choice or a group's heading: the VIN, then its short name where one is known. */
+export function vehicleText(vin: string | null, labels: VehicleLabels): string {
+  if (vin === null) return UNKNOWN_VEHICLE_LABEL;
+  const label = labels.get(vin);
+  return label === undefined ? vin : `${vin} (${label})`;
+}
+
+/** The distinct VINs of `items`, in order. */
+export function vinsOf(items: readonly LibraryItem[]): string[] {
+  return [...new Set(items.flatMap((item) => (item.vin === null ? [] : [item.vin])))].sort((a, b) =>
+    a.localeCompare(b, "en"),
+  );
+}
+
+/**
+ * The choices of the vehicle filter: every vehicle, each VIN among `items` with its short name, then the items of no known VIN. A VIN the address chose that no item has is offered too, so the filter still shows what it holds.
+ */
+export function vehicleOptions(
+  items: readonly LibraryItem[],
+  labels: VehicleLabels,
+  chosen: string,
+): SelectOption[] {
+  const vins = vinsOf(items);
+  if (chosen !== ALL_VEHICLES && chosen !== UNKNOWN_VEHICLE && !vins.includes(chosen)) {
+    vins.push(chosen);
+  }
+  return [
+    { value: ALL_VEHICLES, label: "All" },
+    ...vins.map((vin) => ({ value: vin, label: vehicleText(vin, labels) })),
+    { value: UNKNOWN_VEHICLE, label: UNKNOWN_VEHICLE_LABEL },
+  ];
 }
 
 /** The sort after the person picks `column`: the same column turned around, or another one ascending. */
@@ -168,18 +222,33 @@ function searchable(item: LibraryItem): string {
       : item.kind === "capture"
         ? item.capture.description
         : item.run.adapter;
-  return [KIND_LABELS[item.kind], item.id, profileText(item), ORIGIN_LABELS[item.origin], details]
+  return [
+    KIND_LABELS[item.kind],
+    item.id,
+    profileText(item),
+    item.vin ?? UNKNOWN_VEHICLE_LABEL,
+    ORIGIN_LABELS[item.origin],
+    details,
+  ]
     .join(" ")
     .toLowerCase();
 }
 
-/** The items `view`'s search and date range let through, in their order; the kind and origin filters are applied when the items are read. */
+/** Whether `item` is of the vehicle `vehicle` chooses. */
+function vehicleShown(item: LibraryItem, vehicle: string): boolean {
+  if (vehicle === ALL_VEHICLES) return true;
+  if (vehicle === UNKNOWN_VEHICLE) return item.vin === null;
+  return item.vin === vehicle;
+}
+
+/** The items `view`'s vehicle, search and date range let through, in their order; the kind and origin filters are applied when the items are read. */
 export function shownItems(items: readonly LibraryItem[], view: LibraryView): LibraryItem[] {
   const words = view.search
     .toLowerCase()
     .split(/\s+/)
     .filter((word) => word !== "");
   return items.filter((item) => {
+    if (!vehicleShown(item, view.vehicle)) return false;
     const day = dayOf(item.at);
     if (view.from !== undefined && day < view.from) return false;
     if (view.to !== undefined && day > view.to) return false;
@@ -197,6 +266,12 @@ function newestFirst(a: LibraryItem, b: LibraryItem): number {
   );
 }
 
+/** Compares two VINs, a known one before an unknown one, so the items of no known VIN come last. */
+function byVin(a: string | null, b: string | null): number {
+  if (a === null || b === null) return (a === null ? 1 : 0) - (b === null ? 1 : 0);
+  return a.localeCompare(b, "en");
+}
+
 /** Compares two items by one column ascending, as the column reads. */
 function byColumn(column: SortColumn, a: LibraryItem, b: LibraryItem): number {
   switch (column) {
@@ -206,6 +281,8 @@ function byColumn(column: SortColumn, a: LibraryItem, b: LibraryItem): number {
       return a.at - b.at;
     case "profile":
       return profileText(a).localeCompare(profileText(b));
+    case "vehicle":
+      return byVin(a.vin, b.vin);
     case "origin":
       return ORIGIN_LABELS[a.origin].localeCompare(ORIGIN_LABELS[b.origin]);
   }
@@ -221,19 +298,30 @@ export function sortItems(items: readonly LibraryItem[], sort: LibrarySort): Lib
 function groupOf(
   item: LibraryItem,
   group: Grouping,
-): { readonly key: string; readonly label: string; readonly rank: number } {
+  labels: VehicleLabels,
+): {
+  readonly key: string;
+  readonly label: string;
+  readonly rank: (other: LibraryItem) => number;
+} {
   switch (group) {
     case "kind":
       return {
         key: item.kind,
         label: KIND_PLURALS[item.kind],
-        rank: LIBRARY_KINDS.indexOf(item.kind),
+        rank: (other) => LIBRARY_KINDS.indexOf(item.kind) - LIBRARY_KINDS.indexOf(other.kind),
+      };
+    case "vehicle":
+      return {
+        key: item.vin ?? UNKNOWN_VEHICLE,
+        label: vehicleText(item.vin, labels),
+        rank: (other) => byVin(item.vin, other.vin),
       };
     case "origin":
       return {
         key: item.origin,
         label: ORIGIN_LABELS[item.origin],
-        rank: ORIGINS.indexOf(item.origin),
+        rank: (other) => ORIGINS.indexOf(item.origin) - ORIGINS.indexOf(other.origin),
       };
     case "day": {
       const key = dayOf(item.at);
@@ -244,7 +332,7 @@ function groupOf(
         year: "numeric",
       });
       // Newest day first.
-      return { key, label, rank: -Date.parse(key) };
+      return { key, label, rank: (other) => Date.parse(dayOf(other.at)) - Date.parse(key) };
     }
   }
 }
@@ -252,26 +340,31 @@ function groupOf(
 /** The column whose sort orders each grouping's groups. */
 const GROUP_COLUMNS: Readonly<Record<Grouping, SortColumn>> = {
   kind: "kind",
+  vehicle: "vehicle",
   origin: "origin",
   day: "date",
 };
 
 /**
- * The sorted `items` in groups by `group`, each group keeping their order. When `sort` is by the column the grouping follows (the kind, the origin or the date), the groups come in that order; otherwise they come in the kinds' or the origins' own order, or newest day first.
+ * The sorted `items` in groups by `group`, each group keeping their order. When `sort` is by the column the grouping follows (the kind, the vehicle, the origin or the date), the groups come in that order; otherwise they come in the kinds', the VINs' or the origins' own order (the items of no known VIN last), or newest day first. A vehicle group's heading is its VIN with the short name `labels` gives it.
  */
 export function groupItems(
   items: readonly LibraryItem[],
   group: Grouping,
   sort: LibrarySort,
+  labels: VehicleLabels,
 ): DataTableGroup<LibraryItem>[] {
-  const groups = new Map<string, { label: string; rank: number; rows: LibraryItem[] }>();
+  const groups = new Map<
+    string,
+    { label: string; first: LibraryItem; rank: (other: LibraryItem) => number; rows: LibraryItem[] }
+  >();
   for (const item of items) {
-    const { key, label, rank } = groupOf(item, group);
+    const { key, label, rank } = groupOf(item, group, labels);
     const found = groups.get(key);
-    if (found === undefined) groups.set(key, { label, rank, rows: [item] });
+    if (found === undefined) groups.set(key, { label, first: item, rank, rows: [item] });
     else found.rows.push(item);
   }
-  const ordered = [...groups].map(([key, { label, rank, rows }]) => ({ key, label, rank, rows }));
-  if (sort.column !== GROUP_COLUMNS[group]) ordered.sort((a, b) => a.rank - b.rank);
+  const ordered = [...groups].map(([key, found]) => ({ key, ...found }));
+  if (sort.column !== GROUP_COLUMNS[group]) ordered.sort((a, b) => a.rank(b.first));
   return ordered.map(({ key, label, rows }) => ({ key, label, rows }));
 }

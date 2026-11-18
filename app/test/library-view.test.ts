@@ -2,16 +2,24 @@ import type { Origin } from "obd-read";
 import { describe, expect, it } from "vitest";
 import { captureItem, reportItem, runItem, type LibraryItem } from "../src/library/items";
 import {
+  ALL_VEHICLES,
   DEFAULT_VIEW,
+  UNKNOWN_VEHICLE,
   groupItems,
   shownItems,
   sortItems,
   toggleSort,
+  vehicleOptions,
+  vehicleText,
   viewFromSearch,
   viewToSearch,
+  vinsOf,
   type Grouping,
   type LibraryView,
+  type VehicleLabels,
 } from "../src/library/view";
+import { vehicleLabels } from "../src/library/vehicle-labels";
+import { builtinProfiles, loadBuiltinProfile } from "obd-read/profiles";
 import { searchSchema } from "../src/router/search";
 
 function report(
@@ -71,12 +79,19 @@ function capture(id: string, at: number, origin: Origin, vin: string | null = nu
   });
 }
 
+/** The invented VINs of the two cars the items were read from. */
+const E_CLASS = "WDB2110202B000001";
+const POLO = "WVWZZZ6RZAY000002";
+
 const ITEMS: readonly LibraryItem[] = [
-  report("r1", Date.UTC(2026, 10, 14, 9), "local", "Own scan"),
+  report("r1", Date.UTC(2026, 10, 14, 9), "local", "Own scan", E_CLASS),
   capture("c1", Date.UTC(2026, 10, 15, 10), "imported"),
-  run("u1", Date.UTC(2026, 10, 16, 8), "shared", "generic-obd2"),
-  run("u2", Date.UTC(2026, 10, 16, 20), "local", "mercedes-w211"),
+  run("u1", Date.UTC(2026, 10, 16, 8), "shared", "generic-obd2", POLO),
+  run("u2", Date.UTC(2026, 10, 16, 20), "local", "mercedes-w211", E_CLASS),
 ];
+
+/** The short names a profile gives the VINs: only the E-Class has one. */
+const LABELS: VehicleLabels = new Map([[E_CLASS, "mercedes-w211"]]);
 
 const ids = (items: readonly LibraryItem[]): string[] => items.map((item) => item.id);
 
@@ -97,6 +112,43 @@ describe("the Library's search and date range", () => {
     expect(ids(shownItems(ITEMS, view({ search: "no profile" })))).toEqual(["c1", "u1"]);
     expect(ids(shownItems(ITEMS, view({ search: "   " })))).toHaveLength(4);
     expect(ids(shownItems(ITEMS, view({ search: "nothing like it" })))).toEqual([]);
+  });
+
+  it("matches the VIN, in any case, and the items of no known VIN as an unknown vehicle", () => {
+    expect(ids(shownItems(ITEMS, view({ search: "wdb2110202b" })))).toEqual(["r1", "u2"]);
+    expect(ids(shownItems(ITEMS, view({ search: "unknown vehicle" })))).toEqual(["c1"]);
+  });
+});
+
+describe("the Library's vehicle filter", () => {
+  it("keeps the items of one VIN, of no known VIN, or of every vehicle", () => {
+    expect(ids(shownItems(ITEMS, view({ vehicle: E_CLASS })))).toEqual(["r1", "u2"]);
+    expect(ids(shownItems(ITEMS, view({ vehicle: POLO })))).toEqual(["u1"]);
+    expect(ids(shownItems(ITEMS, view({ vehicle: UNKNOWN_VEHICLE })))).toEqual(["c1"]);
+    expect(ids(shownItems(ITEMS, view({ vehicle: ALL_VEHICLES })))).toHaveLength(4);
+    expect(ids(shownItems(ITEMS, view({ vehicle: E_CLASS, search: "run" })))).toEqual(["u2"]);
+  });
+
+  it("offers every vehicle, each distinct VIN with its short name, then the unknown vehicle", () => {
+    expect(vehicleOptions(ITEMS, LABELS, ALL_VEHICLES)).toEqual([
+      { value: ALL_VEHICLES, label: "All" },
+      { value: E_CLASS, label: `${E_CLASS} (mercedes-w211)` },
+      { value: POLO, label: POLO },
+      { value: UNKNOWN_VEHICLE, label: "Unknown vehicle" },
+    ]);
+  });
+
+  it("still offers a VIN the address chose that no item has, so the filter shows it", () => {
+    expect(
+      vehicleOptions(ITEMS, LABELS, "VF1AAAAAA00000003").map((option) => option.value),
+    ).toEqual([ALL_VEHICLES, E_CLASS, POLO, "VF1AAAAAA00000003", UNKNOWN_VEHICLE]);
+    expect(vinsOf(ITEMS)).toEqual([E_CLASS, POLO]);
+  });
+
+  it("reads a VIN with its short name, and no VIN as the unknown vehicle", () => {
+    expect(vehicleText(E_CLASS, LABELS)).toBe(`${E_CLASS} (mercedes-w211)`);
+    expect(vehicleText(POLO, LABELS)).toBe(POLO);
+    expect(vehicleText(null, LABELS)).toBe("Unknown vehicle");
   });
 
   it("keeps the items of each UTC day from the first date to the last, both included", () => {
@@ -123,6 +175,9 @@ describe("sorting the Library", () => {
     // By the profile as it reads: the generic title, "mercedes-w211", then "no profile".
     expect(by("profile", "ascending")).toEqual(["u1", "u2", "r1", "c1"]);
     expect(by("profile", "descending")).toEqual(["c1", "u2", "r1", "u1"]);
+    // By the VIN, the items of no known VIN last.
+    expect(by("vehicle", "ascending")).toEqual(["u2", "r1", "u1", "c1"]);
+    expect(by("vehicle", "descending")).toEqual(["c1", "u1", "u2", "r1"]);
   });
 
   it("turns the sorted column around, and starts another ascending", () => {
@@ -144,10 +199,9 @@ describe("sorting the Library", () => {
 describe("grouping the Library", () => {
   it("groups by kind, by origin and by UTC day, each group keeping the sort", () => {
     const groups = (grouping: Grouping) =>
-      groupItems(sortItems(ITEMS, DEFAULT_VIEW.sort), grouping, DEFAULT_VIEW.sort).map((group) => [
-        group.label,
-        ids(group.rows),
-      ]);
+      groupItems(sortItems(ITEMS, DEFAULT_VIEW.sort), grouping, DEFAULT_VIEW.sort, LABELS).map(
+        (group) => [group.label, ids(group.rows)],
+      );
     expect(groups("kind")).toEqual([
       ["Runs", ["u2", "u1"]],
       ["Captures", ["c1"]],
@@ -167,7 +221,7 @@ describe("grouping the Library", () => {
 
   it("orders the days by the date sort when sorting by date, newest first otherwise", () => {
     const days = (sort: LibraryView["sort"]) =>
-      groupItems(sortItems(ITEMS, sort), "day", sort).map((group) => group.key);
+      groupItems(sortItems(ITEMS, sort), "day", sort, LABELS).map((group) => group.key);
     expect(days({ column: "date", direction: "ascending" })).toEqual([
       "2026-11-14",
       "2026-11-15",
@@ -179,6 +233,26 @@ describe("grouping the Library", () => {
       "2026-11-14",
     ]);
   });
+
+  it("groups by vehicle under the VIN and its short name, the unknown vehicle last", () => {
+    const vehicles = (sort: LibraryView["sort"]) =>
+      groupItems(sortItems(ITEMS, sort), "vehicle", sort, LABELS).map((group) => [
+        group.key,
+        group.label,
+        ids(group.rows),
+      ]);
+    expect(vehicles(DEFAULT_VIEW.sort)).toEqual([
+      [E_CLASS, `${E_CLASS} (mercedes-w211)`, ["u2", "r1"]],
+      [POLO, POLO, ["u1"]],
+      [UNKNOWN_VEHICLE, "Unknown vehicle", ["c1"]],
+    ]);
+    // Sorted by the vehicle, the groups follow that sort.
+    expect(vehicles({ column: "vehicle", direction: "descending" }).map(([key]) => key)).toEqual([
+      UNKNOWN_VEHICLE,
+      POLO,
+      E_CLASS,
+    ]);
+  });
 });
 
 describe("the Library view in the address", () => {
@@ -186,6 +260,7 @@ describe("the Library view in the address", () => {
     expect(viewToSearch(DEFAULT_VIEW)).toEqual({
       kind: undefined,
       origin: undefined,
+      vehicle: undefined,
       q: undefined,
       from: undefined,
       to: undefined,
@@ -198,6 +273,7 @@ describe("the Library view in the address", () => {
     const chosen: LibraryView = {
       kind: "run",
       origin: "shared",
+      vehicle: E_CLASS,
       search: "w211 scan",
       from: "2026-11-01",
       to: "2026-11-16",
@@ -207,6 +283,7 @@ describe("the Library view in the address", () => {
     expect(viewToSearch(chosen)).toEqual({
       kind: "run",
       origin: "shared",
+      vehicle: E_CLASS,
       q: "w211 scan",
       from: "2026-11-01",
       to: "2026-11-16",
@@ -234,5 +311,28 @@ describe("the Library view in the address", () => {
 
   it("reads a search the address holds as a number as its text", () => {
     expect(viewFromSearch(searchSchema.parse({ q: 211 })).search).toBe("211");
+  });
+
+  it("reads the vehicle and the grouping by vehicle back from the address", () => {
+    const unknown = view({
+      vehicle: UNKNOWN_VEHICLE,
+      group: "vehicle",
+      sort: { column: "vehicle", direction: "ascending" },
+    });
+    expect(viewToSearch(unknown)).toMatchObject({
+      vehicle: "unknown",
+      group: "vehicle",
+      sort: "vehicle",
+    });
+    expect(viewFromSearch(searchSchema.parse(viewToSearch(unknown)))).toEqual(unknown);
+    expect(viewFromSearch(searchSchema.parse({ vehicle: 12345 })).vehicle).toBe("12345");
+    expect(viewFromSearch(searchSchema.parse({ vehicle: "" })).vehicle).toBe(ALL_VEHICLES);
+  });
+});
+
+describe("the short names of the vehicles", () => {
+  it("names a VIN by the shipped profile its maker and model match, and leaves a maker match unnamed", () => {
+    const profiles = builtinProfiles().map(loadBuiltinProfile);
+    expect(vehicleLabels([E_CLASS, POLO, "not a vin"], profiles)).toEqual(LABELS);
   });
 });

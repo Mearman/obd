@@ -110,3 +110,64 @@ for (const viewport of VIEWPORTS) {
     });
   }
 }
+
+/** The VIN the generic simulator reports. */
+const SIMULATED_VIN = "SIMULATEDCAR00001";
+
+for (const viewport of VIEWPORTS) {
+  for (const scheme of SCHEMES) {
+    test.describe(`vehicles ${viewport.name} ${scheme}`, () => {
+      test.use({
+        viewport: { width: viewport.width, height: viewport.height },
+        colorScheme: scheme,
+      });
+
+      test("the Library grouped and filtered by vehicle fits, and shares items from two groups", async ({
+        page,
+      }) => {
+        const base = `screenshots/vehicles-${viewport.name}-${scheme}`;
+        await page.goto("/");
+        await page.getByRole("button", { name: /connect with the simulator/i }).click();
+        await expect(page.getByText("Connected to Simulator")).toBeVisible();
+        const collect = async (): Promise<void> => {
+          await openSection(page, "Live");
+          await page.getByRole("button", { name: "Start collecting" }).click();
+          await page.getByRole("button", { name: "Stop collecting" }).click();
+          await expect(page.getByRole("button", { name: "Start collecting" })).toBeVisible();
+        };
+        // A run before the connection has read a VIN, then a scan that reads it and a run after.
+        await collect();
+        await openSection(page, "Read");
+        await page.getByRole("button", { name: "Start scan" }).click();
+        await expect(page.getByText(`VIN: ${SIMULATED_VIN}`)).toBeVisible();
+        await collect();
+
+        await page.goto("/?screen=library&group=vehicle");
+        const known = page.getByRole("table", { name: `Library, ${SIMULATED_VIN}` });
+        const unknown = page.getByRole("table", { name: "Library, Unknown vehicle" });
+        await expect(page.getByRole("button", { name: `${SIMULATED_VIN} (2)` })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Unknown vehicle (1)" })).toBeVisible();
+        await expect(known.getByRole("checkbox")).toHaveCount(2);
+        await fits(page, "the Library grouped by vehicle");
+        await page.screenshot({ path: `${base}-library-grouped.png`, fullPage: true });
+
+        await known.getByRole("checkbox").first().check();
+        await unknown.getByRole("checkbox").first().check();
+        await page.getByRole("button", { name: "Share selected (2)" }).click();
+        await expect(page.getByRole("dialog", { name: "Share 2 results" })).toBeVisible();
+        await fits(page, "the share dialog of two vehicles' items");
+        await page.keyboard.press("Escape");
+
+        await page.getByRole("combobox", { name: "Vehicle" }).click();
+        await page.getByRole("option", { name: "Unknown vehicle" }).click();
+        await expect(page).toHaveURL(/vehicle=unknown/);
+        await expect(page.getByRole("button", { name: `${SIMULATED_VIN} (2)` })).toHaveCount(0);
+        await expect(unknown.getByRole("checkbox")).toHaveCount(1);
+        // The selection outlives the filter that hides one of its items.
+        await expect(page.getByRole("button", { name: "Share selected (2)" })).toBeVisible();
+        await fits(page, "the Library filtered to the unknown vehicle");
+        await page.screenshot({ path: `${base}-library-unknown.png`, fullPage: true });
+      });
+    });
+  }
+}
