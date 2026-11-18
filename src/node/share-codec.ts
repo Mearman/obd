@@ -7,7 +7,7 @@ function isOutputLimit(error: unknown): boolean {
 }
 
 /**
- * A {@link ShareCodec} over `node:zlib` (raw deflate at {@link SHARE_DEFLATE_LEVEL}, the bytes the browser codec writes). Inflation is bounded by zlib's own `maxOutputLength`, so a bomb is refused before it is held in memory.
+ * A {@link ShareCodec} over `node:zlib` (raw deflate at {@link SHARE_DEFLATE_LEVEL}; the runtime's zlib build chooses the matches, so the bytes may differ from the browser codec's while inflating to the same payload). Inflation is bounded by zlib's own `maxOutputLength`, so a bomb is refused before it is held in memory.
  */
 export const zlibShareCodec: ShareCodec = {
   deflate(bytes: Uint8Array): Promise<Uint8Array> {
