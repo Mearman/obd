@@ -14,7 +14,12 @@ import { captureStatusSchema, startCaptureInputSchema } from "./capture-jobs.js"
 import { obdScanSchema } from "./obd-scan.js";
 import { planSchema } from "./plan.js";
 import { planEventSchema, planStatusSchema } from "./plan-jobs.js";
-import { plateAssignmentSchema, vehicleRegisterSchema, vehicleSchema } from "./vehicles.js";
+import {
+  newPlateSchema,
+  plateAssignmentSchema,
+  vehicleRegisterSchema,
+  vehicleSchema,
+} from "./vehicles.js";
 import { TABLE_FORMATS } from "./tabular.js";
 import { SCHEMES } from "./transport.js";
 import {
@@ -342,6 +347,8 @@ export const diagnosticsContract = {
     save: oc.input(vehicleSchema).output(vehicleRegisterSchema),
     /** Stores a plate assignment (a new one, a changed start, or an end that marks the plate moved off the vehicle); rejects with `CONFLICT` when the plate is assigned for an overlapping period already, `BAD_REQUEST` for a period that ends before it starts. */
     savePlate: oc.input(plateAssignmentSchema).output(vehicleRegisterSchema),
+    /** Gives a vehicle a plate from a day, or from an unknown date, ending its open plate then in the same change; rejects with `CONFLICT` when the plate is assigned for an overlapping period already. */
+    addPlate: oc.input(newPlateSchema).output(vehicleRegisterSchema),
     /** Removes a plate assignment. */
     deletePlate: oc.input(z.object({ id: nameSchema })).output(vehicleRegisterSchema),
     /** Merges one vehicle record into another that turned out to be the same car; rejects with `CONFLICT` when their VINs differ or their plates overlap. */

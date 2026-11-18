@@ -298,6 +298,44 @@ export function withPlate(register: VehicleRegister, assignment: PlateAssignment
   return orderedRegister(result);
 }
 
+/** A plate a person gives a vehicle from a day: what {@link withNewPlate} adds. */
+export const newPlateSchema = z.object({
+  vehicleId: z.string().min(1),
+  plate: plateSchema.pipe(z.string()),
+  /** When the vehicle started carrying it; `null` when that is not known. */
+  validFrom: timestampSchema.nullable(),
+});
+
+/** A plate a person gives a vehicle from a day. */
+export type NewPlate = z.input<typeof newPlateSchema>;
+
+/**
+ * The register with `added` on its vehicle from its start, open-ended: the vehicle's open plate that began before then ends then, as when a car is re-registered, in the same change, so the two never disagree.
+ *
+ * @throws StorageError `invalid` for a blank plate, `not-found` for an unknown vehicle, `conflict` when the plate is assigned for an overlapping period already.
+ */
+export function withNewPlate(
+  register: VehicleRegister,
+  added: NewPlate,
+  newId: () => string,
+): VehicleRegister {
+  const parsed = newPlateSchema.safeParse(added);
+  if (!parsed.success) throw new StorageError("invalid", `new plate: ${parsed.error.message}`);
+  const { vehicleId, plate, validFrom } = parsed.data;
+  const plates = register.plates.map((assignment) =>
+    validFrom !== null &&
+    assignment.vehicleId === vehicleId &&
+    assignment.validTo === null &&
+    (assignment.validFrom === null || assignment.validFrom < validFrom)
+      ? { ...assignment, validTo: validFrom }
+      : assignment,
+  );
+  return withPlate(
+    { vehicles: register.vehicles, plates },
+    { id: newId(), vehicleId, plate, validFrom, validTo: null },
+  );
+}
+
 /** The register without the plate assignment `id`. */
 export function withoutPlate(register: VehicleRegister, id: string): VehicleRegister {
   return { vehicles: register.vehicles, plates: register.plates.filter((each) => each.id !== id) };

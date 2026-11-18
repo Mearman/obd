@@ -9,7 +9,7 @@
 import { z } from "zod";
 import { CAPTURE_KINDS, captureIdSchema, captureSchema, type Capture } from "./capture.js";
 import { addressKey, describeAddress, type ExchangeAddress } from "./exchange.js";
-import type { PlateAssignment, Sighting, Vehicle, VehicleRegister } from "./vehicles.js";
+import type { NewPlate, PlateAssignment, Sighting, Vehicle, VehicleRegister } from "./vehicles.js";
 
 /** A time as integer milliseconds since the Unix epoch. */
 const timestampSchema = z.number().int().nonnegative();
@@ -537,6 +537,13 @@ export interface Storage {
    * @throws StorageError `not-found` for an unknown vehicle, `conflict` when the plate is assigned for an overlapping period already, `invalid` for a period that ends before it starts.
    */
   savePlateAssignment(assignment: PlateAssignment): Promise<VehicleRegister>;
+
+  /**
+   * Gives a vehicle a plate from its start, ending the vehicle's open plate then, as `withNewPlate` in `vehicles.ts` describes, in one change.
+   *
+   * @throws StorageError as `withNewPlate` does.
+   */
+  addPlate(added: NewPlate): Promise<VehicleRegister>;
 
   /** Removes a plate assignment. Removing an unknown one does nothing. */
   deletePlateAssignment(id: string): Promise<VehicleRegister>;

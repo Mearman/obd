@@ -32,7 +32,9 @@ import {
   vehicleRegisterSchema,
   withPlate,
   withVehicle,
+  withNewPlate,
   withoutPlate,
+  type NewPlate,
   type PlateAssignment,
   type Sighting,
   type Vehicle,
@@ -114,6 +116,10 @@ export class MemoryStorage implements Storage {
 
   savePlateAssignment(assignment: PlateAssignment): Promise<VehicleRegister> {
     return this.changeRegister((register) => withPlate(register, assignment));
+  }
+
+  addPlate(added: NewPlate): Promise<VehicleRegister> {
+    return this.changeRegister((register) => withNewPlate(register, added, this.newId));
   }
 
   deletePlateAssignment(id: string): Promise<VehicleRegister> {
