@@ -286,15 +286,13 @@ for (const viewport of VIEWPORTS) {
         // One record is left, holding both plates with their periods.
         await expect(vehicles.getByRole("row")).toHaveCount(2);
         const plates = page.getByRole("list", {
-          name: "Plates of Blue estate (WDB2110200A000001)",
+          name: "Plates of Estate (WDB2110200A000001)",
         });
         await expect(plates.getByRole("listitem")).toHaveText([
           "AB12 CDE from 2020-01-01, still on it",
           "XY65 ZZZ from 2015-01-01 until 2019-12-31",
         ]);
-        await expect(
-          vehicles.getByRole("button", { name: "Edit Estate (WDB2110200A000001)" }),
-        ).toHaveCount(0);
+        await expect(vehicles.getByRole("button", { name: "Edit Blue estate" })).toHaveCount(0);
         await fits(page, "the Vehicles card after a merge");
         await page.screenshot({ path: `${base}-vehicles.png`, fullPage: true });
       });
