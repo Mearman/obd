@@ -4,6 +4,8 @@ import {
   faultEvents,
   GENERIC_PROFILE,
   GuardError,
+  MemoryStorage,
+  identifyVehicle,
   authoriseClear,
   permit,
   type SnapshotStore,
@@ -16,6 +18,7 @@ import {
   newSimulatedService,
   recordingGenericHost,
 } from "./support/host-rig.js";
+import { openNodeStorage } from "../src/node/index.js";
 
 /** The modes a generic session may send without a clear token. */
 const READ_MODES = ["01", "02", "03", "06", "07", "09", "0A"];
@@ -146,6 +149,30 @@ describe("a connection with no profile", () => {
     await host.client.link.disconnect();
     await expect(host.client.link.setPlate({ plate: "AB12CDE" })).rejects.toThrow(/connect/);
   });
+
+  for (const [name, open] of [
+    ["in-memory", () => Promise.resolve(new MemoryStorage())],
+    ["Drizzle over node:sqlite", () => openNodeStorage(":memory:")],
+  ] as const) {
+    it(`gives the car the plate from when it was given, so a run saved before the VIN was read is of it (${name})`, async () => {
+      const rig = recordingGenericHost();
+      const service = newSimulatedService({ transports: rig.transports, storage: await open() });
+      const { host, storage } = service;
+      await host.client.link.connect({ adapter: GENERIC_SIMULATOR });
+      await host.client.link.setPlate({ plate: "AB12 CDE" });
+      const run = await host.client.runs.start({ adapter: GENERIC_SIMULATOR });
+      await host.client.runs.stop({ runId: run.id });
+      expect(run.vin).toBeNull();
+      await host.client.scan.run({ label: "after" });
+
+      const register = await storage.getVehicleRegister();
+      expect(register.plates).toHaveLength(1);
+      expect(register.plates[0]?.validFrom).toBeLessThanOrEqual(run.startedAt);
+      expect(
+        identifyVehicle(register, { vin: null, plate: run.plate, at: run.startedAt }).vin,
+      ).toBe("SIMULATEDCAR00001");
+    });
+  }
 
   it("collects the legislated values in a run stored under the generic name", async () => {
     const { host, storage } = await connectedGeneric();
