@@ -5,7 +5,7 @@
  */
 
 import { and, asc, avg, count, desc, eq, gte, inArray, lt, max, min, type SQL } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/sqlite-proxy";
+import { drizzle, type SqliteRemoteDatabase } from "drizzle-orm/sqlite-proxy";
 import { createSelectSchema } from "drizzle-orm/zod";
 import { validateCapture, type Capture } from "../core/capture.js";
 import { compressCapture, readCaptureFile } from "../core/capture-file.js";
@@ -123,8 +123,10 @@ export class DrizzleStorage implements Storage {
   createRun(input: NewRun): Promise<Run> {
     return this.serial(async () => {
       const run: Run = { id: this.newId(), ...newRunSchema.parse(input), stoppedAt: null };
-      await this.db.insert(runs).values(run);
-      await this.sighted(run.origin, { vin: run.vin, plate: run.plate, at: run.startedAt });
+      await this.db.transaction(async (tx) => {
+        await tx.insert(runs).values(run);
+        await this.sighted(tx, run.origin, { vin: run.vin, plate: run.plate, at: run.startedAt });
+      });
       return run;
     });
   }
@@ -253,13 +255,13 @@ export class DrizzleStorage implements Storage {
   saveScanReport(input: NewScanReport): Promise<ScanReport> {
     return this.serial(async () => {
       const report: ScanReport = { id: this.newId(), ...newScanReportSchema.parse(input) };
-      await this.db
-        .insert(scanReports)
-        .values({ ...report, report: JSON.stringify(report.report) });
-      await this.sighted(report.origin, {
-        vin: report.vin,
-        plate: report.plate,
-        at: report.takenAt,
+      await this.db.transaction(async (tx) => {
+        await tx.insert(scanReports).values({ ...report, report: JSON.stringify(report.report) });
+        await this.sighted(tx, report.origin, {
+          vin: report.vin,
+          plate: report.plate,
+          at: report.takenAt,
+        });
       });
       return report;
     });
@@ -401,18 +403,18 @@ export class DrizzleStorage implements Storage {
             })),
           );
         }
-      });
-      await this.sighted(summary.origin, {
-        vin: summary.vin,
-        plate: summary.plate,
-        at: summary.startedAt,
+        await this.sighted(tx, summary.origin, {
+          vin: summary.vin,
+          plate: summary.plate,
+          at: summary.startedAt,
+        });
       });
       return summary;
     });
   }
 
   getVehicleRegister(): Promise<VehicleRegister> {
-    return this.serial(() => this.readRegister());
+    return this.serial(() => this.db.transaction((tx) => readRegister(tx)));
   }
 
   saveVehicle(vehicle: Vehicle): Promise<VehicleRegister> {
@@ -436,54 +438,32 @@ export class DrizzleStorage implements Storage {
   }
 
   recordSighting(sighting: Sighting): Promise<string | undefined> {
-    return this.serial(() => this.sight(sighting));
+    return this.serial(() => this.db.transaction((tx) => this.sight(tx, sighting)));
   }
 
-  /** Records a sighting of a record this device read itself; one saved from a link or a file says nothing about the user's own cars. */
-  private async sighted(origin: Origin, sighting: Sighting): Promise<void> {
-    if (origin === "local") await this.sight(sighting);
+  /** Records, inside the transaction that saves it, the sighting of a record this device read itself; one saved from a link or a file says nothing about the user's own cars. A sighting the register refuses rolls the save back with it. */
+  private async sighted(tx: Transaction, origin: Origin, sighting: Sighting): Promise<void> {
+    if (origin === "local") await this.sight(tx, sighting);
   }
 
-  private async sight(sighting: Sighting): Promise<string | undefined> {
-    const before = await this.readRegister();
+  private async sight(tx: Transaction, sighting: Sighting): Promise<string | undefined> {
+    const before = await readRegister(tx);
     const { vehicleId, register } = recordSighting(before, sighting, this.newId);
-    await this.writeRegister(before, register);
+    await writeRegister(tx, before, register);
     return vehicleId;
   }
 
   private changeRegister(
     change: (register: VehicleRegister) => VehicleRegister,
   ): Promise<VehicleRegister> {
-    return this.serial(async () => {
-      const before = await this.readRegister();
-      const after = change(before);
-      await this.writeRegister(before, after);
-      return after;
-    });
-  }
-
-  private async readRegister(): Promise<VehicleRegister> {
-    return orderedRegister(
-      vehicleRegisterSchema.parse({
-        vehicles: await this.db.select().from(vehicles),
-        plates: await this.db.select().from(vehiclePlates),
+    return this.serial(() =>
+      this.db.transaction(async (tx) => {
+        const before = await readRegister(tx);
+        const after = change(before);
+        await writeRegister(tx, before, after);
+        return after;
       }),
     );
-  }
-
-  /** Replaces the register's rows with `after` in one transaction, unless it is `before` unchanged. The register holds a row per car and per plate it carried, so it is written whole. */
-  private async writeRegister(before: VehicleRegister, after: VehicleRegister): Promise<void> {
-    if (JSON.stringify(before) === JSON.stringify(after)) return;
-    await this.db.transaction(async (tx) => {
-      await tx.delete(vehiclePlates);
-      await tx.delete(vehicles);
-      for (let start = 0; start < after.vehicles.length; start += INSERT_ROWS) {
-        await tx.insert(vehicles).values(after.vehicles.slice(start, start + INSERT_ROWS));
-      }
-      for (let start = 0; start < after.plates.length; start += INSERT_ROWS) {
-        await tx.insert(vehiclePlates).values(after.plates.slice(start, start + INSERT_ROWS));
-      }
-    });
   }
 
   getCapture(id: string): Promise<Capture | undefined> {
@@ -568,6 +548,35 @@ export class DrizzleStorage implements Storage {
     const run = await this.findRun(runId);
     if (run === undefined) throw new StorageError("not-found", `no run ${runId}`);
     return run;
+  }
+}
+
+/** A transaction on the storage's database: what the register is read and written through, so a change to it commits or rolls back with the record that caused it. */
+type Transaction = Parameters<Parameters<SqliteRemoteDatabase["transaction"]>[0]>[0];
+
+async function readRegister(tx: Transaction): Promise<VehicleRegister> {
+  return orderedRegister(
+    vehicleRegisterSchema.parse({
+      vehicles: await tx.select().from(vehicles),
+      plates: await tx.select().from(vehiclePlates),
+    }),
+  );
+}
+
+/** Replaces the register's rows with `after` inside `tx`, unless it is `before` unchanged. The register holds a row per car and per plate it carried, so it is written whole. */
+async function writeRegister(
+  tx: Transaction,
+  before: VehicleRegister,
+  after: VehicleRegister,
+): Promise<void> {
+  if (JSON.stringify(before) === JSON.stringify(after)) return;
+  await tx.delete(vehiclePlates);
+  await tx.delete(vehicles);
+  for (let start = 0; start < after.vehicles.length; start += INSERT_ROWS) {
+    await tx.insert(vehicles).values(after.vehicles.slice(start, start + INSERT_ROWS));
+  }
+  for (let start = 0; start < after.plates.length; start += INSERT_ROWS) {
+    await tx.insert(vehiclePlates).values(after.plates.slice(start, start + INSERT_ROWS));
   }
 }
 

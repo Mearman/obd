@@ -44,8 +44,8 @@ async function code(promise: Promise<unknown>): Promise<string | undefined> {
   return error instanceof StorageError ? error.code : undefined;
 }
 
-/** A capture of invented exchanges: one answered unit read, one refused, one broadcast nobody answered. */
-function inventedCapture(id: string, startedAt: number): Capture {
+/** A capture of invented exchanges: one answered unit read, one refused, one broadcast nobody answered; for the contract and the storages' own tests. */
+export function inventedCapture(id: string, startedAt: number): Capture {
   const engine = {
     mode: "physical",
     requestId: 0x7e0,
