@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryStorage, simulatorUrl } from "obd-read";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { App } from "../src/App";
 import type { BrowserSupport } from "../src/connect/support";
 import { LineChart } from "../src/charts";
@@ -237,11 +237,15 @@ describe("Run graphs", () => {
     expect(within(row).getAllByRole("cell")[1]).not.toHaveTextContent("-");
   });
 
-  it("follows a run still collecting, keeping a cursor at the end at the end", async () => {
+  it("follows a run still collecting, keeping a cursor at the end", async () => {
     const service = createTestService();
     const run = await service.client.runs.start({
       profile: "mercedes-w211",
       adapter: simulatorUrl("mercedes-w211"),
+    });
+    // The worker runs the file's tests one after another, and a run left collecting would charge its work to the tests after this one, so it stops when this test finishes, passed or failed.
+    onTestFinished(async () => {
+      await service.client.runs.stop({ runId: run.id });
     });
     await waitFor(async () => {
       const counts = await service.client.runs.aggregate({ runId: run.id });
@@ -259,7 +263,6 @@ describe("Run graphs", () => {
       expect(end()).toBeGreaterThan(opened);
       expect(scrubber).toHaveValue(String(end()));
     });
-    await service.client.runs.stop({ runId: run.id });
   });
 
   it("closes the graphs", async () => {
