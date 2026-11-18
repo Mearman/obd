@@ -147,6 +147,37 @@ describe("components", () => {
     expect(onSort).toHaveBeenCalledWith("name");
   });
 
+  it("DataTable sorts a column that shows two values by a button for each, marking the column when either is sorted", async () => {
+    const onSort = vi.fn<(key: "profile" | "vehicle") => void>();
+    render(
+      <DataTable
+        label="Things"
+        columns={[
+          {
+            header: "Profile and vehicle",
+            sortKeys: [
+              { label: "Profile", key: "profile" },
+              { label: "Vehicle", key: "vehicle" },
+            ],
+            render: (row: { n: string }) => row.n,
+          },
+        ]}
+        rows={[{ n: "a" }]}
+        rowKey={(row) => row.n}
+        sorting={{ key: "vehicle", direction: "ascending", onSort }}
+      />,
+    );
+    expect(screen.getByRole("columnheader")).toHaveAttribute("aria-sort", "ascending");
+    expect(screen.getByRole("button", { name: /^Vehicle/ })).toHaveTextContent("▲");
+    expect(screen.getByRole("button", { name: /^Profile/ })).toHaveTextContent("↕");
+    await userEvent.click(screen.getByRole("button", { name: /^Profile/ }));
+    expect(onSort).toHaveBeenCalledWith("profile");
+    expect(screen.getByText("a").closest("[role=cell]")).toHaveAttribute(
+      "data-label",
+      "Profile and vehicle",
+    );
+  });
+
   it("GroupedDataTable shows each group under a heading that collapses and expands it", async () => {
     render(
       <GroupedDataTable

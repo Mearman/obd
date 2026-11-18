@@ -331,7 +331,10 @@ export function LibraryScreen({
     {
       // The vehicle shares the profile's cell, on the lines below it, so the table gains no column on a laptop.
       header: "Profile and vehicle",
-      sortKey: "profile",
+      sortKeys: [
+        { label: "Profile", key: "profile" },
+        { label: "Vehicle", key: "vehicle" },
+      ],
       nowrap: true,
       render: (item) => {
         const label = item.vin === null ? undefined : labels.get(item.vin);

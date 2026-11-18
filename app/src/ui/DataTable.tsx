@@ -15,6 +15,8 @@ export interface Column<Row, Key extends string = string> {
   readonly render: (row: Row) => ReactNode;
   /** What the table's {@link DataTableProps.sorting} calls this column; a column without one cannot be sorted by. */
   readonly sortKey?: Key;
+  /** For a column that shows several values, a sort button for each in its header, named by its `label`, in place of {@link sortKey}. */
+  readonly sortKeys?: readonly { readonly label: string; readonly key: Key }[];
   /** Keeps the value on one line when the table is wide; leave it off for text that may be long. */
   readonly nowrap?: boolean;
   /** Shows the value on a phone's card with no heading beside it, for a control that needs none. */
@@ -39,7 +41,7 @@ export interface DataTableProps<Row, Key extends string = string> {
   readonly rowKey: (row: Row) => string;
   /** Makes each row open something: the name the row is announced by, and what activating it does. A click on a button or link inside the row does not activate the row. */
   readonly onOpen?: { readonly label: (row: Row) => string; readonly open: (row: Row) => void };
-  /** Makes each column with a {@link Column.sortKey} sortable by a button in its header, the sorted one marked with `aria-sort`; on a phone those headers stay on screen above the cards. The rows are shown in the order given. */
+  /** Makes each column with a {@link Column.sortKey} or {@link Column.sortKeys} sortable by a button in its header for each, the sorted one marked with `aria-sort`; on a phone those headers stay on screen above the cards. The rows are shown in the order given. */
   readonly sorting?: DataTableSorting<Key>;
   /** The width from which the table is a table rather than a card per row: `standard` (a tablet) or `roomy` (a laptop), for a table whose columns need the room. */
   readonly layout?: "standard" | "roomy";
@@ -58,33 +60,41 @@ function Header<Row, Key extends string>({
   readonly sorting: DataTableSorting<Key> | undefined;
 }) {
   const { headerCell, sortableHeaderCell, sortButton } = styles;
-  const { sortKey } = column;
-  if (sorting === undefined || sortKey === undefined) {
+  const keys =
+    column.sortKeys ??
+    (column.sortKey === undefined ? [] : [{ label: column.header, key: column.sortKey }]);
+  if (sorting === undefined || keys.length === 0) {
     return (
       <div role="columnheader" className={headerCell}>
         {column.header}
       </div>
     );
   }
-  const direction = sorting.key === sortKey ? sorting.direction : undefined;
+  const direction = keys.some(({ key }) => key === sorting.key) ? sorting.direction : undefined;
   return (
     <div
       role="columnheader"
       className={`${headerCell} ${sortableHeaderCell}`}
       {...(direction === undefined ? {} : { "aria-sort": direction })}
     >
-      <button
-        type="button"
-        className={sortButton}
-        onClick={() => {
-          sorting.onSort(sortKey);
-        }}
-      >
-        {column.header}
-        <span aria-hidden>
-          {direction === "ascending" ? "▲" : direction === "descending" ? "▼" : "↕"}
-        </span>
-      </button>
+      {keys.map(({ label, key }) => {
+        const sorted = key === sorting.key ? sorting.direction : undefined;
+        return (
+          <button
+            key={key}
+            type="button"
+            className={sortButton}
+            onClick={() => {
+              sorting.onSort(key);
+            }}
+          >
+            {label}
+            <span aria-hidden>
+              {sorted === "ascending" ? "▲" : sorted === "descending" ? "▼" : "↕"}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
