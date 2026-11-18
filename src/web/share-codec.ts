@@ -39,7 +39,7 @@ function joined(chunks: readonly Uint8Array[], size: number): Uint8Array {
 }
 
 /**
- * A {@link ShareCodec} for the browser, which runs in Node too. It compresses with `pako`, a port of zlib, at {@link SHARE_DEFLATE_LEVEL}, because `CompressionStream` has no level and its default makes longer links than the CLI; the bytes are those `node:zlib` writes. It inflates through the web-standard `DecompressionStream` (raw deflate), cancelled the moment its output passes the limit.
+ * A {@link ShareCodec} for the browser, which runs in Node too. It compresses with `pako`, a port of zlib, at {@link SHARE_DEFLATE_LEVEL}, because `CompressionStream` has no level and its default makes longer links than the CLI; `pako` is plain JavaScript, so it writes the same bytes on every runtime, which `node:zlib` (the runtime's own zlib build) does not promise. It inflates through the web-standard `DecompressionStream` (raw deflate), cancelled the moment its output passes the limit.
  */
 export const streamShareCodec: ShareCodec = {
   deflate(bytes: Uint8Array): Promise<Uint8Array> {

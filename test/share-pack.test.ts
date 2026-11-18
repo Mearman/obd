@@ -1,4 +1,5 @@
 import { deflateRawSync, inflateRawSync } from "node:zlib";
+import { deflateRaw } from "pako";
 import { describe, expect, it } from "vitest";
 import {
   FUNCTIONAL_ID,
@@ -591,6 +592,9 @@ async function fullCapture(profile: Profile, last: number): Promise<Capture> {
   return timed(capture, 7);
 }
 
+/** The level zlib uses when none is given, which `CompressionStream` has no way to change. */
+const DEFAULT_ZLIB_LEVEL = 6;
+
 /** The browser's `CompressionStream` at its own default level, which the app compressed links with before it matched the CLI. */
 async function defaultLevelDeflate(bytes: Uint8Array): Promise<Uint8Array> {
   const stream = new Blob([new Uint8Array(bytes)])
@@ -600,7 +604,8 @@ async function defaultLevelDeflate(bytes: Uint8Array): Promise<Uint8Array> {
 }
 
 describe("the web share codec", () => {
-  it("compresses every payload to the very bytes the Node codec does", async () => {
+  it("compresses every payload to a stream the Node codec inflates back to it", async () => {
+    // node:zlib is the runtime's own zlib build and may pick different matches from pako, so the compressed bytes are not compared, only what they hold.
     const payloads: readonly (readonly [string, ShareEnvelope])[] = [
       ["W211 units and identifiers", envelopeOf(await fullCapture(W211, 0x40))],
       ["MQB units and identifiers", envelopeOf(await fullCapture(MQB, 0x40))],
@@ -611,20 +616,31 @@ describe("the web share codec", () => {
     ];
     for (const [label, envelope] of payloads) {
       const payload = packedSharePayload(envelope);
-      expect(await streamShareCodec.deflate(payload), label).toEqual(
-        await zlibShareCodec.deflate(payload),
-      );
+      const compressed = await streamShareCodec.deflate(payload);
+      expect(await zlibShareCodec.inflate(compressed, MAX_DECODED_BYTES), label).toEqual({
+        ok: true,
+        bytes: payload,
+      });
+      expect(
+        await streamShareCodec.inflate(await zlibShareCodec.deflate(payload), MAX_DECODED_BYTES),
+        label,
+      ).toEqual({
+        ok: true,
+        bytes: payload,
+      });
     }
   });
 
-  it("keeps a capture within the practical link length that the default level puts over it", async () => {
+  it("keeps a capture within the practical link length at level 9 that zlib's default level puts over it", async () => {
     const envelope = envelopeOf(await fullCapture(W211, 0x22));
-    const defaultLevel = `share=2.${toBase64Url(await defaultLevelDeflate(packedSharePayload(envelope)))}`;
+    const payload = packedSharePayload(envelope);
+    // pako is plain JavaScript, so both lengths are the same on every runtime, unlike the runtime's own CompressionStream.
+    const defaultLevel = `share=2.${toBase64Url(deflateRaw(payload, { level: DEFAULT_ZLIB_LEVEL }))}`;
     expect(shareLink(APP, defaultLevel).length).toBeGreaterThan(PRACTICAL_LINK_LENGTH);
 
     const fragment = await fragmentOf(envelope, streamShareCodec);
     expect(shareLink(APP, fragment).length).toBeLessThanOrEqual(PRACTICAL_LINK_LENGTH);
-    expect(fragment).toBe(await fragmentOf(envelope, zlibShareCodec));
+    expect(await decodeShare(fragment, zlibShareCodec)).toEqual({ ok: true, value: envelope });
   });
 
   it("still reads a link compressed at the browser's default level", async () => {
