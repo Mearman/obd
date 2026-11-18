@@ -46,8 +46,9 @@ export class DeviceLink {
 
   constructor(private readonly dependencies: DeviceLinkDependencies) {}
 
-  // Held with the session it was read on, so a later connection never records another car's VIN.
+  // Held with the session they belong to, so a later connection never records another car's VIN or plate.
   private vinRead: { readonly session: LinkSession; readonly vin: string } | undefined;
+  private plateGiven: { readonly session: LinkSession; readonly plate: string } | undefined;
 
   /** The open connection, or `undefined`. */
   get session(): LinkSession | undefined {
@@ -62,6 +63,17 @@ export class DeviceLink {
   /** The VIN a read on `session` last reported, or `null` when none has. */
   vinOf(session: LinkSession): string | null {
     return this.vinRead?.session === session ? this.vinRead.vin : null;
+  }
+
+  /** Records the number plate the user gave `session`'s car, or forgets it with `null`, so what is saved from that connection afterwards records it; does nothing once `session` is no longer the open connection. */
+  notePlate(session: LinkSession, plate: string | null): void {
+    if (session !== this.current) return;
+    this.plateGiven = plate === null ? undefined : { session, plate };
+  }
+
+  /** The number plate the user gave `session`'s car, or `null` when none was given. */
+  plateOf(session: LinkSession): string | null {
+    return this.plateGiven?.session === session ? this.plateGiven.plate : null;
   }
 
   /**

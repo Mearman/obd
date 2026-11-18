@@ -37,6 +37,7 @@ function report(
     label,
     origin,
     vin,
+    plate: null,
   });
 }
 
@@ -57,6 +58,7 @@ function run(
       notes: "",
       origin,
       vin,
+      plate: null,
     },
     1,
   );
@@ -76,6 +78,7 @@ function capture(id: string, at: number, origin: Origin, vin: string | null = nu
     units: [],
     origin,
     vin,
+    plate: null,
   });
 }
 

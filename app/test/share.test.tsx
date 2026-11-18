@@ -705,7 +705,7 @@ describe("a shared link with the default setting", () => {
   it("opens a capture this device already stores as that capture, without saving it again", async () => {
     const capture = await simulatedCapture();
     const storage = new MemoryStorage();
-    await storage.saveCapture(capture, "shared", null);
+    await storage.saveCapture(capture, { origin: "shared", vin: null, plate: null });
     await openLink(await captureFragment(capture), storage);
     // A capture this device already stores opens as that capture; nothing is saved again.
     expect(await screen.findByRole("status", { name: "Decoding summary" })).toBeInTheDocument();

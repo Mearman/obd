@@ -23,6 +23,9 @@ const origin = () => text({ enum: ORIGINS }).notNull().default("local");
 /** The VIN of the car a record was read from, trimmed and in upper case, or null when it is not known; rows from before the column existed are null, except saved reports, which the migration that added it read from their documents. */
 const vin = () => text();
 
+/** The number plate the user gave the connection a record was read on, upper case without spaces or hyphens, as it was when the record was saved; null when none was given. Rows from before the column existed are null. */
+const plate = () => text();
+
 /** A SQLite blob read and written as bytes. */
 const bytes = customType<{ data: Uint8Array; driverData: Uint8Array }>({
   dataType: () => "blob",
@@ -40,6 +43,7 @@ export const runs = sqliteTable(
     notes: text().notNull(),
     origin: origin(),
     vin: vin(),
+    plate: plate(),
   },
   (table) => [index("runs_started_at_idx").on(table.startedAt)],
 );
@@ -79,6 +83,7 @@ export const scanReports = sqliteTable(
     report: text().notNull(),
     origin: origin(),
     vin: vin(),
+    plate: plate(),
   },
   (table) => [index("scan_reports_taken_at_idx").on(table.takenAt)],
 );
@@ -126,6 +131,7 @@ export const captures = sqliteTable(
     document: bytes().notNull(),
     origin: origin(),
     vin: vin(),
+    plate: plate(),
   },
   (table) => [index("captures_started_at_idx").on(table.startedAt)],
 );
@@ -144,4 +150,34 @@ export const captureUnits = sqliteTable(
     answered: integer().notNull(),
   },
   (table) => [primaryKey({ columns: [table.captureId, table.position] })],
+);
+
+/** The vehicle register: each car this device has read, by its VIN where one was read (unique among those that have one). */
+export const vehicles = sqliteTable("vehicles", {
+  id: text().primaryKey(),
+  vin: text().unique(),
+  label: text().notNull().default(""),
+});
+
+/**
+ * Which vehicle carried which number plate when: `valid_from` included (null for an unknown start), `valid_to` excluded (null while it still carries it). The plate is upper case without spaces or hyphens. Storage refuses two assignments of one plate whose periods overlap, so a plate moves between vehicles only by one period ending where the next begins.
+ */
+export const vehiclePlates = sqliteTable(
+  "vehicle_plates",
+  {
+    id: text().primaryKey(),
+    vehicleId: text("vehicle_id")
+      .notNull()
+      .references(() => vehicles.id, { onDelete: "cascade" }),
+    plate: text().notNull(),
+    validFrom: integer("valid_from"),
+    validTo: integer("valid_to"),
+  },
+  (table) => [
+    index("vehicle_plates_plate_idx").on(table.plate, table.validFrom),
+    check(
+      "vehicle_plates_period",
+      sql`${table.validFrom} is null or ${table.validTo} is null or ${table.validFrom} < ${table.validTo}`,
+    ),
+  ],
 );

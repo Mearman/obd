@@ -23,8 +23,21 @@ import {
   type Storage,
   type StoredPlan,
   type StoredProfile,
-  type Vin,
+  type CaptureRecord,
 } from "../storage.js";
+import {
+  mergeVehicles,
+  orderedRegister,
+  recordSighting,
+  vehicleRegisterSchema,
+  withPlate,
+  withVehicle,
+  withoutPlate,
+  type PlateAssignment,
+  type Sighting,
+  type Vehicle,
+  type VehicleRegister,
+} from "../vehicles.js";
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -66,8 +79,10 @@ export class MemoryStorage implements Storage {
   private readonly plans = new Map<string, string>();
   private readonly captures = new Map<
     string,
-    { readonly text: string; readonly origin: Origin; readonly vin: Vin }
+    { readonly text: string; readonly record: CaptureRecord }
   >();
+  /** Kept as text, as the plans are. */
+  private register = JSON.stringify({ vehicles: [], plates: [] });
   private readonly newId: () => string;
 
   /**
@@ -84,8 +99,58 @@ export class MemoryStorage implements Storage {
       const run: Run = { id: this.newId(), ...fields, stoppedAt: null };
       this.runs.set(run.id, run);
       this.samples.set(run.id, []);
+      this.sighted(run.origin, { vin: run.vin, plate: run.plate, at: run.startedAt });
       return { ...run };
     });
+  }
+
+  getVehicleRegister(): Promise<VehicleRegister> {
+    return settle(() => this.readRegister());
+  }
+
+  saveVehicle(vehicle: Vehicle): Promise<VehicleRegister> {
+    return this.changeRegister((register) => withVehicle(register, vehicle));
+  }
+
+  savePlateAssignment(assignment: PlateAssignment): Promise<VehicleRegister> {
+    return this.changeRegister((register) => withPlate(register, assignment));
+  }
+
+  deletePlateAssignment(id: string): Promise<VehicleRegister> {
+    return this.changeRegister((register) => withoutPlate(register, id));
+  }
+
+  mergeVehicles(keepId: string, removeId: string): Promise<VehicleRegister> {
+    return this.changeRegister((register) => mergeVehicles(register, keepId, removeId));
+  }
+
+  recordSighting(sighting: Sighting): Promise<string | undefined> {
+    return settle(() => this.sight(sighting));
+  }
+
+  /** Records a sighting of a record this device read itself; one saved from a link or a file says nothing about the user's own cars. */
+  private sighted(origin: Origin, sighting: Sighting): void {
+    if (origin === "local") this.sight(sighting);
+  }
+
+  private sight(sighting: Sighting): string | undefined {
+    const { vehicleId, register } = recordSighting(this.readRegister(), sighting, this.newId);
+    this.register = JSON.stringify(register);
+    return vehicleId;
+  }
+
+  private changeRegister(
+    change: (register: VehicleRegister) => VehicleRegister,
+  ): Promise<VehicleRegister> {
+    return settle(() => {
+      const after = change(this.readRegister());
+      this.register = JSON.stringify(after);
+      return this.readRegister();
+    });
+  }
+
+  private readRegister(): VehicleRegister {
+    return orderedRegister(vehicleRegisterSchema.parse(JSON.parse(this.register)));
   }
 
   stopRun(runId: string, stoppedAt: number): Promise<Run> {
@@ -196,6 +261,7 @@ export class MemoryStorage implements Storage {
     return settle(() => {
       const report: ScanReport = { id: this.newId(), ...newScanReportSchema.parse(input) };
       this.reports.set(report.id, report);
+      this.sighted(report.origin, { vin: report.vin, plate: report.plate, at: report.takenAt });
       return { ...report };
     });
   }
@@ -213,7 +279,7 @@ export class MemoryStorage implements Storage {
         .filter((report) => query.profile === undefined || report.profile === query.profile)
         .sort((a, b) => b.takenAt - a.takenAt || compareText(b.id, a.id))
         .filter((report) => query.origin === undefined || report.origin === query.origin)
-        .map(({ id, profile, adapter, takenAt, label, origin, vin }) => ({
+        .map(({ id, profile, adapter, takenAt, label, origin, vin, plate }) => ({
           id,
           profile,
           adapter,
@@ -221,6 +287,7 @@ export class MemoryStorage implements Storage {
           label,
           origin,
           vin,
+          plate,
         }));
       return page(matching, query.offset, query.limit);
     });
@@ -256,15 +323,20 @@ export class MemoryStorage implements Storage {
     });
   }
 
-  saveCapture(capture: Capture, origin: Origin, vin: string | null): Promise<CaptureSummary> {
+  saveCapture(capture: Capture, record: CaptureRecord): Promise<CaptureSummary> {
     return settle(() => {
       const valid = validateCapture(capture, "capture");
       if (this.captures.has(valid.id)) {
         throw new StorageError("conflict", `a capture ${valid.id} is stored already`);
       }
-      const summary = captureSummary(valid, origin, vin);
+      const summary = captureSummary(valid, record);
       // Kept as text, so a stored capture shares nothing with the caller's objects.
-      this.captures.set(valid.id, { text: JSON.stringify(valid), origin, vin: summary.vin });
+      this.captures.set(valid.id, { text: JSON.stringify(valid), record: summary });
+      this.sighted(summary.origin, {
+        vin: summary.vin,
+        plate: summary.plate,
+        at: summary.startedAt,
+      });
       return summary;
     });
   }
@@ -279,13 +351,9 @@ export class MemoryStorage implements Storage {
   listCaptures(query: CaptureQuery = {}): Promise<CaptureSummary[]> {
     return settle(() => {
       const summaries = [...this.captures.values()]
-        .filter((stored) => query.origin === undefined || stored.origin === query.origin)
+        .filter((stored) => query.origin === undefined || stored.record.origin === query.origin)
         .map((stored) =>
-          captureSummary(
-            validateCapture(JSON.parse(stored.text), "capture"),
-            stored.origin,
-            stored.vin,
-          ),
+          captureSummary(validateCapture(JSON.parse(stored.text), "capture"), stored.record),
         )
         .sort((a, b) => b.startedAt - a.startedAt || compareText(b.id, a.id));
       return page(summaries, query.offset, query.limit);

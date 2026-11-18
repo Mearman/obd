@@ -342,12 +342,14 @@ function unitReportData(report: UnitReport): UnitReportData {
   };
 }
 
-function connectionData(session: LinkSession): Connection {
+/** The connection as a caller sees it, with the plate the user gave its car. */
+function connectionData(session: LinkSession, plate: string | null): Connection {
   return {
     profile: session.profile?.name ?? null,
     adapter: session.adapterUrl,
     simulated: isSimulatorUrl(session.adapterUrl),
     info: { ...session.adapter },
+    plate,
   };
 }
 
@@ -546,6 +548,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
         profile: profileLabel(open.profile),
         adapter: open.adapterUrl,
         takenAt,
+        plate: link.plateOf(open),
       });
       const save = `${kind}-${label}-${String(takenAt)}`;
       const asked = await confirmations.begin(kind, (io) =>
@@ -565,6 +568,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       label: saved.label,
       origin: saved.origin,
       vin: saved.vin,
+      plate: saved.plate,
     };
   };
 
@@ -578,6 +582,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       adapter: session.adapterUrl,
       takenAt: now(),
       label,
+      plate: link.plateOf(session),
       report: jsonSchema.parse({
         tool: "obd-read",
         taken: isoNowSeconds(),
@@ -612,12 +617,12 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
     link: {
       status: os.link.status.handler(() => {
         const session = link.session;
-        return session === undefined ? null : connectionData(session);
+        return session === undefined ? null : connectionData(session, link.plateOf(session));
       }),
       connect: os.link.connect.handler(({ input }) =>
         translated(async () => {
           requireFree();
-          return connectionData(await link.connect(input.profile, input.adapter));
+          return connectionData(await link.connect(input.profile, input.adapter), null);
         }),
       ),
       disconnect: os.link.disconnect.handler(() =>
@@ -626,6 +631,14 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
           const was = link.session !== undefined;
           await link.disconnect();
           return { disconnected: was };
+        }),
+      ),
+      setPlate: os.link.setPlate.handler(({ input }) =>
+        translated(() => {
+          const session = link.session;
+          if (session === undefined) throw new NotConnected("connect an adapter first");
+          link.notePlate(session, input.plate);
+          return Promise.resolve(connectionData(session, link.plateOf(session)));
         }),
       ),
       probe: os.link.probe.handler(() =>
@@ -672,6 +685,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
             adapter: session.adapterUrl,
             takenAt: now(),
             label: input.label,
+            plate: link.plateOf(session),
             report: jsonSchema.parse(JSON.parse(jsonText(document.json))),
           });
           return {
@@ -839,6 +853,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
             startedAt: now(),
             notes: withSelection(input.notes ?? "", selection),
             vin: link.session === undefined ? null : link.vinOf(link.session),
+            plate: link.session === undefined ? null : link.plateOf(link.session),
           });
           try {
             await collector.start(run, selection, sink);
@@ -986,7 +1001,11 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
             input.name,
           );
           return {
-            summary: await storage.saveCapture(capture, "imported", null),
+            summary: await storage.saveCapture(capture, {
+              origin: "imported",
+              vin: null,
+              plate: null,
+            }),
             unrecovered: [...unrecovered],
           };
         }),
@@ -1027,6 +1046,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
             bitrate: bus.bitrate,
             notes: withPlan(planRunNotes(plan), plan.name),
             vin: link.vinOf(session),
+            plate: link.plateOf(session),
           });
         }),
       ),
@@ -1063,6 +1083,19 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
           }
           return stopped;
         }),
+      ),
+    },
+    vehicles: {
+      list: os.vehicles.list.handler(() => translated(() => storage.getVehicleRegister())),
+      save: os.vehicles.save.handler(({ input }) => translated(() => storage.saveVehicle(input))),
+      savePlate: os.vehicles.savePlate.handler(({ input }) =>
+        translated(() => storage.savePlateAssignment(input)),
+      ),
+      deletePlate: os.vehicles.deletePlate.handler(({ input }) =>
+        translated(() => storage.deletePlateAssignment(input.id)),
+      ),
+      merge: os.vehicles.merge.handler(({ input }) =>
+        translated(() => storage.mergeVehicles(input.keep, input.remove)),
       ),
     },
     profiles: {

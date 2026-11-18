@@ -389,6 +389,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
             label: "",
             origin: "local",
             vin: null,
+            plate: null,
           },
           {
             id: older.id,
@@ -398,6 +399,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
             label: "before",
             origin: "local",
             vin: null,
+            plate: null,
           },
         ]);
         expect(
@@ -413,7 +415,11 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
       withStorage(async (storage) => {
         const older = inventedCapture("capture-a", T0);
         const newer = inventedCapture("capture-b", T0 + 100);
-        const summary = await storage.saveCapture(older, "local", null);
+        const summary = await storage.saveCapture(older, {
+          origin: "local",
+          vin: null,
+          plate: null,
+        });
         expect(summary).toEqual({
           id: "capture-a",
           startedAt: T0,
@@ -430,8 +436,9 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
           ],
           origin: "local",
           vin: null,
+          plate: null,
         });
-        await storage.saveCapture(newer, "local", null);
+        await storage.saveCapture(newer, { origin: "local", vin: null, plate: null });
         expect(await storage.getCapture("capture-a")).toEqual(older);
         expect(await storage.getCapture("nope")).toBeUndefined();
         expect((await storage.listCaptures()).map((capture) => capture.id)).toEqual([
@@ -439,7 +446,9 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
           "capture-a",
         ]);
         expect(await storage.listCaptures({ limit: 1, offset: 1 })).toEqual([summary]);
-        expect(await code(storage.saveCapture(older, "shared", null))).toBe("conflict");
+        expect(
+          await code(storage.saveCapture(older, { origin: "shared", vin: null, plate: null })),
+        ).toBe("conflict");
         await storage.deleteCapture("capture-b");
         await storage.deleteCapture("nope");
         expect(await storage.getCapture("capture-b")).toBeUndefined();
@@ -450,7 +459,9 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
       withStorage(async (storage) => {
         const capture = inventedCapture("capture-a", T0);
         const reordered: Capture = { ...capture, exchanges: [...capture.exchanges].reverse() };
-        await expect(storage.saveCapture(reordered, "local", null)).rejects.toThrow();
+        await expect(
+          storage.saveCapture(reordered, { origin: "local", vin: null, plate: null }),
+        ).rejects.toThrow();
         expect(await storage.listCaptures()).toEqual([]);
       }));
 
@@ -485,9 +496,21 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
           ]),
         ).toEqual([[sharedReport.id, "shared"]]);
 
-        await storage.saveCapture(inventedCapture("capture-own", T0), "local", null);
-        await storage.saveCapture(inventedCapture("capture-shared", T0 + 1), "shared", null);
-        await storage.saveCapture(inventedCapture("capture-file", T0 + 2), "imported", null);
+        await storage.saveCapture(inventedCapture("capture-own", T0), {
+          origin: "local",
+          vin: null,
+          plate: null,
+        });
+        await storage.saveCapture(inventedCapture("capture-shared", T0 + 1), {
+          origin: "shared",
+          vin: null,
+          plate: null,
+        });
+        await storage.saveCapture(inventedCapture("capture-file", T0 + 2), {
+          origin: "imported",
+          vin: null,
+          plate: null,
+        });
         expect(
           (await storage.listCaptures()).map((capture) => [capture.id, capture.origin]),
         ).toEqual([
@@ -525,12 +548,16 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
           "WDB2110202B121724",
         ]);
 
-        const capture = await storage.saveCapture(
-          inventedCapture("capture-car", T0),
-          "local",
-          "vf1abc12345678901",
-        );
-        await storage.saveCapture(inventedCapture("capture-none", T0 + 1), "shared", "  ");
+        const capture = await storage.saveCapture(inventedCapture("capture-car", T0), {
+          origin: "local",
+          vin: "vf1abc12345678901",
+          plate: null,
+        });
+        await storage.saveCapture(inventedCapture("capture-none", T0 + 1), {
+          origin: "shared",
+          vin: "  ",
+          plate: null,
+        });
         expect(capture.vin).toBe("VF1ABC12345678901");
         expect((await storage.listCaptures()).map((summary) => [summary.id, summary.vin])).toEqual([
           ["capture-none", null],
@@ -560,6 +587,135 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
           [scanned.id, "WDB2110202B121724"],
           [generic.id, "SIMULATEDCAR00001"],
         ]);
+      }));
+
+    it("records the plate of each run, capture and report as given, and the vehicle a local record with a VIN is of", () =>
+      withStorage(async (storage) => {
+        const run = await storage.createRun({
+          profile: "p",
+          adapter: "a",
+          startedAt: T0,
+          vin: "WDB2110202B000001",
+          plate: "ab12 cde",
+        });
+        expect(run.plate).toBe("AB12CDE");
+        const report = await storage.saveScanReport({
+          profile: "p",
+          adapter: "a",
+          takenAt: T0 + 1,
+          report: { obd: { vin: "WDB2110202B000001" } },
+          plate: "AB12-CDE",
+        });
+        expect((await storage.listScanReports()).map((summary) => summary.plate)).toEqual([
+          "AB12CDE",
+        ]);
+        expect(report.plate).toBe("AB12CDE");
+        const capture = await storage.saveCapture(inventedCapture("capture-plate", T0 + 2), {
+          origin: "local",
+          vin: null,
+          plate: " xy65 zzz",
+        });
+        expect((await storage.listCaptures())[0]?.plate).toBe(capture.plate);
+        expect(capture.plate).toBe("XY65ZZZ");
+
+        const register = await storage.getVehicleRegister();
+        expect(register.vehicles.map(({ vin, label }) => ({ vin, label }))).toEqual([
+          { vin: "WDB2110202B000001", label: "" },
+        ]);
+        expect(
+          register.plates.map(({ plate, validFrom, validTo }) => [plate, validFrom, validTo]),
+        ).toEqual([["AB12CDE", T0, null]]);
+
+        // A shared record says nothing about the user's own cars.
+        await storage.createRun({
+          profile: "p",
+          adapter: "a",
+          startedAt: T0 + 3,
+          origin: "shared",
+          vin: "WVWZZZ6RZAY000002",
+          plate: "XY65ZZZ",
+        });
+        expect((await storage.getVehicleRegister()).vehicles).toHaveLength(1);
+      }));
+
+    it("keeps the vehicle register: vehicles, plate periods, a plate that moves, merges and its rules", () =>
+      withStorage(async (storage) => {
+        const estate = await storage.recordSighting({
+          vin: "WDB2110202B000001",
+          plate: "AB12CDE",
+          at: T0,
+        });
+        const hatch = await storage.recordSighting({
+          vin: "WVWZZZ6RZAY000002",
+          plate: "AB12CDE",
+          at: T0 + 1000,
+        });
+        expect(estate).toBeDefined();
+        expect(hatch).toBeDefined();
+        expect(await storage.recordSighting({ vin: null, plate: "AB12CDE", at: T0 + 1 })).toBe(
+          estate,
+        );
+        expect(await storage.recordSighting({ vin: null, plate: "AB12CDE", at: T0 + 2000 })).toBe(
+          hatch,
+        );
+        expect(
+          await storage.recordSighting({ vin: null, plate: "AB12CDE", at: T0 - 1 }),
+        ).toBeUndefined();
+        const moved = await storage.getVehicleRegister();
+        expect(
+          moved.plates.map(({ vehicleId, validFrom, validTo }) => [vehicleId, validFrom, validTo]),
+        ).toEqual([
+          [estate, T0, T0 + 1000],
+          [hatch, T0 + 1000, null],
+        ]);
+
+        // A vehicle known only by its plate, its label edited, then merged into the estate.
+        await storage.saveVehicle({ id: "by-plate", vin: null, label: "" });
+        await storage.saveVehicle({ id: "by-plate", vin: null, label: "Blue estate" });
+        await storage.savePlateAssignment({
+          id: "older",
+          vehicleId: "by-plate",
+          plate: "old 1",
+          validFrom: null,
+          validTo: T0,
+        });
+        expect(
+          await code(
+            storage.savePlateAssignment({
+              id: "clash",
+              vehicleId: "by-plate",
+              plate: "AB12CDE",
+              validFrom: T0 + 500,
+              validTo: null,
+            }),
+          ),
+        ).toBe("conflict");
+        expect(
+          await code(
+            storage.savePlateAssignment({
+              id: "backwards",
+              vehicleId: "by-plate",
+              plate: "NEW1",
+              validFrom: T0,
+              validTo: T0 - 1,
+            }),
+          ),
+        ).toBe("invalid");
+        expect(
+          await code(storage.saveVehicle({ id: "copy", vin: "WDB2110202B000001", label: "" })),
+        ).toBe("conflict");
+        if (estate === undefined || hatch === undefined) throw new Error("expected both vehicles");
+        expect(await code(storage.mergeVehicles(estate, hatch))).toBe("conflict");
+
+        const merged = await storage.mergeVehicles(estate, "by-plate");
+        expect(merged.vehicles.find((vehicle) => vehicle.id === estate)?.label).toBe("Blue estate");
+        expect(merged.vehicles.map((vehicle) => vehicle.id)).not.toContain("by-plate");
+        expect(merged.plates.find((each) => each.id === "older")?.vehicleId).toBe(estate);
+        expect(await storage.getVehicleRegister()).toEqual(merged);
+
+        const removed = await storage.deletePlateAssignment("older");
+        expect(removed.plates.map((each) => each.id)).not.toContain("older");
+        await storage.deletePlateAssignment("nope");
       }));
 
     it("keeps imported profiles by name, replacing a profile imported twice", () =>

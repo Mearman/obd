@@ -43,6 +43,7 @@ export * from "./framequeue.js";
 export * from "./monitor.js";
 export * from "./live.js";
 export * from "./storage.js";
+export * from "./vehicles.js";
 export * from "./run-export.js";
 export * from "./testing/memory-storage.js";
 export * from "./service.js";

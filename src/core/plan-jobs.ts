@@ -154,6 +154,8 @@ export interface PlanStart {
   readonly notes: string;
   /** The VIN the connection has read, stored on the run; `null` when it has read none. */
   readonly vin: string | null;
+  /** The number plate the user gave the connection, stored on the run; `null` when none was given. */
+  readonly plate: string | null;
 }
 
 /** The part of an `AbortSignal` an event stream uses; core has no DOM types, and a real `AbortSignal` satisfies it. */
@@ -239,6 +241,7 @@ export class PlanJobs {
         bitrate: start.bitrate,
         notes: start.notes,
         ...(start.vin === null ? {} : { vin: start.vin }),
+        ...(start.plate === null ? {} : { plate: start.plate }),
         ...(codesIntervalMs === undefined ? {} : { codesIntervalMs }),
         onEvent: (event) => {
           if (event.type === "plan-started") {

@@ -55,4 +55,16 @@ export const MIGRATIONS: readonly Migration[] = [
       "-- Reports from before this column take the VIN their document holds, by the rule of reportVin in src/core/storage.ts: the first text among the generic OBD-II read's obd.vin, an OBD-II clear snapshot's vin and each unit's VIN identification, with ASCII white space trimmed, ASCII letters in upper case (SQLite changes no other character, and reportVin follows it) and null when blank. A run or a capture keeps no VIN in what is stored of it, so theirs stay null. Each CASE tests a value's type before reading into it, since SQLite does not promise the order in which it evaluates the terms of an AND.\nUPDATE `scan_reports` SET `vin` = nullif(upper(trim(coalesce(\n  CASE WHEN json_type(`report`, '$.obd.vin') = 'text' THEN json_extract(`report`, '$.obd.vin') END,\n  CASE WHEN json_type(`report`, '$.vin') = 'text' THEN json_extract(`report`, '$.vin') END,\n  (\n    SELECT `found`.`vin` FROM (\n      SELECT `unit`.`key` AS `position`,\n        CASE WHEN `unit`.`type` = 'object' THEN\n          CASE WHEN json_type(`unit`.`value`, '$.identification.VIN.text') = 'text' THEN json_extract(`unit`.`value`, '$.identification.VIN.text') END\n        END AS `vin`\n      FROM json_each(CASE WHEN json_type(`report`, '$.units') = 'array' THEN json_extract(`report`, '$.units') ELSE '[]' END) AS `unit`\n    ) AS `found`\n    WHERE `found`.`vin` IS NOT NULL\n    ORDER BY `found`.`position`\n    LIMIT 1\n  )\n), char(32, 9, 10, 11, 12, 13))), '');",
     ],
   },
+  {
+    tag: "20261118074239_special_komodo",
+    statements: [
+      "CREATE TABLE `vehicle_plates` (\n\t`id` text PRIMARY KEY,\n\t`vehicle_id` text NOT NULL,\n\t`plate` text NOT NULL,\n\t`valid_from` integer,\n\t`valid_to` integer,\n\tCONSTRAINT `fk_vehicle_plates_vehicle_id_vehicles_id_fk` FOREIGN KEY (`vehicle_id`) REFERENCES `vehicles`(`id`) ON DELETE CASCADE,\n\tCONSTRAINT \"vehicle_plates_period\" CHECK(\"valid_from\" is null or \"valid_to\" is null or \"valid_from\" < \"valid_to\")\n);",
+      "CREATE TABLE `vehicles` (\n\t`id` text PRIMARY KEY,\n\t`vin` text UNIQUE,\n\t`label` text DEFAULT '' NOT NULL\n);",
+      "ALTER TABLE `captures` ADD `plate` text;",
+      "ALTER TABLE `runs` ADD `plate` text;",
+      "ALTER TABLE `scan_reports` ADD `plate` text;",
+      "CREATE INDEX `vehicle_plates_plate_idx` ON `vehicle_plates` (`plate`,`valid_from`);",
+      "-- A vehicle for each VIN a record read on this device holds, as saving such a record from now on adds one; records saved from a link or a file add none. Ids are random, like the ids storage gives.\nINSERT INTO `vehicles` (`id`, `vin`, `label`)\nSELECT lower(hex(randomblob(16))), `vin`, '' FROM (\n  SELECT `vin` FROM `runs` WHERE `origin` = 'local' AND `vin` IS NOT NULL\n  UNION SELECT `vin` FROM `captures` WHERE `origin` = 'local' AND `vin` IS NOT NULL\n  UNION SELECT `vin` FROM `scan_reports` WHERE `origin` = 'local' AND `vin` IS NOT NULL\n);",
+    ],
+  },
 ];

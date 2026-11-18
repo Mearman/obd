@@ -16,6 +16,8 @@ export interface SnapshotContext {
   readonly adapter: string;
   /** The time the snapshot is taken, as storage records times. */
   readonly takenAt: number;
+  /** The number plate the user gave the connection, or `null`. */
+  readonly plate: string | null;
 }
 
 /** A snapshot that was saved: the name the guard knows it by and the stored report's id. */
@@ -73,6 +75,7 @@ export class StorageSnapshotStore implements WritableSnapshotStore {
       profile: this.context.profile,
       adapter: this.context.adapter,
       takenAt: this.context.takenAt,
+      plate: this.context.plate,
       label: snapshot,
       report: jsonSchema.parse(document),
     });

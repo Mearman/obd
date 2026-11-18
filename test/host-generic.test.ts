@@ -124,6 +124,29 @@ describe("a connection with no profile", () => {
     await host.client.runs.stop({ runId: reconnected.id });
   });
 
+  it("records the plate given for a connection, and puts the car and its plate in the register", async () => {
+    const { host } = await connectedGeneric();
+    expect((await host.client.link.status())?.plate).toBeNull();
+    expect((await host.client.link.setPlate({ plate: "ab12 cde" })).plate).toBe("AB12CDE");
+    const scanned = await host.client.scan.run({ label: "generic" });
+    expect(scanned.report.plate).toBe("AB12CDE");
+    const run = await host.client.runs.start({ adapter: GENERIC_SIMULATOR });
+    expect(run.plate).toBe("AB12CDE");
+    await host.client.runs.stop({ runId: run.id });
+    const register = await host.client.vehicles.list();
+    expect(register.vehicles.map((vehicle) => vehicle.vin)).toEqual(["SIMULATEDCAR00001"]);
+    expect(register.plates.map((assignment) => assignment.plate)).toEqual(["AB12CDE"]);
+
+    // A new connection starts with no plate, and a plate given can be taken away.
+    await host.client.link.disconnect();
+    await host.client.link.connect({ adapter: GENERIC_SIMULATOR });
+    expect((await host.client.link.status())?.plate).toBeNull();
+    await host.client.link.setPlate({ plate: "XY65 ZZZ" });
+    expect((await host.client.link.setPlate({ plate: null })).plate).toBeNull();
+    await host.client.link.disconnect();
+    await expect(host.client.link.setPlate({ plate: "AB12CDE" })).rejects.toThrow(/connect/);
+  });
+
   it("collects the legislated values in a run stored under the generic name", async () => {
     const { host, storage } = await connectedGeneric();
     const run = await host.client.runs.start({ adapter: GENERIC_SIMULATOR });

@@ -25,6 +25,7 @@ import {
   storedProfileSchema,
   type AggregateQuery,
   type CaptureQuery,
+  type CaptureRecord,
   type CaptureSummary,
   type NewRun,
   type NewScanReport,
@@ -43,7 +44,30 @@ import {
 } from "../core/storage.js";
 import { proxyExecutors, type SqlExecutor } from "./executor.js";
 import { applyMigrations } from "./migrate.js";
-import { captureUnits, captures, plans, profiles, runs, samples, scanReports } from "./schema.js";
+import {
+  captureUnits,
+  captures,
+  plans,
+  profiles,
+  runs,
+  samples,
+  scanReports,
+  vehiclePlates,
+  vehicles,
+} from "./schema.js";
+import {
+  mergeVehicles,
+  orderedRegister,
+  recordSighting,
+  vehicleRegisterSchema,
+  withPlate,
+  withVehicle,
+  withoutPlate,
+  type PlateAssignment,
+  type Sighting,
+  type Vehicle,
+  type VehicleRegister,
+} from "../core/vehicles.js";
 
 /**
  * Rows stored per INSERT. Each sample binds six parameters, and SQLite refuses a statement binding more than 32,766 of them, so a batch is split well below that.
@@ -98,6 +122,7 @@ export class DrizzleStorage implements Storage {
     return this.serial(async () => {
       const run: Run = { id: this.newId(), ...newRunSchema.parse(input), stoppedAt: null };
       await this.db.insert(runs).values(run);
+      await this.sighted(run.origin, { vin: run.vin, plate: run.plate, at: run.startedAt });
       return run;
     });
   }
@@ -229,6 +254,11 @@ export class DrizzleStorage implements Storage {
       await this.db
         .insert(scanReports)
         .values({ ...report, report: JSON.stringify(report.report) });
+      await this.sighted(report.origin, {
+        vin: report.vin,
+        plate: report.plate,
+        at: report.takenAt,
+      });
       return report;
     });
   }
@@ -251,6 +281,7 @@ export class DrizzleStorage implements Storage {
           label: scanReports.label,
           origin: scanReports.origin,
           vin: scanReports.vin,
+          plate: scanReports.plate,
         })
         .from(scanReports)
         .where(
@@ -333,9 +364,9 @@ export class DrizzleStorage implements Storage {
     });
   }
 
-  saveCapture(capture: Capture, origin: Origin, vin: string | null): Promise<CaptureSummary> {
+  saveCapture(capture: Capture, record: CaptureRecord): Promise<CaptureSummary> {
     return this.serial(async () => {
-      const summary = captureSummary(validateCapture(capture, "capture"), origin, vin);
+      const summary = captureSummary(validateCapture(capture, "capture"), record);
       const [existing] = await this.db
         .select({ id: captures.id })
         .from(captures)
@@ -357,6 +388,7 @@ export class DrizzleStorage implements Storage {
           document: compressCapture(capture),
           origin: summary.origin,
           vin: summary.vin,
+          plate: summary.plate,
         });
         for (let start = 0; start < summary.units.length; start += INSERT_ROWS) {
           await tx.insert(captureUnits).values(
@@ -368,7 +400,83 @@ export class DrizzleStorage implements Storage {
           );
         }
       });
+      await this.sighted(summary.origin, {
+        vin: summary.vin,
+        plate: summary.plate,
+        at: summary.startedAt,
+      });
       return summary;
+    });
+  }
+
+  getVehicleRegister(): Promise<VehicleRegister> {
+    return this.serial(() => this.readRegister());
+  }
+
+  saveVehicle(vehicle: Vehicle): Promise<VehicleRegister> {
+    return this.changeRegister((register) => withVehicle(register, vehicle));
+  }
+
+  savePlateAssignment(assignment: PlateAssignment): Promise<VehicleRegister> {
+    return this.changeRegister((register) => withPlate(register, assignment));
+  }
+
+  deletePlateAssignment(id: string): Promise<VehicleRegister> {
+    return this.changeRegister((register) => withoutPlate(register, id));
+  }
+
+  mergeVehicles(keepId: string, removeId: string): Promise<VehicleRegister> {
+    return this.changeRegister((register) => mergeVehicles(register, keepId, removeId));
+  }
+
+  recordSighting(sighting: Sighting): Promise<string | undefined> {
+    return this.serial(() => this.sight(sighting));
+  }
+
+  /** Records a sighting of a record this device read itself; one saved from a link or a file says nothing about the user's own cars. */
+  private async sighted(origin: Origin, sighting: Sighting): Promise<void> {
+    if (origin === "local") await this.sight(sighting);
+  }
+
+  private async sight(sighting: Sighting): Promise<string | undefined> {
+    const before = await this.readRegister();
+    const { vehicleId, register } = recordSighting(before, sighting, this.newId);
+    await this.writeRegister(before, register);
+    return vehicleId;
+  }
+
+  private changeRegister(
+    change: (register: VehicleRegister) => VehicleRegister,
+  ): Promise<VehicleRegister> {
+    return this.serial(async () => {
+      const before = await this.readRegister();
+      const after = change(before);
+      await this.writeRegister(before, after);
+      return after;
+    });
+  }
+
+  private async readRegister(): Promise<VehicleRegister> {
+    return orderedRegister(
+      vehicleRegisterSchema.parse({
+        vehicles: await this.db.select().from(vehicles),
+        plates: await this.db.select().from(vehiclePlates),
+      }),
+    );
+  }
+
+  /** Replaces the register's rows with `after` in one transaction, unless it is `before` unchanged. The register holds a row per car and per plate it carried, so it is written whole. */
+  private async writeRegister(before: VehicleRegister, after: VehicleRegister): Promise<void> {
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
+    await this.db.transaction(async (tx) => {
+      await tx.delete(vehiclePlates);
+      await tx.delete(vehicles);
+      for (let start = 0; start < after.vehicles.length; start += INSERT_ROWS) {
+        await tx.insert(vehicles).values(after.vehicles.slice(start, start + INSERT_ROWS));
+      }
+      for (let start = 0; start < after.plates.length; start += INSERT_ROWS) {
+        await tx.insert(vehiclePlates).values(after.plates.slice(start, start + INSERT_ROWS));
+      }
     });
   }
 
@@ -397,6 +505,7 @@ export class DrizzleStorage implements Storage {
           exchanges: captures.exchanges,
           origin: captures.origin,
           vin: captures.vin,
+          plate: captures.plate,
         })
         .from(captures)
         .where(query.origin === undefined ? undefined : eq(captures.origin, query.origin))
