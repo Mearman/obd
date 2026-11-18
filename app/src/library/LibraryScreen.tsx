@@ -328,16 +328,17 @@ export function LibraryScreen({
     },
     { header: "Kind", sortKey: "kind", render: (item) => <Badge>{KIND_LABELS[item.kind]}</Badge> },
     { header: "Date", sortKey: "date", nowrap: true, render: (item) => when(item.at) },
-    { header: "Profile", sortKey: "profile", nowrap: true, render: profileText },
     {
-      header: "Vehicle",
-      sortKey: "vehicle",
+      // The vehicle shares the profile's cell, on the lines below it, so the table gains no column on a laptop.
+      header: "Profile and vehicle",
+      sortKey: "profile",
+      nowrap: true,
       render: (item) => {
-        if (item.vin === null) return <span className={muted}>{UNKNOWN_VEHICLE_LABEL}</span>;
-        const label = labels.get(item.vin);
+        const label = item.vin === null ? undefined : labels.get(item.vin);
         return (
           <span className={vehicleCell}>
-            <span>{item.vin}</span>
+            <span>{profileText(item)}</span>
+            <span className={muted}>{item.vin ?? UNKNOWN_VEHICLE_LABEL}</span>
             {label !== undefined && <span className={muted}>{label}</span>}
           </span>
         );
