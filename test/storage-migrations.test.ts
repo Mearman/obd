@@ -7,6 +7,7 @@ import { createNodeSqliteExecutor, openNodeStorage } from "../src/node/index.js"
 import { MIGRATIONS, applyMigrations } from "../src/storage/index.js";
 import { readMigrationFiles, renderMigrationsModule } from "../scripts/migration-files.js";
 import { readFileSync } from "node:fs";
+import { reportVin, type Json } from "../src/core/index.js";
 
 describe("the embedded migrations", () => {
   it("match the SQL drizzle-kit generated, so regenerating changes nothing", () => {
@@ -101,6 +102,76 @@ describe("the origin migration", () => {
       ["from-link", "shared"],
     ]);
     expect(await execute("SELECT origin FROM runs", [], "all")).toEqual([["local"]]);
+    database.close();
+  });
+});
+
+describe("the VIN migration", () => {
+  /** Saved report documents of every shape the backfill reads, and some it must leave without a VIN. */
+  const DOCUMENTS: Readonly<Record<string, Json>> = {
+    generic: { obd: { vin: " simulatedcar00001 " }, units: [] },
+    "generic-none": { obd: { vin: null }, units: [] },
+    "generic-redacted": { obd: { vin: "" } },
+    scan: {
+      units: [
+        { unit: "EZS", identification: { Part: { hex: "41", text: "A" } } },
+        { unit: "ME", identification: { VIN: { hex: "", text: "wdb2110202b121724" } } },
+        { unit: "TCU", identification: { VIN: { hex: "", text: "WDBOTHER000000000" } } },
+      ],
+    },
+    "scan-redacted": { units: [{ identification: { VIN: { hex: "", text: "" } } }] },
+    "obd-snapshot": { vin: "WVWZZZAAZJD000001", readiness: {} },
+    "odd-units": { units: ["text", 1, null, { identification: ["VIN"] }] },
+    "not-an-object": ["VIN"],
+    none: { tool: "obd-read" },
+  };
+
+  it("fills each saved report's VIN from its document by the rule reportVin follows, and leaves runs and captures without one", async () => {
+    const database = new DatabaseSync(":memory:");
+    const execute = createNodeSqliteExecutor(database);
+    const added = MIGRATIONS.findIndex((migration) =>
+      migration.statements.some((statement) => statement.includes("ADD `vin`")),
+    );
+    expect(added).toBeGreaterThan(0);
+    await applyMigrations(execute, MIGRATIONS.slice(0, added));
+    for (const [id, document] of Object.entries(DOCUMENTS)) {
+      await execute(
+        "INSERT INTO scan_reports (id, profile, adapter, taken_at, label, report) VALUES (?, 'p', 'a', 0, '', ?)",
+        [id, JSON.stringify(document)],
+        "run",
+      );
+    }
+    await execute(
+      "INSERT INTO runs (id, profile, adapter, started_at, stopped_at, notes) VALUES ('r', 'p', 'a', 0, NULL, '')",
+      [],
+      "run",
+    );
+    await execute(
+      "INSERT INTO captures (id, started_at, ended_at, kind, profile, complete, description, adapter, exchanges, document) VALUES ('c', 0, 0, 'capture', NULL, 1, '', '', 0, x'00')",
+      [],
+      "run",
+    );
+
+    await applyMigrations(execute);
+    const filled = await execute("SELECT id, vin FROM scan_reports ORDER BY id", [], "all");
+    expect(filled).toEqual(
+      Object.entries(DOCUMENTS)
+        .map(([id, document]) => [id, reportVin(document)])
+        .sort(([a], [b]) => String(a).localeCompare(String(b))),
+    );
+    expect(Object.fromEntries(filled.map(([id, vin]) => [id, vin]))).toMatchObject({
+      generic: "SIMULATEDCAR00001",
+      "generic-none": null,
+      "generic-redacted": null,
+      scan: "WDB2110202B121724",
+      "scan-redacted": null,
+      "obd-snapshot": "WVWZZZAAZJD000001",
+      "odd-units": null,
+      "not-an-object": null,
+      none: null,
+    });
+    expect(await execute("SELECT vin FROM runs", [], "all")).toEqual([[null]]);
+    expect(await execute("SELECT vin FROM captures", [], "all")).toEqual([[null]]);
     database.close();
   });
 });

@@ -87,6 +87,8 @@ import {
   jsonSchema,
   type Run,
   type Sample,
+  type ScanReport,
+  type ScanReportSummary,
   type Storage,
 } from "./storage.js";
 import { AdapterUrlError, SCHEMES, TransportError, type Scheme } from "./transport.js";
@@ -552,6 +554,20 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       return { ...asked, snapshot: store.saved.at(-1) ?? null };
     });
 
+  /** The summary of a scan just saved from `session`, whose VIN, when the scan read one, is noted as the connection's so the runs and captures it goes on to save record it. */
+  const savedScan = (session: LinkSession, saved: ScanReport): ScanReportSummary => {
+    if (saved.vin !== null) link.noteVin(session, saved.vin);
+    return {
+      id: saved.id,
+      profile: saved.profile,
+      adapter: saved.adapter,
+      takenAt: saved.takenAt,
+      label: saved.label,
+      origin: saved.origin,
+      vin: saved.vin,
+    };
+  };
+
   /** The legislated scan of a generic connection, saved as a report under the generic profile name. */
   const scanGeneric = async (session: LinkSession, label: string) => {
     const bus = sessionBus(session.profile);
@@ -578,14 +594,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
       }),
     });
     return {
-      report: {
-        id: saved.id,
-        profile: saved.profile,
-        adapter: saved.adapter,
-        takenAt: saved.takenAt,
-        label: saved.label,
-        origin: saved.origin,
-      },
+      report: savedScan(session, saved),
       units,
       obd,
     };
@@ -666,14 +675,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
             report: jsonSchema.parse(JSON.parse(jsonText(document.json))),
           });
           return {
-            report: {
-              id: saved.id,
-              profile: saved.profile,
-              adapter: saved.adapter,
-              takenAt: saved.takenAt,
-              label: saved.label,
-              origin: saved.origin,
-            },
+            report: savedScan(session, saved),
             units: reports.map(unitReportData),
             obd: null,
           };
@@ -836,6 +838,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
             adapter: input.adapter,
             startedAt: now(),
             notes: withSelection(input.notes ?? "", selection),
+            vin: link.session === undefined ? null : link.vinOf(link.session),
           });
           try {
             await collector.start(run, selection, sink);
@@ -983,7 +986,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
             input.name,
           );
           return {
-            summary: await storage.saveCapture(capture, "imported"),
+            summary: await storage.saveCapture(capture, "imported", null),
             unrecovered: [...unrecovered],
           };
         }),
@@ -1023,6 +1026,7 @@ function buildRouter(dependencies: DiagnosticsDependencies) {
             idBits: bus.idBits,
             bitrate: bus.bitrate,
             notes: withPlan(planRunNotes(plan), plan.name),
+            vin: link.vinOf(session),
           });
         }),
       ),

@@ -250,6 +250,7 @@ export class DrizzleStorage implements Storage {
           takenAt: scanReports.takenAt,
           label: scanReports.label,
           origin: scanReports.origin,
+          vin: scanReports.vin,
         })
         .from(scanReports)
         .where(
@@ -332,9 +333,9 @@ export class DrizzleStorage implements Storage {
     });
   }
 
-  saveCapture(capture: Capture, origin: Origin): Promise<CaptureSummary> {
+  saveCapture(capture: Capture, origin: Origin, vin: string | null): Promise<CaptureSummary> {
     return this.serial(async () => {
-      const summary = captureSummary(validateCapture(capture, "capture"), origin);
+      const summary = captureSummary(validateCapture(capture, "capture"), origin, vin);
       const [existing] = await this.db
         .select({ id: captures.id })
         .from(captures)
@@ -355,6 +356,7 @@ export class DrizzleStorage implements Storage {
           exchanges: summary.exchanges,
           document: compressCapture(capture),
           origin: summary.origin,
+          vin: summary.vin,
         });
         for (let start = 0; start < summary.units.length; start += INSERT_ROWS) {
           await tx.insert(captureUnits).values(
@@ -394,6 +396,7 @@ export class DrizzleStorage implements Storage {
           adapter: captures.adapter,
           exchanges: captures.exchanges,
           origin: captures.origin,
+          vin: captures.vin,
         })
         .from(captures)
         .where(query.origin === undefined ? undefined : eq(captures.origin, query.origin))

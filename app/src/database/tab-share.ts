@@ -593,10 +593,10 @@ function sharedStorage(dispatch: Dispatch): Storage {
     getProfile: (name) => on("getProfile", (s) => s.getProfile(name)),
     listProfiles: () => on("listProfiles", (s) => s.listProfiles()),
     // A repeat that finds the capture already stored under its id is the earlier attempt's result.
-    saveCapture: (capture, origin) =>
+    saveCapture: (capture, origin, vin) =>
       on("saveCapture", async (s, repeat) => {
         try {
-          return await s.saveCapture(capture, origin);
+          return await s.saveCapture(capture, origin, vin);
         } catch (error) {
           if (!repeat || !isStorageError(error, "conflict")) throw error;
           const stored = (await s.listCaptures({ origin })).find(({ id }) => id === capture.id);
@@ -655,7 +655,7 @@ function observeCalls(
       saveProfile: (profile) => after(s.saveProfile(profile)),
       getProfile: (name) => track(s.getProfile(name)),
       listProfiles: () => track(s.listProfiles()),
-      saveCapture: (capture, origin) => after(s.saveCapture(capture, origin)),
+      saveCapture: (capture, origin, vin) => after(s.saveCapture(capture, origin, vin)),
       getCapture: (captureId) => track(s.getCapture(captureId)),
       listCaptures: (query) => track(s.listCaptures(query)),
       deleteCapture: (captureId) => after(s.deleteCapture(captureId)),

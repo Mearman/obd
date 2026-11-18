@@ -330,6 +330,8 @@ export interface PlanRunnerOptions {
   readonly onEvent?: (event: PlanEvent) => void;
   /** The run's notes. Default {@link planRunNotes} of the plan. */
   readonly notes?: string;
+  /** The VIN of the car the plan reads, stored on the run; omitted when it is not known. */
+  readonly vin?: string;
 }
 
 /** The notes a plan's run is stored with unless the caller gives its own. */
@@ -426,6 +428,7 @@ export class PlanRunner {
       adapter: this.options.adapter,
       startedAt: this.clock.now(),
       notes: this.options.notes ?? planRunNotes(plan),
+      vin: this.options.vin ?? null,
     });
     this.runId = run.id;
     this.pending.push({

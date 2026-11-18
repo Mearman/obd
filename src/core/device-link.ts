@@ -46,9 +46,22 @@ export class DeviceLink {
 
   constructor(private readonly dependencies: DeviceLinkDependencies) {}
 
+  // Held with the session it was read on, so a later connection never records another car's VIN.
+  private vinRead: { readonly session: LinkSession; readonly vin: string } | undefined;
+
   /** The open connection, or `undefined`. */
   get session(): LinkSession | undefined {
     return this.current;
+  }
+
+  /** Records the VIN a read on `session` reported, so what is saved from that connection afterwards records it; does nothing once `session` is no longer the open connection. */
+  noteVin(session: LinkSession, vin: string): void {
+    if (session === this.current) this.vinRead = { session, vin };
+  }
+
+  /** The VIN a read on `session` last reported, or `null` when none has. */
+  vinOf(session: LinkSession): string | null {
+    return this.vinRead?.session === session ? this.vinRead.vin : null;
   }
 
   /**

@@ -14,7 +14,13 @@ import {
 } from "../src/library/view";
 import { searchSchema } from "../src/router/search";
 
-function report(id: string, at: number, origin: Origin, label: string): LibraryItem {
+function report(
+  id: string,
+  at: number,
+  origin: Origin,
+  label: string,
+  vin: string | null = null,
+): LibraryItem {
   return reportItem({
     id,
     profile: "mercedes-w211",
@@ -22,10 +28,17 @@ function report(id: string, at: number, origin: Origin, label: string): LibraryI
     takenAt: at,
     label,
     origin,
+    vin,
   });
 }
 
-function run(id: string, at: number, origin: Origin, profile: string): LibraryItem {
+function run(
+  id: string,
+  at: number,
+  origin: Origin,
+  profile: string,
+  vin: string | null = null,
+): LibraryItem {
   return runItem(
     {
       id,
@@ -35,12 +48,13 @@ function run(id: string, at: number, origin: Origin, profile: string): LibraryIt
       stoppedAt: at + 1000,
       notes: "",
       origin,
+      vin,
     },
     1,
   );
 }
 
-function capture(id: string, at: number, origin: Origin): LibraryItem {
+function capture(id: string, at: number, origin: Origin, vin: string | null = null): LibraryItem {
   return captureItem({
     id,
     startedAt: at,
@@ -53,6 +67,7 @@ function capture(id: string, at: number, origin: Origin): LibraryItem {
     exchanges: 1,
     units: [],
     origin,
+    vin,
   });
 }
 

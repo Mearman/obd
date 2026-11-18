@@ -99,7 +99,7 @@ async function seeded(): Promise<{
   });
   // The simulated capture is taken at 10:00 on 15 November.
   const capture = await simulatedCapture();
-  await service.storage.saveCapture(capture, "imported");
+  await service.storage.saveCapture(capture, "imported", null);
   const run = await service.storage.createRun({
     profile: "mercedes-w211",
     adapter: simulatorUrl("mercedes-w211"),
@@ -690,7 +690,7 @@ describe("sharing several Library items", () => {
         return String.fromCharCode(97 + (state % 26));
       }).join("");
     for (const id of ["noisy-a", "noisy-b", "noisy-c"]) {
-      await service.storage.saveCapture({ ...base, id, notes: [letters()] }, "imported");
+      await service.storage.saveCapture({ ...base, id, notes: [letters()] }, "imported", null);
     }
     const table = await openLibrary(service);
     await choose("Kind", "Captures");
