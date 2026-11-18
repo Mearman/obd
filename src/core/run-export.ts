@@ -52,6 +52,8 @@ async function* samplesOf(storage: Storage, runId: string): AsyncGenerator<Sampl
 /**
  * A run, all its samples and its fault code changes as one JSON-serialisable document.
  *
+ * The run record goes in whole, its VIN and number plate included: the file is the user's own explicit export of their own data, and the share links built from a run (`runShareEnvelope`) carry neither.
+ *
  * @throws StorageError `not-found` for an unknown run.
  */
 export async function exportRunJson(

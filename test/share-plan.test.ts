@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   FAULT_SIGNALS,
+  MemoryStorage,
+  exportRunJson,
   MAX_DECODED_BYTES,
   MAX_ENCODED_LENGTH,
   PLAN_PHASE_SIGNAL,
@@ -401,5 +403,33 @@ describe("plan result links", () => {
       `typical plan-result fragment: ${String(encoded.value.fragment.length)} characters`,
     );
     expect(encoded.value.fragment.length).toBeLessThan(MAX_ENCODED_LENGTH);
+  });
+});
+
+describe("a run's VIN and plate", () => {
+  /** An invented car's identifiers, on a run that recorded them. */
+  const VIN = "WDB2110202B000001";
+  const PLATE = "AB12CDE";
+
+  it("stay out of a run's share link, a plan result's and a run summary's, while its JSON export keeps them", async () => {
+    const run = { ...RUN, id: "run-1", origin: "local" as const, vin: VIN, plate: PLATE };
+    const planned = runSamples(loadBuiltinPlan("idle-then-rev"));
+    const plain = planned.filter((sample) => sample.signal !== PLAN_SIGNAL);
+    for (const samples of [planned, plain]) {
+      for (const redactVin of [false, true]) {
+        const envelope = runShareEnvelope(run, samples, T0);
+        const encoded = await encodeShare(envelope, zlibShareCodec, { redactVin });
+        if (!encoded.ok) throw new Error(encoded.error.message);
+        const decoded = await decodeShare(encoded.value.fragment, zlibShareCodec);
+        if (!decoded.ok) throw new Error(decoded.error.message);
+        const carried = JSON.stringify(decoded.value);
+        expect(carried).not.toContain(VIN);
+        expect(carried).not.toContain(PLATE);
+      }
+    }
+
+    const storage = new MemoryStorage();
+    const stored = await storage.createRun({ ...RUN, origin: "shared", vin: VIN, plate: PLATE });
+    expect((await exportRunJson(storage, stored.id)).run).toMatchObject({ vin: VIN, plate: PLATE });
   });
 });
