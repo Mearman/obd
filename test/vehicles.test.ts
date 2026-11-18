@@ -8,6 +8,7 @@ import {
   normalisePlate,
   recordSighting,
   withPlate,
+  withNewPlate,
   withVehicle,
   type PlateAssignment,
   type VehicleRegister,
@@ -230,6 +231,22 @@ describe("editing the register", () => {
     expect(() =>
       withPlate(one, { id: "x", vehicleId: "nope", plate: OTHER, validFrom: T0, validTo: null }),
     ).toThrow(/no vehicle nope/);
+  });
+
+  it("gives a car a new plate from a day, ending its open plate then in the same change", () => {
+    const added = withNewPlate(
+      one,
+      { vehicleId: "v1", plate: "xy65 zzz", validFrom: T0 + 3 * DAY },
+      () => "n1",
+    );
+    expect(periods(added)).toEqual([`${PLATE} v1 0 3`, `${OTHER} v1 3 -`]);
+    // A plate held by another car for that time is refused, and nothing changes.
+    expect(() =>
+      withNewPlate(added, { vehicleId: "v1", plate: OTHER, validFrom: T0 }, () => "n2"),
+    ).toThrow(/overlap/);
+    expect(() =>
+      withNewPlate(one, { vehicleId: "v1", plate: " ", validFrom: null }, () => "n3"),
+    ).toThrow(StorageError);
   });
 
   it("marks a plate moved off a vehicle by ending its period", () => {

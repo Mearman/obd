@@ -713,6 +713,24 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
         expect(merged.plates.find((each) => each.id === "older")?.vehicleId).toBe(estate);
         expect(await storage.getVehicleRegister()).toEqual(merged);
 
+        // The hatch is re-registered: its open plate ends where the new one begins, in one change.
+        const reregistered = await storage.addPlate({
+          vehicleId: hatch,
+          plate: "new 1",
+          validFrom: T0 + 5000,
+        });
+        expect(
+          reregistered.plates
+            .filter((each) => each.vehicleId === hatch)
+            .map(({ plate, validFrom, validTo }) => [plate, validFrom, validTo]),
+        ).toEqual([
+          ["AB12CDE", T0 + 1000, T0 + 5000],
+          ["NEW1", T0 + 5000, null],
+        ]);
+        expect(
+          await code(storage.addPlate({ vehicleId: estate, plate: "NEW1", validFrom: null })),
+        ).toBe("conflict");
+
         const removed = await storage.deletePlateAssignment("older");
         expect(removed.plates.map((each) => each.id)).not.toContain("older");
         await storage.deletePlateAssignment("nope");

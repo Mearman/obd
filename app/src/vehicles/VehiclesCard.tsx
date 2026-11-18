@@ -232,24 +232,15 @@ export function VehiclesCard() {
                   disabled={typed === null}
                   onClick={() => {
                     if (typed === null) return;
-                    const start = fromDay ?? null;
-                    const open = platesOf(register, editing.vehicle).find(
-                      (each) =>
-                        each.validTo === null &&
-                        (start === null || (each.validFrom ?? -Infinity) < start),
+                    void act(
+                      () =>
+                        client.vehicles.addPlate({
+                          vehicleId: editing.vehicle.id,
+                          plate: typed,
+                          validFrom: fromDay ?? null,
+                        }),
+                      "The plate could not be added.",
                     );
-                    void act(async () => {
-                      if (open !== undefined && start !== null) {
-                        await client.vehicles.savePlate({ ...open, validTo: start });
-                      }
-                      return client.vehicles.savePlate({
-                        id: globalThis.crypto.randomUUID(),
-                        vehicleId: editing.vehicle.id,
-                        plate: typed,
-                        validFrom: start,
-                        validTo: null,
-                      });
-                    }, "The plate could not be added.");
                   }}
                 >
                   Add the plate
