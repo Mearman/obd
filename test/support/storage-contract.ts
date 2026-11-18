@@ -7,6 +7,7 @@ import {
   runExportSchema,
   type Capture,
   type Exchange,
+  type Json,
   type Sample,
   type Storage,
 } from "../../src/core/index.js";
@@ -387,6 +388,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
             takenAt: T0 + 100,
             label: "",
             origin: "local",
+            vin: null,
           },
           {
             id: older.id,
@@ -395,6 +397,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
             takenAt: T0,
             label: "before",
             origin: "local",
+            vin: null,
           },
         ]);
         expect(
@@ -410,7 +413,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
       withStorage(async (storage) => {
         const older = inventedCapture("capture-a", T0);
         const newer = inventedCapture("capture-b", T0 + 100);
-        const summary = await storage.saveCapture(older, "local");
+        const summary = await storage.saveCapture(older, "local", null);
         expect(summary).toEqual({
           id: "capture-a",
           startedAt: T0,
@@ -426,8 +429,9 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
             { address: "functional:2015", label: "functional 7DF", exchanges: 1, answered: 0 },
           ],
           origin: "local",
+          vin: null,
         });
-        await storage.saveCapture(newer, "local");
+        await storage.saveCapture(newer, "local", null);
         expect(await storage.getCapture("capture-a")).toEqual(older);
         expect(await storage.getCapture("nope")).toBeUndefined();
         expect((await storage.listCaptures()).map((capture) => capture.id)).toEqual([
@@ -435,7 +439,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
           "capture-a",
         ]);
         expect(await storage.listCaptures({ limit: 1, offset: 1 })).toEqual([summary]);
-        expect(await code(storage.saveCapture(older, "shared"))).toBe("conflict");
+        expect(await code(storage.saveCapture(older, "shared", null))).toBe("conflict");
         await storage.deleteCapture("capture-b");
         await storage.deleteCapture("nope");
         expect(await storage.getCapture("capture-b")).toBeUndefined();
@@ -446,7 +450,7 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
       withStorage(async (storage) => {
         const capture = inventedCapture("capture-a", T0);
         const reordered: Capture = { ...capture, exchanges: [...capture.exchanges].reverse() };
-        await expect(storage.saveCapture(reordered, "local")).rejects.toThrow();
+        await expect(storage.saveCapture(reordered, "local", null)).rejects.toThrow();
         expect(await storage.listCaptures()).toEqual([]);
       }));
 
@@ -481,9 +485,9 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
           ]),
         ).toEqual([[sharedReport.id, "shared"]]);
 
-        await storage.saveCapture(inventedCapture("capture-own", T0), "local");
-        await storage.saveCapture(inventedCapture("capture-shared", T0 + 1), "shared");
-        await storage.saveCapture(inventedCapture("capture-file", T0 + 2), "imported");
+        await storage.saveCapture(inventedCapture("capture-own", T0), "local", null);
+        await storage.saveCapture(inventedCapture("capture-shared", T0 + 1), "shared", null);
+        await storage.saveCapture(inventedCapture("capture-file", T0 + 2), "imported", null);
         expect(
           (await storage.listCaptures()).map((capture) => [capture.id, capture.origin]),
         ).toEqual([
@@ -493,6 +497,68 @@ export function describeStorageContract(name: string, open: () => Promise<Storag
         ]);
         expect((await storage.listCaptures({ origin: "shared" })).map((c) => c.id)).toEqual([
           "capture-shared",
+        ]);
+      }));
+
+    it("records the VIN of each run, capture and report, trimmed and upper case, and a blank one as none", () =>
+      withStorage(async (storage) => {
+        const known = await storage.createRun({
+          profile: "p",
+          adapter: "a",
+          startedAt: T0,
+          vin: " wdb2110202b121724 ",
+        });
+        const unknown = await storage.createRun({ profile: "p", adapter: "a", startedAt: T0 + 1 });
+        const blank = await storage.createRun({
+          profile: "p",
+          adapter: "a",
+          startedAt: T0 + 2,
+          vin: "",
+        });
+        expect(known.vin).toBe("WDB2110202B121724");
+        expect((await storage.getRun(known.id))?.vin).toBe("WDB2110202B121724");
+        expect((await storage.getRun(unknown.id))?.vin).toBeNull();
+        expect((await storage.getRun(blank.id))?.vin).toBeNull();
+        expect((await storage.listRuns()).map((run) => run.vin)).toEqual([
+          null,
+          null,
+          "WDB2110202B121724",
+        ]);
+
+        const capture = await storage.saveCapture(
+          inventedCapture("capture-car", T0),
+          "local",
+          "vf1abc12345678901",
+        );
+        await storage.saveCapture(inventedCapture("capture-none", T0 + 1), "shared", "  ");
+        expect(capture.vin).toBe("VF1ABC12345678901");
+        expect((await storage.listCaptures()).map((summary) => [summary.id, summary.vin])).toEqual([
+          ["capture-none", null],
+          ["capture-car", "VF1ABC12345678901"],
+        ]);
+
+        const report = (takenAt: number, document: Json) =>
+          storage.saveScanReport({ profile: "p", adapter: "a", takenAt, report: document });
+        const generic = await report(T0, { obd: { vin: "simulatedcar00001" } });
+        const scanned = await report(T0 + 1, {
+          units: [
+            { unit: "EZS", identification: { Part: { hex: "", text: "x" } } },
+            { unit: "ME", identification: { VIN: { hex: "", text: "WDB2110202B121724" } } },
+          ],
+        });
+        const redacted = await report(T0 + 2, { obd: { vin: "" } });
+        const snapshot = await report(T0 + 3, { vin: "WVWZZZAAZJD000001", readiness: {} });
+        const none = await report(T0 + 4, { tool: "obd-read" });
+        expect(generic.vin).toBe("SIMULATEDCAR00001");
+        expect((await storage.getScanReport(scanned.id))?.vin).toBe("WDB2110202B121724");
+        expect(
+          (await storage.listScanReports()).map((summary) => [summary.id, summary.vin]),
+        ).toEqual([
+          [none.id, null],
+          [snapshot.id, "WVWZZZAAZJD000001"],
+          [redacted.id, null],
+          [scanned.id, "WDB2110202B121724"],
+          [generic.id, "SIMULATEDCAR00001"],
         ]);
       }));
 

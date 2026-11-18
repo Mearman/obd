@@ -157,7 +157,7 @@ export async function saveShared(storage: Storage, envelope: ShareEnvelope): Pro
           `A capture with the id ${envelope.data.capture.id} is already stored on this device.`,
         );
       }
-      await storage.saveCapture(envelope.data.capture, "shared");
+      await storage.saveCapture(envelope.data.capture, "shared", null);
       return;
   }
 }

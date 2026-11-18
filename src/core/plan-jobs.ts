@@ -152,6 +152,8 @@ export interface PlanStart {
   readonly idBits: 11 | 29;
   readonly bitrate: number;
   readonly notes: string;
+  /** The VIN the connection has read, stored on the run; `null` when it has read none. */
+  readonly vin: string | null;
 }
 
 /** The part of an `AbortSignal` an event stream uses; core has no DOM types, and a real `AbortSignal` satisfies it. */
@@ -236,6 +238,7 @@ export class PlanJobs {
         idBits: start.idBits,
         bitrate: start.bitrate,
         notes: start.notes,
+        ...(start.vin === null ? {} : { vin: start.vin }),
         ...(codesIntervalMs === undefined ? {} : { codesIntervalMs }),
         onEvent: (event) => {
           if (event.type === "plan-started") {

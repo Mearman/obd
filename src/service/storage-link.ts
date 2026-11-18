@@ -20,6 +20,7 @@ import {
   newRunSchema,
   newScanReportSchema,
   originSchema,
+  vinSchema,
   runQuerySchema,
   runSchema,
   sampleQuerySchema,
@@ -58,7 +59,7 @@ export const storageContract = {
   getProfile: oc.input(z.object({ name })).output(storedProfileSchema.nullable()),
   listProfiles: oc.output(z.array(storedProfileSchema)),
   saveCapture: oc
-    .input(z.object({ capture: storedCaptureSchema, origin: originSchema }))
+    .input(z.object({ capture: storedCaptureSchema, origin: originSchema, vin: vinSchema }))
     .output(captureSummarySchema),
   getCapture: oc.input(z.object({ id: name })).output(storedCaptureSchema.nullable()),
   listCaptures: oc.input(captureQuerySchema).output(z.array(captureSummarySchema)),
@@ -149,7 +150,7 @@ export function serveStorage(port: SupportedMessagePort, current: () => Promise<
     ),
     listProfiles: os.listProfiles.handler(() => through((s) => s.listProfiles())),
     saveCapture: os.saveCapture.handler(({ input }) =>
-      through((s) => s.saveCapture(input.capture, input.origin)),
+      through((s) => s.saveCapture(input.capture, input.origin, input.vin)),
     ),
     getCapture: os.getCapture.handler(({ input }) =>
       through(async (s) => (await s.getCapture(input.id)) ?? null),
@@ -223,7 +224,8 @@ export function remoteStorage(port: SupportedMessagePort): Storage {
     getProfile: async (profileName) =>
       (await through(() => client.getProfile({ name: profileName }))) ?? undefined,
     listProfiles: () => through(() => client.listProfiles()),
-    saveCapture: (capture, origin) => through(() => client.saveCapture({ capture, origin })),
+    saveCapture: (capture, origin, vin) =>
+      through(() => client.saveCapture({ capture, origin, vin })),
     getCapture: async (id) => (await through(() => client.getCapture({ id }))) ?? undefined,
     listCaptures: (query = {}) => through(() => client.listCaptures(query)),
     deleteCapture: async (id) => {

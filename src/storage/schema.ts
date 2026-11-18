@@ -20,6 +20,9 @@ import {
 /** Where a record came from (`local`, `shared` or `imported`, as `ORIGINS` in core lists them); rows from before the column existed are local, except those the migration that added it could tell apart. */
 const origin = () => text({ enum: ORIGINS }).notNull().default("local");
 
+/** The VIN of the car a record was read from, trimmed and in upper case, or null when it is not known; rows from before the column existed are null, except saved reports, which the migration that added it read from their documents. */
+const vin = () => text();
+
 /** A SQLite blob read and written as bytes. */
 const bytes = customType<{ data: Uint8Array; driverData: Uint8Array }>({
   dataType: () => "blob",
@@ -36,6 +39,7 @@ export const runs = sqliteTable(
     stoppedAt: integer("stopped_at"),
     notes: text().notNull(),
     origin: origin(),
+    vin: vin(),
   },
   (table) => [index("runs_started_at_idx").on(table.startedAt)],
 );
@@ -74,6 +78,7 @@ export const scanReports = sqliteTable(
     label: text().notNull(),
     report: text().notNull(),
     origin: origin(),
+    vin: vin(),
   },
   (table) => [index("scan_reports_taken_at_idx").on(table.takenAt)],
 );
@@ -120,6 +125,7 @@ export const captures = sqliteTable(
     exchanges: integer().notNull(),
     document: bytes().notNull(),
     origin: origin(),
+    vin: vin(),
   },
   (table) => [index("captures_started_at_idx").on(table.startedAt)],
 );

@@ -23,6 +23,7 @@ import {
   type Storage,
   type StoredPlan,
   type StoredProfile,
+  type Vin,
 } from "../storage.js";
 
 function compareText(left: string, right: string): number {
@@ -63,7 +64,10 @@ export class MemoryStorage implements Storage {
   private readonly profiles = new Map<string, StoredProfile>();
   /** Kept as text, so a stored plan shares nothing with the caller's objects. */
   private readonly plans = new Map<string, string>();
-  private readonly captures = new Map<string, { readonly text: string; readonly origin: Origin }>();
+  private readonly captures = new Map<
+    string,
+    { readonly text: string; readonly origin: Origin; readonly vin: Vin }
+  >();
   private readonly newId: () => string;
 
   /**
@@ -209,13 +213,14 @@ export class MemoryStorage implements Storage {
         .filter((report) => query.profile === undefined || report.profile === query.profile)
         .sort((a, b) => b.takenAt - a.takenAt || compareText(b.id, a.id))
         .filter((report) => query.origin === undefined || report.origin === query.origin)
-        .map(({ id, profile, adapter, takenAt, label, origin }) => ({
+        .map(({ id, profile, adapter, takenAt, label, origin, vin }) => ({
           id,
           profile,
           adapter,
           takenAt,
           label,
           origin,
+          vin,
         }));
       return page(matching, query.offset, query.limit);
     });
@@ -251,15 +256,16 @@ export class MemoryStorage implements Storage {
     });
   }
 
-  saveCapture(capture: Capture, origin: Origin): Promise<CaptureSummary> {
+  saveCapture(capture: Capture, origin: Origin, vin: string | null): Promise<CaptureSummary> {
     return settle(() => {
       const valid = validateCapture(capture, "capture");
       if (this.captures.has(valid.id)) {
         throw new StorageError("conflict", `a capture ${valid.id} is stored already`);
       }
+      const summary = captureSummary(valid, origin, vin);
       // Kept as text, so a stored capture shares nothing with the caller's objects.
-      this.captures.set(valid.id, { text: JSON.stringify(valid), origin });
-      return captureSummary(valid, origin);
+      this.captures.set(valid.id, { text: JSON.stringify(valid), origin, vin: summary.vin });
+      return summary;
     });
   }
 
@@ -275,7 +281,11 @@ export class MemoryStorage implements Storage {
       const summaries = [...this.captures.values()]
         .filter((stored) => query.origin === undefined || stored.origin === query.origin)
         .map((stored) =>
-          captureSummary(validateCapture(JSON.parse(stored.text), "capture"), stored.origin),
+          captureSummary(
+            validateCapture(JSON.parse(stored.text), "capture"),
+            stored.origin,
+            stored.vin,
+          ),
         )
         .sort((a, b) => b.startedAt - a.startedAt || compareText(b.id, a.id));
       return page(summaries, query.offset, query.limit);

@@ -94,6 +94,36 @@ describe("a connection with no profile", () => {
     });
   });
 
+  it("records the VIN a scan read on the report, and on the runs and captures that connection saves after it", async () => {
+    const { host } = await connectedGeneric();
+    const before = await host.client.runs.start({ adapter: GENERIC_SIMULATOR });
+    expect(before.vin).toBeNull();
+    await host.client.runs.stop({ runId: before.id });
+
+    const scanned = await host.client.scan.run({ label: "generic" });
+    expect(scanned.report.vin).toBe("SIMULATEDCAR00001");
+    expect((await host.client.reports.list({})).map((report) => report.vin)).toEqual([
+      "SIMULATEDCAR00001",
+    ]);
+    const after = await host.client.runs.start({ adapter: GENERIC_SIMULATOR });
+    expect(after.vin).toBe("SIMULATEDCAR00001");
+    await host.client.runs.stop({ runId: after.id });
+
+    const started = await host.client.captures.start({});
+    let saved: string | null | undefined;
+    for await (const status of await host.client.captures.progress({ id: started.id })) {
+      saved = status.summary?.vin;
+    }
+    expect(saved).toBe("SIMULATEDCAR00001");
+
+    // Another connection may be another car, so it records no VIN until it reads one.
+    await host.client.link.disconnect();
+    await host.client.link.connect({ adapter: GENERIC_SIMULATOR });
+    const reconnected = await host.client.runs.start({ adapter: GENERIC_SIMULATOR });
+    expect(reconnected.vin).toBeNull();
+    await host.client.runs.stop({ runId: reconnected.id });
+  });
+
   it("collects the legislated values in a run stored under the generic name", async () => {
     const { host, storage } = await connectedGeneric();
     const run = await host.client.runs.start({ adapter: GENERIC_SIMULATOR });

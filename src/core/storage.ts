@@ -33,6 +33,24 @@ export const originSchema = z.enum(ORIGINS);
 /** Where a stored record came from. */
 export type Origin = z.output<typeof originSchema>;
 
+/**
+ * The VIN a stored record was read from: trimmed and in upper case, or `null` when it is not known. A blank VIN, as a share link that removed it holds it, is stored as `null`.
+ */
+export const vinSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .transform((vin) => (vin === "" ? null : vin))
+  .nullable();
+
+/** The VIN a stored record was read from, or `null` when it is not known. */
+export type Vin = z.output<typeof vinSchema>;
+
+/** `vin` as storage keeps it: trimmed, upper case, and `null` when blank or absent. */
+export function normaliseVin(vin: string | null): Vin {
+  return vinSchema.parse(vin);
+}
+
 /** Whether a record of this origin may take write-type actions (resuming a run, collecting into it): only one this device read itself. */
 export function allowsWrites(origin: Origin): boolean {
   return origin === "local";
@@ -51,6 +69,8 @@ export const runSchema = z.object({
   stoppedAt: timestampSchema.nullable(),
   notes: z.string(),
   origin: originSchema,
+  /** The VIN of the car the run was collected from, as the connection had read it; `null` when it had read none, or for a run saved from a link or a file. */
+  vin: vinSchema,
 });
 
 /** A collection run. */
@@ -63,6 +83,7 @@ export const newRunSchema = z.object({
   startedAt: timestampSchema,
   notes: z.string().default(""),
   origin: originSchema.default("local"),
+  vin: vinSchema.default(null),
 });
 
 /** The fields a caller gives to {@link Storage.createRun}. */
@@ -155,17 +176,50 @@ export const jsonSchema = z.json();
 /** A JSON value. */
 export type Json = z.output<typeof jsonSchema>;
 
-/** What a caller gives to save a scan report. */
-export const newScanReportSchema = z.object({
-  profile: nameSchema,
-  adapter: nameSchema,
-  takenAt: timestampSchema,
-  /** A short name the user gave the report; may be empty. */
-  label: z.string().default(""),
-  /** The report as `scan --output` writes it, so a saved scan compares and describes unchanged, or a generic OBD-II read as `obd --output` writes it. */
-  report: jsonSchema,
-  origin: originSchema.default("local"),
-});
+/** Whether a JSON value is an object, as opposed to an array, a primitive or `null`. */
+function isJsonObject(value: Json | undefined): value is { [key: string]: Json } {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** The VIN text of each unit of a scan that reports one among its identification, in the order of the units. */
+function unitVins(units: Json | undefined): Json[] {
+  if (!Array.isArray(units)) return [];
+  return units.flatMap((unit) => {
+    if (!isJsonObject(unit) || !isJsonObject(unit.identification)) return [];
+    const vin = unit.identification.VIN;
+    return isJsonObject(vin) && vin.text !== undefined ? [vin.text] : [];
+  });
+}
+
+/**
+ * The VIN a saved report says it was read from: the first text among the generic OBD-II read's `obd.vin`, an OBD-II clear snapshot's `vin` and the `VIN` identification of each unit of a scan or a unit's snapshot, normalised by {@link normaliseVin}; `null` when the report holds none.
+ *
+ * The migration that added the `vin` column backfills the reports saved before it with the same rule in SQL, so a report saved before it and one saved after it agree.
+ */
+export function reportVin(report: Json): Vin {
+  if (!isJsonObject(report)) return null;
+  const { obd } = report;
+  const found = [
+    isJsonObject(obd) ? obd.vin : undefined,
+    report.vin,
+    ...unitVins(report.units),
+  ].find((candidate) => typeof candidate === "string");
+  return typeof found === "string" ? normaliseVin(found) : null;
+}
+
+/** What a caller gives to save a scan report; the VIN is read from the report itself ({@link reportVin}). */
+export const newScanReportSchema = z
+  .object({
+    profile: nameSchema,
+    adapter: nameSchema,
+    takenAt: timestampSchema,
+    /** A short name the user gave the report; may be empty. */
+    label: z.string().default(""),
+    /** The report as `scan --output` writes it, so a saved scan compares and describes unchanged, or a generic OBD-II read as `obd --output` writes it. */
+    report: jsonSchema,
+    origin: originSchema.default("local"),
+  })
+  .transform((input) => ({ ...input, vin: reportVin(input.report) }));
 
 /** The fields a caller gives to {@link Storage.saveScanReport}. */
 export type NewScanReport = z.input<typeof newScanReportSchema>;
@@ -178,6 +232,8 @@ export const scanReportSummarySchema = z.object({
   takenAt: timestampSchema,
   label: z.string(),
   origin: originSchema,
+  /** The VIN the report itself holds ({@link reportVin}). */
+  vin: vinSchema,
 });
 
 /** A saved scan report without its body. */
@@ -262,6 +318,8 @@ export const captureSummarySchema = z.object({
   exchanges: z.number().int().nonnegative(),
   units: z.array(captureUnitSchema),
   origin: originSchema,
+  /** The VIN of the car the capture was read from, as the connection had read it; `null` when it had read none, or for a capture saved from a link or a file. */
+  vin: vinSchema,
 });
 
 /** A stored capture without its exchanges. */
@@ -302,8 +360,12 @@ export function captureUnits(capture: Capture): CaptureUnit[] {
   }));
 }
 
-/** A capture's summary, as storage lists it, stored with `origin`. */
-export function captureSummary(capture: Capture, origin: Origin): CaptureSummary {
+/** A capture's summary, as storage lists it, stored with `origin` and the VIN it was read from. */
+export function captureSummary(
+  capture: Capture,
+  origin: Origin,
+  vin: string | null,
+): CaptureSummary {
   return {
     id: capture.id,
     startedAt: capture.startedAt,
@@ -316,6 +378,7 @@ export function captureSummary(capture: Capture, origin: Origin): CaptureSummary
     exchanges: capture.exchanges.length,
     units: captureUnits(capture),
     origin,
+    vin: normaliseVin(vin),
   };
 }
 
@@ -411,11 +474,11 @@ export interface Storage {
   listProfiles(): Promise<StoredProfile[]>;
 
   /**
-   * Stores a capture under its own id, recording where it came from.
+   * Stores a capture under its own id, recording where it came from and the VIN of the car it was read from (`null` when not known), kept as {@link normaliseVin} gives it.
    *
    * @throws StorageError `conflict` when a capture with that id is stored already.
    */
-  saveCapture(capture: Capture, origin: Origin): Promise<CaptureSummary>;
+  saveCapture(capture: Capture, origin: Origin, vin: string | null): Promise<CaptureSummary>;
 
   /** The capture with this id, or `undefined`. */
   getCapture(id: string): Promise<Capture | undefined>;
