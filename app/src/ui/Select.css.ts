@@ -20,8 +20,9 @@ export const trigger = style({
   selectors: { "&:disabled": { opacity: 0.55, cursor: "not-allowed" } },
 });
 
+// Above the dialog's overlay and content (40 and 41): a select inside a dialog opens its list over it, and a list beneath the overlay cannot be clicked.
 export const content = style({
-  zIndex: 30,
+  zIndex: 45,
   minWidth: "var(--radix-select-trigger-width)",
   maxHeight: "var(--radix-select-content-available-height)",
   overflow: "hidden",
