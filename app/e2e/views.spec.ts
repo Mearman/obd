@@ -211,8 +211,36 @@ for (const viewport of VIEWPORTS) {
         await page.getByRole("button", { name: "Add the plate" }).click();
         await expect(page.getByText("XY65 ZZZ from 2030-01-01, still on it")).toBeVisible();
         await expect(page.getByText("AB12 CDE from", { exact: false })).toContainText(
-          "until 2030-01-01",
+          "until 2029-12-31",
         );
+        // The plate is still AB12 CDE today, as plateAt reads it.
+        await expect(vehicles.getByText("AB12 CDE", { exact: true })).toBeVisible();
+
+        // The new plate was a mistake: its period is changed, then it is deleted.
+        await page.getByRole("button", { name: `Edit ${SIMULATED_VIN}` }).click();
+        await page.getByRole("menuitem", { name: /^Change XY65 ZZZ/ }).click();
+        await page.getByLabel("First day on this car (UTC)").fill("2031-01-01");
+        await fits(page, "the change-a-plate dialog");
+        await page.screenshot({ path: `${base}-change-plate.png` });
+        await page.getByRole("button", { name: "Keep the period" }).click();
+        await expect(page.getByText("XY65 ZZZ from 2031-01-01, still on it")).toBeVisible();
+        await page.getByRole("button", { name: `Edit ${SIMULATED_VIN}` }).click();
+        await page.getByRole("menuitem", { name: /^Change XY65 ZZZ/ }).click();
+        await page.getByRole("button", { name: "Delete this plate" }).click();
+        await expect(page.getByText("XY65 ZZZ", { exact: false })).toHaveCount(0);
+
+        // A car whose units report no VIN is added by hand with its plate.
+        await page.getByRole("button", { name: "Add a vehicle" }).click();
+        await page.getByRole("textbox", { name: "Name" }).fill("W211");
+        await page.getByRole("textbox", { name: "Number plate" }).fill("w211 plt");
+        await fits(page, "the add-a-vehicle dialog");
+        await page.getByRole("button", { name: "Add the vehicle" }).click();
+        await expect(vehicles.getByText("W211", { exact: true })).toBeVisible();
+        await expect(
+          vehicles.getByText("W211 PLT from an unknown date, still on it"),
+        ).toBeVisible();
+        await fits(page, "the Vehicles card with a car added by hand");
+        await page.screenshot({ path: `${base}-vehicles.png`, fullPage: true });
       });
     });
   }
