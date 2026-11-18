@@ -157,6 +157,22 @@ describe("Run graphs", () => {
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
   });
 
+  it("reads a stored run once and keeps its graphs while the address moves to the run's sharing link", async () => {
+    const reads = vi.spyOn(RunSeriesReader.prototype, "read");
+    try {
+      await openGraphs();
+      const playback = screen.getByRole("group", { name: "Run playback" });
+      await waitFor(() => {
+        expect(window.location.hash).toMatch(/^#share=/);
+      });
+      // A stopped run has nothing more to read, so a second read means the graphs started again from loading.
+      expect(reads).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("group", { name: "Run playback" })).toBe(playback);
+    } finally {
+      reads.mockRestore();
+    }
+  });
+
   it("moves one cursor across every chart from the keyboard and writes each value", async () => {
     await openGraphs();
     const slider = screen.getByRole("slider", { name: /^Cursor on engine speed/ });
