@@ -242,6 +242,62 @@ for (const viewport of VIEWPORTS) {
         await fits(page, "the Vehicles card with a car added by hand");
         await page.screenshot({ path: `${base}-vehicles.png`, fullPage: true });
       });
+
+      test("two records of one car merge from the Vehicles card, and the dialog and the result fit", async ({
+        page,
+      }) => {
+        const base = `screenshots/merge-${viewport.name}-${scheme}`;
+        await page.goto("/?screen=settings");
+        const vehicles = page.getByRole("table", { name: "Vehicles" });
+
+        // A car with a VIN, and a car known only by a plate it carried until the end of 2019.
+        await page.getByRole("button", { name: "Add a vehicle" }).click();
+        await page.getByRole("textbox", { name: "Name" }).fill("Estate");
+        await page.getByRole("textbox", { name: "VIN (optional)" }).fill("WDB2110200A000001");
+        await page.getByRole("textbox", { name: "Number plate" }).fill("ab12 cde");
+        await page.getByLabel("Plate on it from (UTC)").fill("2020-01-01");
+        await page.getByRole("button", { name: "Add the vehicle" }).click();
+        await expect(vehicles.getByText("AB12 CDE from 2020-01-01, still on it")).toBeVisible();
+
+        await page.getByRole("button", { name: "Add a vehicle" }).click();
+        await page.getByRole("textbox", { name: "Name" }).fill("Blue estate");
+        await page.getByRole("textbox", { name: "Number plate" }).fill("xy65 zzz");
+        await page.getByLabel("Plate on it from (UTC)").fill("2015-01-01");
+        await page.getByRole("button", { name: "Add the vehicle" }).click();
+        await expect(vehicles.getByText("XY65 ZZZ from 2015-01-01, still on it")).toBeVisible();
+        await page.getByRole("button", { name: "Edit Blue estate" }).click();
+        await page.getByRole("menuitem", { name: "Plate XY65 ZZZ moved off" }).click();
+        await page.getByLabel("Last day on this car (UTC)").fill("2019-12-31");
+        await page.getByRole("button", { name: "End the plate" }).click();
+        await expect(vehicles.getByText("XY65 ZZZ from 2015-01-01 until 2019-12-31")).toBeVisible();
+
+        await page.getByRole("button", { name: "Edit Estate (WDB2110200A000001)" }).click();
+        await page.getByRole("menuitem", { name: "Merge with another" }).click();
+        const dialog = page.getByRole("dialog", { name: "Merge Estate (WDB2110200A000001)" });
+        await expect(dialog).toBeVisible();
+        await fits(page, "the merge dialog");
+        await page.screenshot({ path: `${base}-merge-dialog.png` });
+        await dialog.getByRole("combobox", { name: "The same car as" }).click();
+        await page.getByRole("option", { name: "Blue estate" }).click();
+        await fits(page, "the merge dialog with a car chosen");
+        await dialog.getByRole("button", { name: "Merge into this one" }).click();
+        await expect(dialog).toHaveCount(0);
+
+        // One record is left, holding both plates with their periods.
+        await expect(vehicles.getByRole("row")).toHaveCount(2);
+        const plates = page.getByRole("list", {
+          name: "Plates of Blue estate (WDB2110200A000001)",
+        });
+        await expect(plates.getByRole("listitem")).toHaveText([
+          "AB12 CDE from 2020-01-01, still on it",
+          "XY65 ZZZ from 2015-01-01 until 2019-12-31",
+        ]);
+        await expect(
+          vehicles.getByRole("button", { name: "Edit Estate (WDB2110200A000001)" }),
+        ).toHaveCount(0);
+        await fits(page, "the Vehicles card after a merge");
+        await page.screenshot({ path: `${base}-vehicles.png`, fullPage: true });
+      });
     });
   }
 }
