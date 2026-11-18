@@ -124,6 +124,12 @@ describe("the VIN migration", () => {
     "odd-units": { units: ["text", 1, null, { identification: ["VIN"] }] },
     "not-an-object": ["VIN"],
     none: { tool: "obd-read" },
+    // Only ASCII letters change case and only ASCII white space is trimmed, so SQLite's upper and trim and reportVin agree on any text.
+    accented: { obd: { vin: " wdbéx " } },
+    "unicode-space": { obd: { vin: "\u00a0wdbx\u2003" } },
+    "dotless-i": { obd: { vin: "wdbıx" } },
+    "sharp-s": { obd: { vin: "wdbßx" } },
+    "ascii-space": { obd: { vin: "\t\n wdbx \r" } },
   };
 
   it("fills each saved report's VIN from its document by the rule reportVin follows, and leaves runs and captures without one", async () => {
@@ -169,6 +175,11 @@ describe("the VIN migration", () => {
       "odd-units": null,
       "not-an-object": null,
       none: null,
+      accented: "WDBéX",
+      "unicode-space": "\u00a0WDBX\u2003",
+      "dotless-i": "WDBıX",
+      "sharp-s": "WDBßX",
+      "ascii-space": "WDBX",
     });
     expect(await execute("SELECT vin FROM runs", [], "all")).toEqual([[null]]);
     expect(await execute("SELECT vin FROM captures", [], "all")).toEqual([[null]]);

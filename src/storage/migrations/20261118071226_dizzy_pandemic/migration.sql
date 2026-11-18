@@ -1,7 +1,7 @@
 ALTER TABLE `captures` ADD `vin` text;--> statement-breakpoint
 ALTER TABLE `runs` ADD `vin` text;--> statement-breakpoint
 ALTER TABLE `scan_reports` ADD `vin` text;--> statement-breakpoint
--- Reports from before this column take the VIN their document holds, by the rule of reportVin in src/core/storage.ts: the first text among the generic OBD-II read's obd.vin, an OBD-II clear snapshot's vin and each unit's VIN identification, trimmed, in upper case and null when blank. A run or a capture keeps no VIN in what is stored of it, so theirs stay null. Each CASE tests a value's type before reading into it, since SQLite does not promise the order in which it evaluates the terms of an AND.
+-- Reports from before this column take the VIN their document holds, by the rule of reportVin in src/core/storage.ts: the first text among the generic OBD-II read's obd.vin, an OBD-II clear snapshot's vin and each unit's VIN identification, with ASCII white space trimmed, ASCII letters in upper case (SQLite changes no other character, and reportVin follows it) and null when blank. A run or a capture keeps no VIN in what is stored of it, so theirs stay null. Each CASE tests a value's type before reading into it, since SQLite does not promise the order in which it evaluates the terms of an AND.
 UPDATE `scan_reports` SET `vin` = nullif(upper(trim(coalesce(
   CASE WHEN json_type(`report`, '$.obd.vin') = 'text' THEN json_extract(`report`, '$.obd.vin') END,
   CASE WHEN json_type(`report`, '$.vin') = 'text' THEN json_extract(`report`, '$.vin') END,
