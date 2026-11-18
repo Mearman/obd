@@ -84,13 +84,15 @@ export class MemoryStorage implements Storage {
     { readonly text: string; readonly record: CaptureRecord }
   >();
   /** Kept as text, as the plans are. */
-  private register = JSON.stringify({ vehicles: [], plates: [] });
+  private register: string;
   private readonly newId: () => string;
 
   /**
    * @param newId Produces each new run and report id; defaults to a counter. Ids only need to be unique within this store.
+   * @param register The vehicle register to start from, taken as given and not checked, so a test can begin from a register the rules would have refused; empty when omitted.
    */
-  constructor(newId?: () => string) {
+  constructor(newId?: () => string, register: VehicleRegister = { vehicles: [], plates: [] }) {
+    this.register = JSON.stringify(register);
     let next = 0;
     this.newId = newId ?? (() => `id-${String((next += 1))}`);
   }
@@ -99,9 +101,10 @@ export class MemoryStorage implements Storage {
     return settle(() => {
       const fields = newRunSchema.parse(input);
       const run: Run = { id: this.newId(), ...fields, stoppedAt: null };
+      // The sighting first: a register that refuses it leaves the run unsaved, as one transaction would.
+      this.sighted(run.origin, { vin: run.vin, plate: run.plate, at: run.startedAt });
       this.runs.set(run.id, run);
       this.samples.set(run.id, []);
-      this.sighted(run.origin, { vin: run.vin, plate: run.plate, at: run.startedAt });
       return { ...run };
     });
   }
@@ -266,8 +269,8 @@ export class MemoryStorage implements Storage {
   saveScanReport(input: NewScanReport): Promise<ScanReport> {
     return settle(() => {
       const report: ScanReport = { id: this.newId(), ...newScanReportSchema.parse(input) };
-      this.reports.set(report.id, report);
       this.sighted(report.origin, { vin: report.vin, plate: report.plate, at: report.takenAt });
+      this.reports.set(report.id, report);
       return { ...report };
     });
   }
@@ -336,13 +339,13 @@ export class MemoryStorage implements Storage {
         throw new StorageError("conflict", `a capture ${valid.id} is stored already`);
       }
       const summary = captureSummary(valid, record);
-      // Kept as text, so a stored capture shares nothing with the caller's objects.
-      this.captures.set(valid.id, { text: JSON.stringify(valid), record: summary });
       this.sighted(summary.origin, {
         vin: summary.vin,
         plate: summary.plate,
         at: summary.startedAt,
       });
+      // Kept as text, so a stored capture shares nothing with the caller's objects.
+      this.captures.set(valid.id, { text: JSON.stringify(valid), record: summary });
       return summary;
     });
   }
