@@ -33,20 +33,26 @@ export const originSchema = z.enum(ORIGINS);
 /** Where a stored record came from. */
 export type Origin = z.output<typeof originSchema>;
 
+/** ASCII white space (space, tab, line feed, vertical tab, form feed, carriage return) at either end of a text. */
+const ASCII_EDGE_SPACE = /^[ \t\n\v\f\r]+|[ \t\n\v\f\r]+$/g;
+
 /**
- * The VIN a stored record was read from: trimmed and in upper case, or `null` when it is not known. A blank VIN, as a share link that removed it holds it, is stored as `null`.
+ * The VIN a stored record was read from, or `null` when it is not known: ASCII white space trimmed from both ends and ASCII letters in upper case, every other character kept as it is. A blank VIN, as a share link that removed it holds it, is stored as `null`.
+ *
+ * The rule is SQLite's own `upper(trim(x, char(32, 9, 10, 11, 12, 13)))`, which the migration that added the `vin` column backfills with, so a VIN normalised here and one normalised there agree on any text; JavaScript's `trim` and `toUpperCase` would also change non-ASCII text.
  */
 export const vinSchema = z
   .string()
-  .trim()
-  .toUpperCase()
+  .transform((vin) =>
+    vin.replace(ASCII_EDGE_SPACE, "").replace(/[a-z]+/g, (letters) => letters.toUpperCase()),
+  )
   .transform((vin) => (vin === "" ? null : vin))
   .nullable();
 
 /** The VIN a stored record was read from, or `null` when it is not known. */
 export type Vin = z.output<typeof vinSchema>;
 
-/** `vin` as storage keeps it: trimmed, upper case, and `null` when blank or absent. */
+/** `vin` as storage keeps it ({@link vinSchema}): ASCII white space trimmed, ASCII letters upper case, and `null` when blank or absent. */
 export function normaliseVin(vin: string | null): Vin {
   return vinSchema.parse(vin);
 }
