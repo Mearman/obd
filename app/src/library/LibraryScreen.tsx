@@ -52,7 +52,9 @@ import { useVehicleLabels, useVehicleRegister } from "./vehicle-labels";
 import {
   GROUPING_OPTIONS,
   NO_GROUPING,
+  NO_VIN_LABEL,
   UNKNOWN_VEHICLE_LABEL,
+  withVehicleNames,
   describeVehicles,
   resolveVehicles,
   groupItems,
@@ -136,14 +138,15 @@ export function LibraryScreen({
   const reports = useReportItems(query("report"));
   const listings = [runs, captures, reports];
   const loaded = listings.every((listing) => listing.items !== undefined);
-  const register = useVehicleRegister();
+  const { register, problem: registerProblem } = useVehicleRegister();
   const stored = resolveVehicles(
     listings.flatMap((listing) => listing.items ?? []),
     register,
   );
   const items = sortItems(shownItems(stored, view), view.sort);
-  const labels = useVehicleLabels(vinsOf(stored));
-  const listProblem = listings.find((listing) => listing.problem !== undefined)?.problem;
+  const labels = withVehicleNames(useVehicleLabels(vinsOf(stored)), register);
+  const listProblem =
+    listings.find((listing) => listing.problem !== undefined)?.problem ?? registerProblem;
   // Shared in the order the list shows them, including any the search or dates hide.
   const chosen = sortItems(
     stored.filter((item) => selected.has(itemKey(item))),
@@ -344,10 +347,10 @@ export function LibraryScreen({
       ],
       nowrap: true,
       render: (item) => {
-        const label = item.vin === null ? undefined : labels.get(item.vin);
+        const label = item.vehicle === null ? undefined : labels.get(item.vehicle);
         // The plate as it was at the item's time, beside its VIN.
         const vehicle = [
-          item.vin ?? UNKNOWN_VEHICLE_LABEL,
+          item.vin ?? (item.vehicle === null ? UNKNOWN_VEHICLE_LABEL : NO_VIN_LABEL),
           ...(item.plate === null ? [] : [formatPlate(item.plate)]),
         ].join(", ");
         return (
