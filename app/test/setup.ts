@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, configure, prettyDOM } from "@testing-library/react";
 import { afterEach, aroundEach } from "vitest";
 import { installMatchMedia, setWideLayout } from "./media";
-import { withinBudget, type WorkBudget } from "./work-budget";
+import { budgetEach, type WorkBudget } from "./work-budget";
 
 /**
  * The work one app test may do. The processor time is a wide margin over the heaviest app test, leaving room for a slower processor in CI; the idle limit is far longer than any timer the app waits on, so only a wait for something that never happens reaches it.
@@ -27,8 +27,10 @@ function describePage(): string {
   return page === false ? "" : `The page:\n${page}`;
 }
 
+const budgeted = budgetEach(APP_TEST_BUDGET, describePage);
+
 // The hook's own limit is in elapsed time, so it is off: the budget limits the test and its hooks inside it.
-aroundEach((runTest) => withinBudget(runTest, APP_TEST_BUDGET, describePage), 0);
+aroundEach((runTest, { task }) => budgeted(runTest, task.name), 0);
 
 afterEach(cleanup);
 // The address names the active screen, so a test must not start on the previous test's.
