@@ -16,13 +16,18 @@ export const DEFAULT_SCREEN: ScreenName = "session";
 const day = z.iso.date().optional().catch(undefined);
 
 /**
- * What the address's query holds: the active screen and, on the Library, the item open as `<kind>:<id>` and how the list is filtered (`kind`, `origin`, the search `q`, the days `from` and `to`), sorted (`sort`, a column with `-` before it for descending) and grouped (`group`). A value that is not valid reads as absent, and any other parameter is kept as it is.
+ * What the address's query holds: the active screen and, on the Library, the item open as `<kind>:<id>` and how the list is filtered (`kind`, `origin`, the `vehicle` as a VIN or `unknown`, the search `q`, the days `from` and `to`), sorted (`sort`, a column with `-` before it for descending) and grouped (`group`). A value that is not valid reads as absent, and any other parameter is kept as it is.
  */
 export const searchSchema = z.looseObject({
   screen: z.enum(SCREEN_NAMES).optional().catch(undefined),
   item: z.string().optional().catch(undefined),
   kind: z.enum(LIBRARY_KINDS).optional().catch(undefined),
   origin: z.enum(ORIGINS).optional().catch(undefined),
+  // A VIN as storage keeps it, or `unknown`; a VIN of digits alone would arrive as a number, as `q` can.
+  vehicle: z
+    .union([z.string().min(1), z.number().transform(String)])
+    .optional()
+    .catch(undefined),
   // The router reads a value that parses as JSON as that value, so a search for digits arrives as a number.
   q: z
     .union([z.string(), z.number().transform(String)])

@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { useDatabase } from "../database/DatabaseProvider";
 
 /** Every profile a connection can name, as the service finds them: an imported profile in place of a shipped one of the same name. */
-async function availableProfiles(storage: Storage | undefined): Promise<Profile[]> {
+export async function availableProfiles(storage: Storage | undefined): Promise<Profile[]> {
   const imported = storage === undefined ? [] : await storage.listProfiles();
   const names = new Set(imported.map((stored) => stored.name));
   return [

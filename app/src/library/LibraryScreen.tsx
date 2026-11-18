@@ -41,15 +41,17 @@ import {
   type LibraryOpen,
 } from "./items";
 import { itemEnvelopes } from "./item-envelope";
-import { actionsRow, selectBox } from "./library.css";
+import { actionsRow, selectBox, vehicleCell } from "./library.css";
 import { ImportNotes, LibraryImport, useLibraryImport } from "./LibraryImport";
 import { runEnvelope } from "./run-envelope";
 import { SavedReportView } from "./SavedReportView";
 import { useSearchText } from "./useSearchText";
 import { useCaptureItems, useReportItems, useRunItems } from "./sources";
+import { useVehicleLabels } from "./vehicle-labels";
 import {
   GROUPING_OPTIONS,
   NO_GROUPING,
+  UNKNOWN_VEHICLE_LABEL,
   groupItems,
   groupingChoice,
   kindChoice,
@@ -58,6 +60,8 @@ import {
   shownItems,
   sortItems,
   toggleSort,
+  vehicleOptions,
+  vinsOf,
   type LibraryView,
   type SortColumn,
 } from "./view";
@@ -79,7 +83,7 @@ type Viewed = { readonly for: string } & (
 );
 
 /**
- * Library: every stored run, capture and saved report in one list, filtered by kind, origin, a search and a date range, sorted by any column and optionally grouped, with one import control and each kind's own viewer.
+ * Library: every stored run, capture and saved report in one list, filtered by kind, origin, vehicle (the VIN it was read from), a search and a date range, sorted by any column and optionally grouped (by kind, vehicle, origin or day), with one import control and each kind's own viewer.
  *
  * @param open The item the viewer shows, held by the shell so it stays open when the person looks at another screen and comes back, and so another screen can open one here.
  * @param onOpen Opens an item in the viewer, or closes the viewer with undefined.
@@ -131,6 +135,7 @@ export function LibraryScreen({
   const loaded = listings.every((listing) => listing.items !== undefined);
   const stored = listings.flatMap((listing) => listing.items ?? []);
   const items = sortItems(shownItems(stored, view), view.sort);
+  const labels = useVehicleLabels(vinsOf(stored));
   const listProblem = listings.find((listing) => listing.problem !== undefined)?.problem;
   // Shared in the order the list shows them, including any the search or dates hide.
   const chosen = sortItems(
@@ -324,6 +329,20 @@ export function LibraryScreen({
     { header: "Kind", sortKey: "kind", render: (item) => <Badge>{KIND_LABELS[item.kind]}</Badge> },
     { header: "Date", sortKey: "date", nowrap: true, render: (item) => when(item.at) },
     { header: "Profile", sortKey: "profile", nowrap: true, render: profileText },
+    {
+      header: "Vehicle",
+      sortKey: "vehicle",
+      render: (item) => {
+        if (item.vin === null) return <span className={muted}>{UNKNOWN_VEHICLE_LABEL}</span>;
+        const label = labels.get(item.vin);
+        return (
+          <span className={vehicleCell}>
+            <span>{item.vin}</span>
+            {label !== undefined && <span className={muted}>{label}</span>}
+          </span>
+        );
+      },
+    },
     { header: "Details", render: details },
     {
       header: "Origin",
@@ -416,6 +435,14 @@ export function LibraryScreen({
                 change({ origin: originChoice(value) });
               }}
             />
+            <Select
+              label="Vehicle"
+              value={view.vehicle}
+              options={vehicleOptions(stored, labels, view.vehicle)}
+              onValueChange={(value) => {
+                change({ vehicle: value });
+              }}
+            />
             <TextField
               label="From (UTC)"
               type="date"
@@ -464,11 +491,14 @@ export function LibraryScreen({
           ) : stored.length === 0 ? (
             <p className={muted}>{emptyNote(kinds, origins)}</p>
           ) : items.length === 0 ? (
-            <p className={muted}>Nothing matches the search or the dates.</p>
+            <p className={muted}>Nothing matches the vehicle, the search or the dates.</p>
           ) : view.group === undefined ? (
             <DataTable {...table} rows={items} />
           ) : (
-            <GroupedDataTable {...table} groups={groupItems(items, view.group, view.sort)} />
+            <GroupedDataTable
+              {...table}
+              groups={groupItems(items, view.group, view.sort, labels)}
+            />
           )}
         </>
       )}

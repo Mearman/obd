@@ -41,3 +41,10 @@ export const actionsRow = style({
   gap: vars.space["2"],
   "@media": { "screen and (min-width: 1100px)": { flexWrap: "nowrap" } },
 });
+
+/** A row's vehicle: the VIN, with the short name a profile gives it on a line of its own below; a VIN breaks anywhere rather than push the narrowest phone sideways. */
+export const vehicleCell = style({
+  display: "flex",
+  flexDirection: "column",
+  overflowWrap: "anywhere",
+});
