@@ -12,7 +12,7 @@ import {
 } from "./items";
 
 /** The columns the Library can be sorted by. */
-export const SORT_COLUMNS = ["kind", "date", "profile", "vehicle", "origin"] as const;
+export const SORT_COLUMNS = ["kind", "date", "profile", "origin"] as const;
 
 /** One column the Library can be sorted by. */
 export type SortColumn = (typeof SORT_COLUMNS)[number];
@@ -34,8 +34,6 @@ const SORTS: Readonly<Record<SortValue, LibrarySort>> = {
   "-date": { column: "date", direction: "descending" },
   profile: { column: "profile", direction: "ascending" },
   "-profile": { column: "profile", direction: "descending" },
-  vehicle: { column: "vehicle", direction: "ascending" },
-  "-vehicle": { column: "vehicle", direction: "descending" },
   origin: { column: "origin", direction: "ascending" },
   "-origin": { column: "origin", direction: "descending" },
 };
@@ -281,8 +279,6 @@ function byColumn(column: SortColumn, a: LibraryItem, b: LibraryItem): number {
       return a.at - b.at;
     case "profile":
       return profileText(a).localeCompare(profileText(b));
-    case "vehicle":
-      return byVin(a.vin, b.vin);
     case "origin":
       return ORIGIN_LABELS[a.origin].localeCompare(ORIGIN_LABELS[b.origin]);
   }
@@ -337,16 +333,16 @@ function groupOf(
   }
 }
 
-/** The column whose sort orders each grouping's groups. */
-const GROUP_COLUMNS: Readonly<Record<Grouping, SortColumn>> = {
+/** The column whose sort orders each grouping's groups; the vehicles have no column of their own, so they always come in the VINs' order. */
+const GROUP_COLUMNS: Readonly<Record<Grouping, SortColumn | undefined>> = {
   kind: "kind",
-  vehicle: "vehicle",
+  vehicle: undefined,
   origin: "origin",
   day: "date",
 };
 
 /**
- * The sorted `items` in groups by `group`, each group keeping their order. When `sort` is by the column the grouping follows (the kind, the vehicle, the origin or the date), the groups come in that order; otherwise they come in the kinds', the VINs' or the origins' own order (the items of no known VIN last), or newest day first. A vehicle group's heading is its VIN with the short name `labels` gives it.
+ * The sorted `items` in groups by `group`, each group keeping their order. When `sort` is by the column the grouping follows (the kind, the origin or the date), the groups come in that order; otherwise they come in the kinds' or the origins' own order, or newest day first. Vehicles always come in the VINs' order, the items of no known VIN last. A vehicle group's heading is its VIN with the short name `labels` gives it.
  */
 export function groupItems(
   items: readonly LibraryItem[],
