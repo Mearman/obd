@@ -177,7 +177,7 @@ export const jsonSchema = z.json();
 export type Json = z.output<typeof jsonSchema>;
 
 /** Whether a JSON value is an object, as opposed to an array, a primitive or `null`. */
-function isJsonObject(value: Json | undefined): value is { [key: string]: Json } {
+function isJsonObject(value: Json | undefined): value is Record<string, Json> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
