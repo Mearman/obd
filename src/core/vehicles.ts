@@ -95,10 +95,15 @@ function moment(at: number | null, open: string): string {
   return at === null ? open : new Date(at).toISOString().slice(0, 10);
 }
 
+/** An assignment's period as a message reads it. */
+function period(assignment: PlateAssignment): string {
+  return `from ${moment(assignment.validFrom, "an unknown start")} to ${moment(assignment.validTo, "now")}`;
+}
+
 /**
- * Checks the register's rules: each VIN belongs to one vehicle, each assignment names a vehicle of the register, and no two assignments of one plate cover the same moment.
+ * Checks the register's rules: each VIN belongs to one vehicle, each assignment names a vehicle of the register, no two assignments of one plate cover the same moment, and no vehicle carries two plates at the same moment.
  *
- * @throws StorageError `conflict` naming the VIN, or the plate and both periods, that break a rule.
+ * @throws StorageError `conflict` naming the VIN, or the plates and both periods, that break a rule.
  */
 export function checkRegister(register: VehicleRegister): void {
   const vins = new Map<string, string>();
@@ -119,10 +124,17 @@ export function checkRegister(register: VehicleRegister): void {
       throw new StorageError("not-found", `no vehicle ${assignment.vehicleId}`);
     }
     for (const other of register.plates.slice(index + 1)) {
-      if (other.plate === assignment.plate && overlap(assignment, other)) {
+      if (!overlap(assignment, other)) continue;
+      if (other.plate === assignment.plate) {
         throw new StorageError(
           "conflict",
-          `the plate ${formatPlate(assignment.plate)} cannot be on vehicle ${assignment.vehicleId} from ${moment(assignment.validFrom, "an unknown start")} to ${moment(assignment.validTo, "now")} and on vehicle ${other.vehicleId} from ${moment(other.validFrom, "an unknown start")} to ${moment(other.validTo, "now")}: the periods overlap`,
+          `the plate ${formatPlate(assignment.plate)} cannot be on vehicle ${assignment.vehicleId} ${period(assignment)} and on vehicle ${other.vehicleId} ${period(other)}: the periods overlap`,
+        );
+      }
+      if (other.vehicleId === assignment.vehicleId) {
+        throw new StorageError(
+          "conflict",
+          `vehicle ${assignment.vehicleId} cannot carry ${formatPlate(assignment.plate)} ${period(assignment)} and ${formatPlate(other.plate)} ${period(other)} at once: a car carries one plate at a time`,
         );
       }
     }
@@ -184,7 +196,7 @@ export interface Recorded {
 /**
  * Records what a new item says about its car and returns the register it leaves, which still passes {@link checkRegister}.
  *
- * A VIN finds its vehicle, or adds one. When a plate comes with the VIN and the vehicle does not carry it at the item's time, the vehicle takes it from then: any other vehicle's open assignment of that plate, and this vehicle's own open assignment of another plate, end then (the plate moved, or the car was re-registered). The new assignment ends where a later assignment of the plate begins, so an old item never overwrites what came after it, and a later assignment of the same plate to this vehicle is brought forward instead. When another vehicle's closed assignment covers the time, the register is left as it is, since the item and the register disagree. Without a VIN nothing changes: the vehicle is identified as {@link identifyVehicle} does.
+ * A VIN finds its vehicle, or adds one. When a plate comes with the VIN and the vehicle does not carry it at the item's time, the vehicle takes it from then: any other vehicle's open assignment of that plate, and this vehicle's own open assignment of another plate, end then (the plate moved, or the car was re-registered). The new assignment ends where the next assignment of that plate or of this vehicle begins, so an old item never overwrites what came after it and a car never carries two plates at once; when that next one is this vehicle's own of the same plate, it is brought forward instead. When a closed assignment, or one starting at that very moment, of the plate or of the vehicle covers the time, the register is left as it is, since the item and the register disagree. Without a VIN nothing changes: the vehicle is identified as {@link identifyVehicle} does.
  *
  * @param newId Gives the id of each vehicle or assignment added.
  */
@@ -207,15 +219,22 @@ export function recordSighting(
   };
   if (plate === null) return unchanged;
 
-  const samePlate = register.plates.filter((assignment) => assignment.plate === plate);
-  const covering = samePlate.find((assignment) => covers(assignment, at));
-  if (covering?.vehicleId === vehicle.id) return unchanged;
-  // Another vehicle's closed period, or one that starts at this very moment, says otherwise.
-  if (covering !== undefined && (covering.validTo !== null || covering.validFrom === at)) {
+  // The assignments in the way: the car's own of any plate, and any car's of this plate.
+  const related = register.plates.filter(
+    (assignment) => assignment.vehicleId === vehicle.id || assignment.plate === plate,
+  );
+  const covering = related.filter((assignment) => covers(assignment, at));
+  if (
+    covering.some((assignment) => assignment.vehicleId === vehicle.id && assignment.plate === plate)
+  ) {
     return unchanged;
   }
-
-  const next = samePlate.reduce<PlateAssignment | undefined>(
+  // A closed period, or one that starts at this very moment, says otherwise than the item, so the register stands.
+  if (covering.some((assignment) => assignment.validTo !== null || assignment.validFrom === at)) {
+    return unchanged;
+  }
+  // The first related assignment after the item: the new one ends where it begins.
+  const next = related.reduce<PlateAssignment | undefined>(
     (earliest, assignment) =>
       assignment.validFrom !== null &&
       assignment.validFrom > at &&
@@ -225,32 +244,24 @@ export function recordSighting(
         : earliest,
     undefined,
   );
+  const bringForward = next?.vehicleId === vehicle.id && next.plate === plate;
   const plates = register.plates.map((assignment): PlateAssignment => {
-    const endsHere =
-      assignment.validTo === null &&
-      assignment.validFrom !== at &&
-      covers(assignment, at) &&
-      (assignment.plate === plate
-        ? assignment.vehicleId !== vehicle.id
-        : assignment.vehicleId === vehicle.id);
-    if (endsHere) return { ...assignment, validTo: at };
-    if (assignment === next && next.vehicleId === vehicle.id) {
-      return { ...assignment, validFrom: at };
-    }
+    // What covers the time is open and began before it: the plate moved here, or the car was re-registered.
+    if (covering.includes(assignment)) return { ...assignment, validTo: at };
+    if (bringForward && assignment === next) return { ...assignment, validFrom: at };
     return assignment;
   });
-  const added: PlateAssignment[] =
-    next?.vehicleId === vehicle.id
-      ? []
-      : [
-          {
-            id: newId(),
-            vehicleId: vehicle.id,
-            plate,
-            validFrom: at,
-            validTo: next?.validFrom ?? null,
-          },
-        ];
+  const added: PlateAssignment[] = bringForward
+    ? []
+    : [
+        {
+          id: newId(),
+          vehicleId: vehicle.id,
+          plate,
+          validFrom: at,
+          validTo: next?.validFrom ?? null,
+        },
+      ];
   const recorded = { vehicles, plates: [...plates, ...added] };
   checkRegister(recorded);
   return { vehicleId: vehicle.id, register: orderedRegister(recorded) };
@@ -310,9 +321,9 @@ export const newPlateSchema = z.object({
 export type NewPlate = z.input<typeof newPlateSchema>;
 
 /**
- * The register with `added` on its vehicle from its start, open-ended: the vehicle's open plate that began before then ends then, as when a car is re-registered, in the same change, so the two never disagree.
+ * The register with `added` on its vehicle from its start, in one change: the vehicle's open plate that began before then ends then, as when a car is re-registered, and the new plate ends where the vehicle's next plate begins, or stays open when none follows, so the car carries one plate at a time.
  *
- * @throws StorageError `invalid` for a blank plate, `not-found` for an unknown vehicle, `conflict` when the plate is assigned for an overlapping period already.
+ * @throws StorageError `invalid` for a blank plate, or an unknown start on a car that has an open plate (which would leave two open), `not-found` for an unknown vehicle, `conflict` when the plate is assigned for an overlapping period already or the car carries another plate at its start.
  */
 export function withNewPlate(
   register: VehicleRegister,
@@ -322,17 +333,34 @@ export function withNewPlate(
   const parsed = newPlateSchema.safeParse(added);
   if (!parsed.success) throw new StorageError("invalid", `new plate: ${parsed.error.message}`);
   const { vehicleId, plate, validFrom } = parsed.data;
-  const plates = register.plates.map((assignment) =>
+  const own = register.plates.filter((assignment) => assignment.vehicleId === vehicleId);
+  const open = own.find((assignment) => assignment.validTo === null);
+  if (validFrom === null && open !== undefined) {
+    throw new StorageError(
+      "invalid",
+      `vehicle ${vehicleId} has an open plate, ${formatPlate(open.plate)}; give the day the new plate started`,
+    );
+  }
+  const endsOpen =
     validFrom !== null &&
-    assignment.vehicleId === vehicleId &&
-    assignment.validTo === null &&
-    (assignment.validFrom === null || assignment.validFrom < validFrom)
-      ? { ...assignment, validTo: validFrom }
-      : assignment,
+    open !== undefined &&
+    (open.validFrom === null || open.validFrom < validFrom);
+  const next = own
+    .flatMap((assignment) =>
+      assignment.validFrom !== null && (validFrom === null || assignment.validFrom > validFrom)
+        ? [assignment.validFrom]
+        : [],
+    )
+    .reduce<number | null>(
+      (earliest, start) => (earliest === null || start < earliest ? start : earliest),
+      null,
+    );
+  const plates = register.plates.map((assignment) =>
+    endsOpen && assignment === open ? { ...assignment, validTo: validFrom } : assignment,
   );
   return withPlate(
     { vehicles: register.vehicles, plates },
-    { id: newId(), vehicleId, plate, validFrom, validTo: null },
+    { id: newId(), vehicleId, plate, validFrom, validTo: next },
   );
 }
 

@@ -3,6 +3,7 @@ import {
   StorageError,
   checkRegister,
   formatPlate,
+  plateAt,
   identifyVehicle,
   mergeVehicles,
   normalisePlate,
@@ -240,10 +241,10 @@ describe("editing the register", () => {
       () => "n1",
     );
     expect(periods(added)).toEqual([`${PLATE} v1 0 3`, `${OTHER} v1 3 -`]);
-    // A plate held by another car for that time is refused, and nothing changes.
+    // Giving it a plate from a day it already carried another is refused, and nothing changes.
     expect(() =>
       withNewPlate(added, { vehicleId: "v1", plate: OTHER, validFrom: T0 }, () => "n2"),
-    ).toThrow(/overlap/);
+    ).toThrow(/at once/);
     expect(() =>
       withNewPlate(one, { vehicleId: "v1", plate: " ", validFrom: null }, () => "n3"),
     ).toThrow(StorageError);
@@ -285,5 +286,96 @@ describe("editing the register", () => {
     if (hatch === undefined) throw new Error("expected two vehicles");
     expect(() => mergeVehicles(two, "v1", hatch.id)).toThrow(/different VINs/);
     expect(() => mergeVehicles(two, "v1", "v1")).toThrow(/itself/);
+  });
+});
+
+describe("one car, one plate at a time", () => {
+  /** Fails when one vehicle's periods overlap, whatever their plates. */
+  function oneAtATime(register: VehicleRegister): void {
+    for (const vehicle of register.vehicles) {
+      const own = register.plates.filter((each) => each.vehicleId === vehicle.id);
+      own.forEach((a, index) => {
+        for (const b of own.slice(index + 1)) {
+          const apart =
+            (a.validTo !== null && b.validFrom !== null && a.validTo <= b.validFrom) ||
+            (b.validTo !== null && a.validFrom !== null && b.validTo <= a.validFrom);
+          expect(apart, `${a.plate} and ${b.plate} on ${vehicle.id}`).toBe(true);
+        }
+      });
+    }
+  }
+
+  it("refuses a register in which one car carries two plates at once", () => {
+    expect(() => {
+      checkRegister({
+        vehicles: [{ id: "v1", vin: ESTATE, label: "" }],
+        plates: [
+          { id: "a", vehicleId: "v1", plate: PLATE, validFrom: T0, validTo: null },
+          { id: "b", vehicleId: "v1", plate: OTHER, validFrom: T0 + DAY, validTo: null },
+        ],
+      });
+    }).toThrow(/vehicle v1 cannot carry .* at once/);
+  });
+
+  it("caps an old item's plate where the car's next plate begins", () => {
+    const { register } = recordAll(EMPTY, [
+      { vin: ESTATE, plate: OTHER, at: T0 + 30 * DAY },
+      { vin: ESTATE, plate: PLATE, at: T0 },
+    ]);
+    oneAtATime(register);
+    expect(periods(register)).toEqual([`${PLATE} v1 0 30`, `${OTHER} v1 30 -`]);
+    expect(plateAt(register, "v1", T0 + DAY)).toBe(PLATE);
+    expect(plateAt(register, "v1", T0 + 40 * DAY)).toBe(OTHER);
+  });
+
+  it("leaves the register as it is when an item's plate disagrees with a closed period of the car's own", () => {
+    const closed = withPlate(recordAll(EMPTY, [{ vin: ESTATE, plate: null, at: T0 }]).register, {
+      id: "q",
+      vehicleId: "v1",
+      plate: OTHER,
+      validFrom: T0,
+      validTo: T0 + 30 * DAY,
+    });
+    const seen = recordSighting(
+      closed,
+      { vin: ESTATE, plate: PLATE, at: T0 + 10 * DAY },
+      counter(),
+    );
+    expect(seen.register).toEqual(closed);
+  });
+
+  it("refuses a new plate of unknown start on a car that has an open plate", () => {
+    const one = recordAll(EMPTY, [{ vin: ESTATE, plate: PLATE, at: T0 }], () => "v1").register;
+    expect(() =>
+      withNewPlate(one, { vehicleId: "v1", plate: OTHER, validFrom: null }, () => "n"),
+    ).toThrow(/open plate/);
+  });
+
+  it("caps a new plate given from before the car's current one at that one's start", () => {
+    const one = recordAll(
+      EMPTY,
+      [{ vin: ESTATE, plate: PLATE, at: T0 + 10 * DAY }],
+      () => "v1",
+    ).register;
+    const earlier = withNewPlate(one, { vehicleId: "v1", plate: OTHER, validFrom: T0 }, () => "n");
+    oneAtATime(earlier);
+    expect(periods(earlier)).toEqual([`${PLATE} v1 10 -`, `${OTHER} v1 0 10`]);
+  });
+
+  it("caps a new plate of unknown start at the car's first plate when none is open", () => {
+    const closed = withPlate(recordAll(EMPTY, [{ vin: ESTATE, plate: null, at: T0 }]).register, {
+      id: "q",
+      vehicleId: "v1",
+      plate: OTHER,
+      validFrom: T0 + 5 * DAY,
+      validTo: T0 + 9 * DAY,
+    });
+    const unknown = withNewPlate(
+      closed,
+      { vehicleId: "v1", plate: PLATE, validFrom: null },
+      () => "n",
+    );
+    oneAtATime(unknown);
+    expect(periods(unknown)).toEqual([`${PLATE} v1 - 5`, `${OTHER} v1 5 9`]);
   });
 });
