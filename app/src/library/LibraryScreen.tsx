@@ -1,6 +1,7 @@
 import {
   EXPORT_FORMATS,
   allowsWrites,
+  formatPlate,
   isSimulatorUrl,
   type CaptureSummary,
   type Run,
@@ -47,11 +48,13 @@ import { runEnvelope } from "./run-envelope";
 import { SavedReportView } from "./SavedReportView";
 import { useSearchText } from "./useSearchText";
 import { useCaptureItems, useReportItems, useRunItems } from "./sources";
-import { useVehicleLabels } from "./vehicle-labels";
+import { useVehicleLabels, useVehicleRegister } from "./vehicle-labels";
 import {
   GROUPING_OPTIONS,
   NO_GROUPING,
   UNKNOWN_VEHICLE_LABEL,
+  describeVehicles,
+  resolveVehicles,
   groupItems,
   groupingChoice,
   kindChoice,
@@ -133,7 +136,11 @@ export function LibraryScreen({
   const reports = useReportItems(query("report"));
   const listings = [runs, captures, reports];
   const loaded = listings.every((listing) => listing.items !== undefined);
-  const stored = listings.flatMap((listing) => listing.items ?? []);
+  const register = useVehicleRegister();
+  const stored = resolveVehicles(
+    listings.flatMap((listing) => listing.items ?? []),
+    register,
+  );
   const items = sortItems(shownItems(stored, view), view.sort);
   const labels = useVehicleLabels(vinsOf(stored));
   const listProblem = listings.find((listing) => listing.problem !== undefined)?.problem;
@@ -338,10 +345,15 @@ export function LibraryScreen({
       nowrap: true,
       render: (item) => {
         const label = item.vin === null ? undefined : labels.get(item.vin);
+        // The plate as it was at the item's time, beside its VIN.
+        const vehicle = [
+          item.vin ?? UNKNOWN_VEHICLE_LABEL,
+          ...(item.plate === null ? [] : [formatPlate(item.plate)]),
+        ].join(", ");
         return (
           <span className={vehicleCell}>
             <span>{profileText(item)}</span>
-            <span className={muted}>{item.vin ?? UNKNOWN_VEHICLE_LABEL}</span>
+            <span className={muted}>{vehicle}</span>
             {label !== undefined && <span className={muted}>{label}</span>}
           </span>
         );
@@ -442,7 +454,7 @@ export function LibraryScreen({
             <Select
               label="Vehicle"
               value={view.vehicle}
-              options={vehicleOptions(stored, labels, view.vehicle)}
+              options={vehicleOptions(stored, describeVehicles(stored, labels), view.vehicle)}
               onValueChange={(value) => {
                 change({ vehicle: value });
               }}
@@ -501,7 +513,7 @@ export function LibraryScreen({
           ) : (
             <GroupedDataTable
               {...table}
-              groups={groupItems(items, view.group, view.sort, labels)}
+              groups={groupItems(items, view.group, view.sort, describeVehicles(items, labels))}
             />
           )}
         </>

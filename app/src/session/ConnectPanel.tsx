@@ -7,6 +7,7 @@ import { useDiagnostics } from "../diagnostics/DiagnosticsProvider";
 import { GENERIC_SUMMARY, profileTitle } from "../profiles/generic";
 import { ProfilePicker } from "../profiles/ProfilePicker";
 import { ProfileSuggestions } from "../profiles/ProfileSuggestions";
+import { PlateField } from "../vehicles/PlateField";
 import { useProfiles } from "../profiles/ProfilesProvider";
 import { Button, Card, Dialog, Switch } from "../ui";
 import { error, list, muted, optionGrid } from "../screens/screen.css";
@@ -43,7 +44,7 @@ const OPTIONS: readonly Option[] = [
 ];
 
 /**
- * The Connection section: choose a vehicle profile and how to reach the car, with clear reasons when this browser cannot; once connected, what the adapter said about itself and, after a generic read, the profiles its VIN suggests.
+ * The Connection section: choose a vehicle profile and how to reach the car, with clear reasons when this browser cannot; once connected, what the adapter said about itself, an optional number plate for the car and, after a generic read, the profiles its VIN suggests.
  */
 export function ConnectPanel({ support }: { readonly support: BrowserSupport }) {
   const { connection, connect, profile, setProfile } = useDiagnostics();
@@ -92,6 +93,7 @@ export function ConnectPanel({ support }: { readonly support: BrowserSupport }) 
             <dt>Battery at connection</dt>
             <dd>{connection.info.voltage ?? "Not reported"}</dd>
           </dl>
+          <PlateField key={connection.plate ?? ""} />
           <p className={muted}>
             Disconnect from the bar above to choose another profile or adapter.
           </p>

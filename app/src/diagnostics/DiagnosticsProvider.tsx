@@ -57,6 +57,8 @@ export interface DiagnosticsContextValue {
   readonly readVin: string | undefined;
   /** Records the VIN a generic read on the open connection reported; does nothing when disconnected. */
   readonly noteVin: (vin: string) => void;
+  /** Gives the open connection's car a number plate, or takes it away with `null`, so what is saved on that connection records it; a new connection starts with none. Rejects with a message fit to show when disconnected. */
+  readonly setPlate: (plate: string | null) => Promise<void>;
   /** Opens a connection from a click; rejects with a message fit to show. */
   readonly connect: (kind: AdapterKind, options: ConnectOptions) => Promise<void>;
   /** Stops any collection run, then closes the connection. */
@@ -338,6 +340,13 @@ export function DiagnosticsProvider({
   );
   const readVin = vinRead?.connection === connection ? vinRead?.vin : undefined;
 
+  const setPlate = useCallback(
+    async (plate: string | null) => {
+      setConnection(await client.link.setPlate({ plate }));
+    },
+    [client],
+  );
+
   const value = useMemo(
     () => ({
       service,
@@ -346,6 +355,7 @@ export function DiagnosticsProvider({
       setProfile,
       readVin,
       noteVin,
+      setPlate,
       connect,
       disconnect,
       collection,
@@ -364,6 +374,7 @@ export function DiagnosticsProvider({
       profile,
       readVin,
       noteVin,
+      setPlate,
       connect,
       disconnect,
       collection,
