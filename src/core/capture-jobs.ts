@@ -147,7 +147,11 @@ export class CaptureJobs {
             });
           },
         });
-        return storage.saveCapture(capture, "local", link.vinOf(session));
+        return storage.saveCapture(capture, {
+          origin: "local",
+          vin: link.vinOf(session),
+          plate: link.plateOf(session),
+        });
       })
       .then(
         (summary: CaptureSummary) => {

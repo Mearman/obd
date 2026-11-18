@@ -14,12 +14,14 @@ import { captureStatusSchema, startCaptureInputSchema } from "./capture-jobs.js"
 import { obdScanSchema } from "./obd-scan.js";
 import { planSchema } from "./plan.js";
 import { planEventSchema, planStatusSchema } from "./plan-jobs.js";
+import { plateAssignmentSchema, vehicleRegisterSchema, vehicleSchema } from "./vehicles.js";
 import { TABLE_FORMATS } from "./tabular.js";
 import { SCHEMES } from "./transport.js";
 import {
   aggregateQuerySchema,
   captureQuerySchema,
   captureSummarySchema,
+  plateSchema,
   storedCaptureSchema,
   runQuerySchema,
   runSchema,
@@ -158,6 +160,8 @@ export const connectionSchema = z.object({
   /** Whether the data comes from the simulator and not from a car. */
   simulated: z.boolean(),
   info: adapterInfoSchema,
+  /** The number plate the user gave this connection's car, upper case without spaces or hyphens; `null` until one is given. */
+  plate: plateSchema,
 });
 
 /** The open connection. */
@@ -328,6 +332,22 @@ export const diagnosticsContract = {
     disconnect: oc.output(z.object({ disconnected: z.boolean() })),
     /** Asks every unit of the profile for its session without reading codes. Rejects with `PROFILE_REQUIRED` on a generic connection. */
     probe: oc.output(z.object({ adapter: adapterInfoSchema, units: z.array(unitReportSchema) })),
+    /** Gives the open connection's car a number plate, or takes it away with `null`, so the runs, captures and reports saved on this connection record it; a new connection starts with none. Nothing is looked up. Rejects with `PRECONDITION_FAILED` when not connected. */
+    setPlate: oc.input(z.object({ plate: plateSchema })).output(connectionSchema),
+  },
+  vehicles: {
+    /** Every vehicle the register holds and every plate assignment. */
+    list: oc.output(vehicleRegisterSchema),
+    /** Stores a vehicle's VIN and label; rejects with `CONFLICT` when another vehicle has that VIN. */
+    save: oc.input(vehicleSchema).output(vehicleRegisterSchema),
+    /** Stores a plate assignment (a new one, a changed start, or an end that marks the plate moved off the vehicle); rejects with `CONFLICT` when the plate is assigned for an overlapping period already, `BAD_REQUEST` for a period that ends before it starts. */
+    savePlate: oc.input(plateAssignmentSchema).output(vehicleRegisterSchema),
+    /** Removes a plate assignment. */
+    deletePlate: oc.input(z.object({ id: nameSchema })).output(vehicleRegisterSchema),
+    /** Merges one vehicle record into another that turned out to be the same car; rejects with `CONFLICT` when their VINs differ or their plates overlap. */
+    merge: oc
+      .input(z.object({ keep: nameSchema, remove: nameSchema }))
+      .output(vehicleRegisterSchema),
   },
   units: {
     /** One unit's identification. Rejects with `PROFILE_REQUIRED` on a generic connection, as do `faults` and `freeze`. */

@@ -9,6 +9,7 @@
 import { z } from "zod";
 import { CAPTURE_KINDS, captureIdSchema, captureSchema, type Capture } from "./capture.js";
 import { addressKey, describeAddress, type ExchangeAddress } from "./exchange.js";
+import type { PlateAssignment, Sighting, Vehicle, VehicleRegister } from "./vehicles.js";
 
 /** A time as integer milliseconds since the Unix epoch. */
 const timestampSchema = z.number().int().nonnegative();
@@ -57,6 +58,23 @@ export function normaliseVin(vin: string | null): Vin {
   return vinSchema.parse(vin);
 }
 
+/**
+ * A number plate as storage keeps it: upper case with spaces and hyphens removed, so `ab12 cde` and `AB12-CDE` are one plate, or `null` when nothing is left. `formatPlate` gives it back in the UK style.
+ */
+export const plateSchema = z
+  .string()
+  .transform((text) => text.toUpperCase().replace(/[\s-]+/g, ""))
+  .transform((plate) => (plate === "" ? null : plate))
+  .nullable();
+
+/** A stored number plate, or `null` when none was given. */
+export type Plate = z.output<typeof plateSchema>;
+
+/** `text` as storage keeps a plate: see {@link plateSchema}. */
+export function normalisePlate(text: string | null): Plate {
+  return plateSchema.parse(text);
+}
+
 /** Whether a record of this origin may take write-type actions (resuming a run, collecting into it): only one this device read itself. */
 export function allowsWrites(origin: Origin): boolean {
   return origin === "local";
@@ -77,6 +95,8 @@ export const runSchema = z.object({
   origin: originSchema,
   /** The VIN of the car the run was collected from, as the connection had read it; `null` when it had read none, or for a run saved from a link or a file. */
   vin: vinSchema,
+  /** The number plate the user gave the connection when the run started, kept as it was then even if the car's plate changes later; `null` when none was given. */
+  plate: plateSchema,
 });
 
 /** A collection run. */
@@ -90,6 +110,7 @@ export const newRunSchema = z.object({
   notes: z.string().default(""),
   origin: originSchema.default("local"),
   vin: vinSchema.default(null),
+  plate: plateSchema.default(null),
 });
 
 /** The fields a caller gives to {@link Storage.createRun}. */
@@ -224,6 +245,8 @@ export const newScanReportSchema = z
     /** The report as `scan --output` writes it, so a saved scan compares and describes unchanged, or a generic OBD-II read as `obd --output` writes it. */
     report: jsonSchema,
     origin: originSchema.default("local"),
+    /** The number plate the user gave the connection the scan was taken on; `null` when none was given. */
+    plate: plateSchema.default(null),
   })
   .transform((input) => ({ ...input, vin: reportVin(input.report) }));
 
@@ -240,6 +263,8 @@ export const scanReportSummarySchema = z.object({
   origin: originSchema,
   /** The VIN the report itself holds ({@link reportVin}). */
   vin: vinSchema,
+  /** The number plate recorded with the report when it was saved, never changed afterwards. */
+  plate: plateSchema,
 });
 
 /** A saved scan report without its body. */
@@ -326,10 +351,22 @@ export const captureSummarySchema = z.object({
   origin: originSchema,
   /** The VIN of the car the capture was read from, as the connection had read it; `null` when it had read none, or for a capture saved from a link or a file. */
   vin: vinSchema,
+  /** The number plate the user gave the connection, as it was when the capture was saved; `null` when none was given. */
+  plate: plateSchema,
 });
 
 /** A stored capture without its exchanges. */
 export type CaptureSummary = z.output<typeof captureSummarySchema>;
+
+/** What storage records about a capture beside its document: where it came from, and the VIN and plate of the car it was read from (`null` when not known). */
+export const captureRecordSchema = z.object({
+  origin: originSchema,
+  vin: vinSchema,
+  plate: plateSchema,
+});
+
+/** What {@link Storage.saveCapture} records beside a capture. */
+export type CaptureRecord = z.input<typeof captureRecordSchema>;
 
 /** Which stored captures {@link Storage.listCaptures} returns, newest first. */
 export const captureQuerySchema = z.object({
@@ -366,12 +403,9 @@ export function captureUnits(capture: Capture): CaptureUnit[] {
   }));
 }
 
-/** A capture's summary, as storage lists it, stored with `origin` and the VIN it was read from. */
-export function captureSummary(
-  capture: Capture,
-  origin: Origin,
-  vin: string | null,
-): CaptureSummary {
+/** A capture's summary, as storage lists it, stored with what `record` says of it. */
+export function captureSummary(capture: Capture, record: CaptureRecord): CaptureSummary {
+  const { origin, vin, plate } = captureRecordSchema.parse(record);
   return {
     id: capture.id,
     startedAt: capture.startedAt,
@@ -384,7 +418,8 @@ export function captureSummary(
     exchanges: capture.exchanges.length,
     units: captureUnits(capture),
     origin,
-    vin: normaliseVin(vin),
+    vin,
+    plate,
   };
 }
 
@@ -480,11 +515,43 @@ export interface Storage {
   listProfiles(): Promise<StoredProfile[]>;
 
   /**
-   * Stores a capture under its own id, recording where it came from and the VIN of the car it was read from (`null` when not known), kept as {@link normaliseVin} gives it.
+   * Stores a capture under its own id, recording where it came from and the VIN and plate of the car it was read from, kept as {@link normaliseVin} and {@link normalisePlate} give them.
    *
    * @throws StorageError `conflict` when a capture with that id is stored already.
    */
-  saveCapture(capture: Capture, origin: Origin, vin: string | null): Promise<CaptureSummary>;
+  saveCapture(capture: Capture, record: CaptureRecord): Promise<CaptureSummary>;
+
+  /** Every vehicle of the register and every plate assignment, vehicles by id and assignments by plate then start. */
+  getVehicleRegister(): Promise<VehicleRegister>;
+
+  /**
+   * Stores a vehicle under its id, replacing its VIN and label when it is stored already.
+   *
+   * @throws StorageError `conflict` when another vehicle has its VIN.
+   */
+  saveVehicle(vehicle: Vehicle): Promise<VehicleRegister>;
+
+  /**
+   * Stores a plate assignment under its id, replacing the one stored under that id.
+   *
+   * @throws StorageError `not-found` for an unknown vehicle, `conflict` when the plate is assigned for an overlapping period already, `invalid` for a period that ends before it starts.
+   */
+  savePlateAssignment(assignment: PlateAssignment): Promise<VehicleRegister>;
+
+  /** Removes a plate assignment. Removing an unknown one does nothing. */
+  deletePlateAssignment(id: string): Promise<VehicleRegister>;
+
+  /**
+   * Merges the vehicle `removeId` into `keepId`, as `mergeVehicles` in `vehicles.ts` describes.
+   *
+   * @throws StorageError as `mergeVehicles` does.
+   */
+  mergeVehicles(keepId: string, removeId: string): Promise<VehicleRegister>;
+
+  /**
+   * Records what a new item says about its car, as `recordSighting` in `vehicles.ts` describes, and returns the id of the vehicle it is of, or `undefined` when that is unresolved.
+   */
+  recordSighting(sighting: Sighting): Promise<string | undefined>;
 
   /** The capture with this id, or `undefined`. */
   getCapture(id: string): Promise<Capture | undefined>;

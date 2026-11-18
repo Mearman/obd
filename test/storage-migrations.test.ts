@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import { createNodeSqliteExecutor, openNodeStorage } from "../src/node/index.js";
-import { MIGRATIONS, applyMigrations } from "../src/storage/index.js";
+import { MIGRATIONS, applyMigrations, openDrizzleStorage } from "../src/storage/index.js";
 import { readMigrationFiles, renderMigrationsModule } from "../scripts/migration-files.js";
 import { readFileSync } from "node:fs";
 import { reportVin, type Json } from "../src/core/index.js";
@@ -183,6 +183,78 @@ describe("the VIN migration", () => {
     });
     expect(await execute("SELECT vin FROM runs", [], "all")).toEqual([[null]]);
     expect(await execute("SELECT vin FROM captures", [], "all")).toEqual([[null]]);
+    database.close();
+  });
+});
+
+describe("the vehicle register migration", () => {
+  it("adds a vehicle for each VIN a record read on this device holds, once, and none for a shared or imported one", async () => {
+    const database = new DatabaseSync(":memory:");
+    const execute = createNodeSqliteExecutor(database);
+    const added = MIGRATIONS.findIndex((migration) =>
+      migration.statements.some((statement) => statement.includes("CREATE TABLE `vehicles`")),
+    );
+    expect(added).toBeGreaterThan(0);
+    await applyMigrations(execute, MIGRATIONS.slice(0, added));
+    const run = (id: string, origin: string, vin: string | null) =>
+      execute(
+        "INSERT INTO runs (id, profile, adapter, started_at, stopped_at, notes, origin, vin) VALUES (?, 'p', 'a', 0, NULL, '', ?, ?)",
+        [id, origin, vin],
+        "run",
+      );
+    await run("own", "local", "WDB2110202B000001");
+    await run("own-again", "local", "WDB2110202B000001");
+    await run("unknown", "local", null);
+    await run("from-link", "shared", "WVWZZZ6RZAY000002");
+    await execute(
+      "INSERT INTO scan_reports (id, profile, adapter, taken_at, label, report, origin, vin) VALUES ('r', 'p', 'a', 0, '', '{}', 'local', 'WBA3A5C50CF000003')",
+      [],
+      "run",
+    );
+    await applyMigrations(execute);
+    expect(await execute("SELECT vin, label FROM vehicles ORDER BY vin", [], "all")).toEqual([
+      ["WBA3A5C50CF000003", ""],
+      ["WDB2110202B000001", ""],
+    ]);
+    expect(await execute("SELECT plate FROM runs WHERE id = 'own'", [], "all")).toEqual([[null]]);
+    database.close();
+  });
+
+  it("leaves no plate held by two vehicles at once after the storage records a plate moving, as a query of the table shows", async () => {
+    const database = new DatabaseSync(":memory:");
+    const execute = createNodeSqliteExecutor(database);
+    const storage = await openDrizzleStorage(execute);
+    await storage.recordSighting({ vin: "WDB2110202B000001", plate: "AB12CDE", at: 0 });
+    await storage.recordSighting({ vin: "WVWZZZ6RZAY000002", plate: "AB12CDE", at: 10 });
+    await storage.recordSighting({ vin: "WDB2110202B000001", plate: "AB12CDE", at: 20 });
+    const [first] = (await storage.getVehicleRegister()).plates;
+    if (first === undefined) throw new Error("expected a plate assignment");
+    await expect(
+      storage.savePlateAssignment({
+        id: "clash",
+        vehicleId: first.vehicleId,
+        plate: "AB12CDE",
+        validFrom: 5,
+        validTo: 15,
+      }),
+    ).rejects.toThrow(/overlap/);
+    const overlapping = await execute(
+      "SELECT a.id, b.id FROM vehicle_plates a JOIN vehicle_plates b ON a.plate = b.plate AND a.id < b.id WHERE (a.valid_from IS NULL OR b.valid_to IS NULL OR a.valid_from < b.valid_to) AND (b.valid_from IS NULL OR a.valid_to IS NULL OR b.valid_from < a.valid_to)",
+      [],
+      "all",
+    );
+    expect(overlapping).toEqual([]);
+    expect(
+      await execute(
+        "SELECT valid_from, valid_to FROM vehicle_plates ORDER BY valid_from",
+        [],
+        "all",
+      ),
+    ).toEqual([
+      [0, 10],
+      [10, 20],
+      [20, null],
+    ]);
     database.close();
   });
 });

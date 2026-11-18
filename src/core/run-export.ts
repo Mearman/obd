@@ -20,11 +20,11 @@ import {
 } from "./storage.js";
 import { z } from "zod";
 
-/** The JSON export of a run: the run record, every sample in time order and the fault code changes those samples hold ({@link faultEvents}). An export written before runs recorded their origin or their VIN has none of that field, and one written before exports listed the fault code changes has no `faultEvents`. */
+/** The JSON export of a run: the run record, every sample in time order and the fault code changes those samples hold ({@link faultEvents}). An export written before runs recorded their origin, VIN or plate has none of that field, and one written before exports listed the fault code changes has no `faultEvents`. */
 export const runExportSchema = z.object({
   format: z.literal("obd-read-run"),
   version: z.literal(1),
-  run: runSchema.partial({ origin: true, vin: true }),
+  run: runSchema.partial({ origin: true, vin: true, plate: true }),
   samples: z.array(sampleSchema),
   faultEvents: z.array(faultEventSchema).optional(),
 });

@@ -93,7 +93,7 @@ type Operation = keyof Storage | keyof DatabaseControl;
 /**
  * Whether running a call twice leaves the same data as running it once, which decides how a handover treats a call the old leader acknowledged but did not answer: a repeatable call is sent to the new leader once more, any other fails with {@link HandoverError}.
  *
- * Reads, deletes, notes, profile and plan saves (which replace by name or id) and file imports repeat safely. Stopping a run and saving a capture repeat safely because a repeat that finds its own earlier result reads it back instead of failing (see {@link sharedStorage}). Creating a run, saving a scan report and appending samples add new rows each time, so they are not repeated.
+ * Reads, deletes, notes, profile, plan, vehicle and plate saves (which replace by name or id), sightings (which change nothing the second time) and file imports repeat safely. Stopping a run and saving a capture repeat safely because a repeat that finds its own earlier result reads it back instead of failing (see {@link sharedStorage}). Creating a run, saving a scan report and appending samples add new rows each time, and a merge finds its second vehicle gone, so they are not repeated.
  */
 export const REPEATABLE: Readonly<Record<Operation, boolean>> = {
   createRun: false,
@@ -120,6 +120,12 @@ export const REPEATABLE: Readonly<Record<Operation, boolean>> = {
   getPlan: true,
   listPlans: true,
   deletePlan: true,
+  getVehicleRegister: true,
+  saveVehicle: true,
+  savePlateAssignment: true,
+  deletePlateAssignment: true,
+  mergeVehicles: false,
+  recordSighting: true,
   info: true,
   exportFile: true,
   importFile: true,
@@ -593,13 +599,15 @@ function sharedStorage(dispatch: Dispatch): Storage {
     getProfile: (name) => on("getProfile", (s) => s.getProfile(name)),
     listProfiles: () => on("listProfiles", (s) => s.listProfiles()),
     // A repeat that finds the capture already stored under its id is the earlier attempt's result.
-    saveCapture: (capture, origin, vin) =>
+    saveCapture: (capture, record) =>
       on("saveCapture", async (s, repeat) => {
         try {
-          return await s.saveCapture(capture, origin, vin);
+          return await s.saveCapture(capture, record);
         } catch (error) {
           if (!repeat || !isStorageError(error, "conflict")) throw error;
-          const stored = (await s.listCaptures({ origin })).find(({ id }) => id === capture.id);
+          const stored = (await s.listCaptures({ origin: record.origin })).find(
+            ({ id }) => id === capture.id,
+          );
           if (stored === undefined) throw error;
           return stored;
         }
@@ -611,6 +619,13 @@ function sharedStorage(dispatch: Dispatch): Storage {
     getPlan: (planId) => on("getPlan", (s) => s.getPlan(planId)),
     listPlans: () => on("listPlans", (s) => s.listPlans()),
     deletePlan: (planId) => on("deletePlan", (s) => s.deletePlan(planId)),
+    getVehicleRegister: () => on("getVehicleRegister", (s) => s.getVehicleRegister()),
+    saveVehicle: (vehicle) => on("saveVehicle", (s) => s.saveVehicle(vehicle)),
+    savePlateAssignment: (assignment) =>
+      on("savePlateAssignment", (s) => s.savePlateAssignment(assignment)),
+    deletePlateAssignment: (id) => on("deletePlateAssignment", (s) => s.deletePlateAssignment(id)),
+    mergeVehicles: (keep, remove) => on("mergeVehicles", (s) => s.mergeVehicles(keep, remove)),
+    recordSighting: (sighting) => on("recordSighting", (s) => s.recordSighting(sighting)),
   };
 }
 
@@ -655,7 +670,13 @@ function observeCalls(
       saveProfile: (profile) => after(s.saveProfile(profile)),
       getProfile: (name) => track(s.getProfile(name)),
       listProfiles: () => track(s.listProfiles()),
-      saveCapture: (capture, origin, vin) => after(s.saveCapture(capture, origin, vin)),
+      saveCapture: (capture, record) => after(s.saveCapture(capture, record)),
+      getVehicleRegister: () => track(s.getVehicleRegister()),
+      saveVehicle: (vehicle) => after(s.saveVehicle(vehicle)),
+      savePlateAssignment: (assignment) => after(s.savePlateAssignment(assignment)),
+      deletePlateAssignment: (id) => after(s.deletePlateAssignment(id)),
+      mergeVehicles: (keep, remove) => after(s.mergeVehicles(keep, remove)),
+      recordSighting: (sighting) => after(s.recordSighting(sighting)),
       getCapture: (captureId) => track(s.getCapture(captureId)),
       listCaptures: (query) => track(s.listCaptures(query)),
       deleteCapture: (captureId) => after(s.deleteCapture(captureId)),

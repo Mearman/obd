@@ -332,6 +332,8 @@ export interface PlanRunnerOptions {
   readonly notes?: string;
   /** The VIN of the car the plan reads, stored on the run; omitted when it is not known. */
   readonly vin?: string;
+  /** The number plate the user gave the connection, stored on the run; omitted when none was given. */
+  readonly plate?: string;
 }
 
 /** The notes a plan's run is stored with unless the caller gives its own. */
@@ -429,6 +431,7 @@ export class PlanRunner {
       startedAt: this.clock.now(),
       notes: this.options.notes ?? planRunNotes(plan),
       vin: this.options.vin ?? null,
+      plate: this.options.plate ?? null,
     });
     this.runId = run.id;
     this.pending.push({

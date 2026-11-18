@@ -52,8 +52,8 @@ describe("the origin of stored data", () => {
   it("badges each capture with its origin, filters by it and shows it in the viewer", async () => {
     const service = createTestService();
     const capture = await simulatedCapture();
-    await service.storage.saveCapture(capture, "shared", null);
-    await service.storage.saveCapture({ ...capture, id: "capture-own" }, "local", null);
+    await service.storage.saveCapture(capture, { origin: "shared", vin: null, plate: null });
+    await service.storage.saveCapture({ ...capture, id: "capture-own" }, { origin: "local", vin: null, plate: null });
     await renderApp(<App support={CHROME} />, service);
     await userEvent.click(screen.getByRole("tab", { name: "Library" }));
 
