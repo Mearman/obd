@@ -30,8 +30,10 @@ interface ItemBase {
   readonly origin: Origin;
   /** The profile it was read with; `null` for a capture read with none. */
   readonly profile: string | null;
-  /** The VIN of the car it was read from, trimmed and in upper case; `null` when it is not known. */
+  /** The VIN of the car it was read from, trimmed and in upper case, or, once the Library resolves it, the VIN of the vehicle its plate names at its time; `null` when neither is known. */
   readonly vin: string | null;
+  /** The number plate recorded with it, or, once the Library resolves it, the plate its vehicle carried at its time; `null` when neither is known. */
+  readonly plate: string | null;
 }
 
 /** One row of the Library. */
@@ -93,6 +95,7 @@ export function runItem(run: Run, samples: number): LibraryItem {
     origin: run.origin,
     profile: run.profile,
     vin: run.vin,
+    plate: run.plate,
     run,
     samples,
   };
@@ -107,6 +110,7 @@ export function captureItem(capture: CaptureSummary): LibraryItem {
     origin: capture.origin,
     profile: capture.profile,
     vin: capture.vin,
+    plate: capture.plate,
     capture,
   };
 }
@@ -120,6 +124,7 @@ export function reportItem(report: ScanReportSummary): LibraryItem {
     origin: report.origin,
     profile: report.profile,
     vin: report.vin,
+    plate: report.plate,
     report,
   };
 }

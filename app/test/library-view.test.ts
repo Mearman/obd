@@ -1,9 +1,11 @@
-import type { Origin } from "obd-read";
+import type { Origin, VehicleRegister } from "obd-read";
 import { describe, expect, it } from "vitest";
 import { captureItem, reportItem, runItem, type LibraryItem } from "../src/library/items";
 import {
   ALL_VEHICLES,
   DEFAULT_VIEW,
+  describeVehicles,
+  resolveVehicles,
   UNKNOWN_VEHICLE,
   groupItems,
   shownItems,
@@ -343,5 +345,75 @@ describe("the short names of the vehicles", () => {
   it("names a VIN by the shipped profile its maker and model match, and leaves a maker match unnamed", () => {
     const profiles = builtinProfiles().map(loadBuiltinProfile);
     expect(vehicleLabels([E_CLASS, POLO, "not a vin"], profiles)).toEqual(LABELS);
+  });
+});
+
+describe("the Library's plates", () => {
+  /** The E-Class carried AB12CDE until 16 November, when the plate moved to the Polo. */
+  const MOVED = Date.UTC(2026, 10, 16);
+  const REGISTER: VehicleRegister = {
+    vehicles: [
+      { id: "e", vin: E_CLASS, label: "" },
+      { id: "p", vin: POLO, label: "" },
+    ],
+    plates: [
+      { id: "1", vehicleId: "e", plate: "AB12CDE", validFrom: null, validTo: MOVED },
+      { id: "2", vehicleId: "p", plate: "AB12CDE", validFrom: MOVED, validTo: null },
+    ],
+  };
+  const withPlate = (item: LibraryItem, plate: string | null): LibraryItem => ({ ...item, plate });
+  const ITEMS_WITH_PLATES: readonly LibraryItem[] = [
+    ...ITEMS,
+    withPlate(capture("c2", Date.UTC(2026, 10, 15, 12), "local"), "AB12CDE"),
+    withPlate(capture("c3", Date.UTC(2026, 10, 17), "local"), "AB12CDE"),
+    withPlate(capture("c4", Date.UTC(2026, 10, 17), "local"), "ZZ99ZZZ"),
+  ];
+  const resolved = resolveVehicles(ITEMS_WITH_PLATES, REGISTER);
+  const byId = (id: string) => resolved.find((item) => item.id === id);
+
+  it("takes an item's vehicle from its plate at its time, and its plate from its vehicle at its time", () => {
+    // Before the move the plate names the E-Class; after it, the Polo; an unknown plate, nothing.
+    expect([byId("c2")?.vin, byId("c3")?.vin, byId("c4")?.vin]).toEqual([E_CLASS, POLO, null]);
+    // Items with a VIN and no recorded plate take the plate their car carried then: the E-Class before the move, the Polo after it, and the E-Class none after it.
+    expect([byId("r1")?.plate, byId("u2")?.plate, byId("u1")?.plate]).toEqual([
+      "AB12CDE",
+      null,
+      "AB12CDE",
+    ]);
+    expect(byId("c1")).toBe(ITEMS_WITH_PLATES.find((item) => item.id === "c1"));
+  });
+
+  it("finds items by a plate typed with or without its space, in any case", () => {
+    expect(ids(shownItems(resolved, view({ search: "ab12 cde" })))).toEqual([
+      "r1",
+      "u1",
+      "c2",
+      "c3",
+    ]);
+    expect(ids(shownItems(resolved, view({ search: "AB12CDE" })))).toEqual([
+      "r1",
+      "u1",
+      "c2",
+      "c3",
+    ]);
+    expect(ids(shownItems(resolved, view({ search: "zz99" })))).toEqual(["c4"]);
+  });
+
+  it("shows each vehicle's plates beside its VIN in the filter and the group headings", () => {
+    const described = describeVehicles(resolved, LABELS);
+    expect(vehicleText(E_CLASS, described)).toBe(`${E_CLASS} (AB12 CDE, mercedes-w211)`);
+    expect(vehicleText(POLO, described)).toBe(`${POLO} (AB12 CDE)`);
+    expect(
+      groupItems(
+        sortItems(resolved, DEFAULT_VIEW.sort),
+        "vehicle",
+        DEFAULT_VIEW.sort,
+        described,
+      ).map((group) => [group.label, ids(group.rows)]),
+    ).toEqual([
+      [`${E_CLASS} (AB12 CDE, mercedes-w211)`, ["u2", "c2", "r1"]],
+      [`${POLO} (AB12 CDE)`, ["c3", "u1"]],
+      ["Unknown vehicle", ["c4", "c1"]],
+    ]);
   });
 });

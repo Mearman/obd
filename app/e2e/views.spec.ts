@@ -168,6 +168,51 @@ for (const viewport of VIEWPORTS) {
         await fits(page, "the Library filtered to the unknown vehicle");
         await page.screenshot({ path: `${base}-library-unknown.png`, fullPage: true });
       });
+
+      test("a plate given on the Session screen shows in the Library and the Vehicles card, and both fit", async ({
+        page,
+      }) => {
+        const base = `screenshots/plates-${viewport.name}-${scheme}`;
+        await page.goto("/");
+        await page.getByRole("button", { name: /connect with the simulator/i }).click();
+        await expect(page.getByText("Connected to Simulator")).toBeVisible();
+        await page.getByRole("textbox", { name: "Number plate (optional)" }).fill("ab12-cde");
+        await page.getByRole("button", { name: "Keep plate" }).click();
+        await expect(page.getByText("AB12 CDE is kept with what you save")).toBeVisible();
+        await fits(page, "the connection with a plate");
+        await page.screenshot({ path: `${base}-session-plate.png` });
+
+        await openSection(page, "Read");
+        await page.getByRole("button", { name: "Start scan" }).click();
+        await expect(page.getByText(`VIN: ${SIMULATED_VIN}`)).toBeVisible();
+
+        await page.goto("/?screen=library&group=vehicle&q=ab12%20cde");
+        await expect(
+          page.getByRole("button", { name: `${SIMULATED_VIN} (AB12 CDE) (1)` }),
+        ).toBeVisible();
+        await fits(page, "the Library found by plate");
+        await page.screenshot({ path: `${base}-library-plate.png`, fullPage: true });
+
+        await page.goto("/?screen=settings");
+        const vehicles = page.getByRole("table", { name: "Vehicles" });
+        await expect(vehicles.getByText(SIMULATED_VIN)).toBeVisible();
+        await expect(vehicles.getByText("AB12 CDE", { exact: true })).toBeVisible();
+        await fits(page, "the Vehicles card");
+        await page.getByRole("button", { name: `Edit ${SIMULATED_VIN}` }).click();
+        await page.getByRole("menuitem", { name: "Add a plate" }).click();
+        await expect(
+          page.getByRole("dialog", { name: `Add a plate to ${SIMULATED_VIN}` }),
+        ).toBeVisible();
+        await fits(page, "the add-a-plate dialog");
+        await page.screenshot({ path: `${base}-add-plate.png` });
+        await page.getByRole("textbox", { name: "Number plate" }).fill("XY65 ZZZ");
+        await page.getByLabel("On it from (UTC)").fill("2030-01-01");
+        await page.getByRole("button", { name: "Add the plate" }).click();
+        await expect(page.getByText("XY65 ZZZ from 2030-01-01, still on it")).toBeVisible();
+        await expect(page.getByText("AB12 CDE from", { exact: false })).toContainText(
+          "until 2030-01-01",
+        );
+      });
     });
   }
 }

@@ -1,4 +1,4 @@
-import { ORIGINS, type Origin } from "obd-read";
+import { ORIGINS, formatPlate, identifyVehicle, type Origin, type VehicleRegister } from "obd-read";
 import { ALL_ORIGINS, ORIGIN_LABELS } from "../origin/origins";
 import { profileTitle } from "../profiles/generic";
 import type { DataTableGroup, SelectOption, SortDirection } from "../ui";
@@ -170,6 +170,44 @@ export function vehicleText(vin: string | null, labels: VehicleLabels): string {
   return label === undefined ? vin : `${vin} (${label})`;
 }
 
+/**
+ * `items` with the vehicle the register says each is of: an item with no VIN takes the VIN of the one vehicle its plate names at its time, and an item with no plate takes the plate its vehicle carried then. A recorded VIN or plate is never replaced.
+ */
+export function resolveVehicles(
+  items: readonly LibraryItem[],
+  register: VehicleRegister,
+): LibraryItem[] {
+  return items.map((item) => {
+    const { vin, plate } = identifyVehicle(register, {
+      vin: item.vin,
+      plate: item.plate,
+      at: item.at,
+    });
+    return vin === item.vin && plate === item.plate ? item : { ...item, vin, plate };
+  });
+}
+
+/** The short name of each VIN among `items` with the plates its items carry before it (`AB12 CDE, mercedes-w211`), for the filter and the group headings. */
+export function describeVehicles(
+  items: readonly LibraryItem[],
+  labels: VehicleLabels,
+): VehicleLabels {
+  return new Map(
+    vinsOf(items).flatMap((vin): [string, string][] => {
+      const plates = [
+        ...new Set(
+          items.flatMap((item) =>
+            item.vin === vin && item.plate !== null ? [formatPlate(item.plate)] : [],
+          ),
+        ),
+      ].sort((a, b) => a.localeCompare(b, "en"));
+      const label = labels.get(vin);
+      const parts = [...plates, ...(label === undefined ? [] : [label])];
+      return parts.length === 0 ? [] : [[vin, parts.join(", ")]];
+    }),
+  );
+}
+
 /** The distinct VINs of `items`, in order. */
 export function vinsOf(items: readonly LibraryItem[]): string[] {
   return [...new Set(items.flatMap((item) => (item.vin === null ? [] : [item.vin])))].sort((a, b) =>
@@ -227,6 +265,8 @@ function searchable(item: LibraryItem): string {
     item.id,
     profileText(item),
     item.vin ?? UNKNOWN_VEHICLE_LABEL,
+    // A plate matches as stored and as shown, so `ab12cde` and `ab12 cde` both find it.
+    ...(item.plate === null ? [] : [item.plate, formatPlate(item.plate)]),
     ORIGIN_LABELS[item.origin],
     details,
   ]

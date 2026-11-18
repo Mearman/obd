@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type ChangeEvent } from "react";
 import { DatabaseCard } from "../database/DatabaseCard";
+import { VehiclesCard } from "../vehicles/VehiclesCard";
 import { useProfiles, type ImportResult } from "../profiles/ProfilesProvider";
 import { UpdateCard } from "../pwa/UpdateCard";
 import { useAutoSaveShared } from "../settings/auto-save-shared";
@@ -16,7 +17,7 @@ const THEME_OPTIONS = [
   { value: "dark", label: "Dark" },
 ];
 
-/** Settings: colour scheme and profile import from a local JSON file. */
+/** Settings: colour scheme, shared links, profile import from a local JSON file, the vehicles this device has read, the database and updates. */
 export function SettingsScreen() {
   const { preference, setPreference } = useTheme();
   const [autoSaveShared, setAutoSaveShared] = useAutoSaveShared();
@@ -89,6 +90,7 @@ export function SettingsScreen() {
           )}
         </div>
       </Card>
+      <VehiclesCard />
       <DatabaseCard />
       <UpdateCard />
       <Card title="About collection">
