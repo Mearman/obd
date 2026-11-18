@@ -88,7 +88,11 @@ export function VehiclesCard() {
     register === undefined
       ? []
       : [
-          { header: "Vehicle", render: (vehicle) => vehicleName(vehicle) },
+          {
+            header: "Name",
+            render: (vehicle) =>
+              vehicle.label === "" ? <span className={muted}>Not named</span> : vehicle.label,
+          },
           { header: "VIN", render: (vehicle) => vehicle.vin ?? "Not known" },
           {
             header: "Plate now",
